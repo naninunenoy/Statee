@@ -73,7 +73,7 @@ AI による自動確認の再現性を担保する要。
 | 領域 | 採用 | 備考 |
 |---|---|---|
 | 言語 / ランタイム | C# / .NET 10 | |
-| ゲームエンジン | Godot 4.7.stable | net10.0 ターゲット可否はフェーズ 0 で検証 |
+| ゲームエンジン | Godot 4.7.stable(.NET 版) | net10.0 ターゲット検証済み(MEMO.md D-016) |
 | ECS | [Arch](https://github.com/genaray/Arch) | |
 | メッセージング | [VitalRouter](https://github.com/hadashiA/VitalRouter) | |
 | リアクティブ | [R3](https://github.com/Cysharp/R3) | システム全体で使用 |
@@ -128,4 +128,5 @@ Statee.sln
 
 ## 未決事項
 
-- Godot 4.7 で net10.0 ターゲットが通るか(フェーズ 0 で検証)
+- なし(Godot 4.7 × net10.0 は検証済み → MEMO.md D-016。
+  フェーズ 0 の残りは各ライブラリ(Arch / R3 / VitalRouter 等)の動作確認)

@@ -157,3 +157,20 @@
     整形はベストエフォートとし、正しさの検証はテストと CI に任せる
 - **補足**: 最初の csproj として `src/Statee.Core`(net10.0 classlib)と、それを含む
   `Statee.slnx` を作成済み。フックの動作は実ペイロードで検証済み。
+
+## D-016 Godot 4.7 × .NET 10 の互換性検証(フェーズ 0)— ✅ 検証成功
+
+- **目的**: PLAN.md 未決事項「Godot 4.7 で net10.0 ターゲットが通るか」の検証。
+- **ビルド検証: ✅ 成功**: `game/SuikaGame.Godot` を作成し、`Godot.NET.Sdk/4.7.0` +
+  `<TargetFramework>net10.0</TargetFramework>` で `dotnet build` が成功
+  (0警告0エラー、C# 14 の `field` キーワードもコンパイル通過)。
+  Godot.NET.Sdk はデフォルト TFM が net8.0 でも上書き指定を許容する。
+- **実行時検証: ✅ 成功**: Godot 4.7 **.NET 版**(`4.7.stable.mono.official`)の headless 実行で
+  `FrameworkDescription: .NET 10.0.1` / C# 14 `field` キーワードの実行時動作を確認。正常終了(exit 0)。
+- **注意点**:
+  - Godot は**標準版と .NET 版が別バイナリ**。C# 実行には .NET 版
+    (バージョン文字列が `mono.official`、exe の隣に `GodotSharp` フォルダあり)が必須。
+    使用バイナリ: `Downloads\Godot_v4.7-stable_mono_win64\`
+  - `--headless --import` はインポート完了後の終了時にクラッシュする(exit 0xC0000005)。
+    インポート自体は完了しており実害なし。CI 等では import ステップの exit code を無視する必要がある
+- **結論**: 全レイヤーを net10.0 に統一できる。マルチターゲット構成は不要。

@@ -1,4 +1,9 @@
 <Solution>
+  <Folder Name="/game/">
+    <Project Path="game/SuikaGame.Godot/SuikaGame.Godot.csproj">
+      <BuildType Project="Debug" />
+    </Project>
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Statee.Core/Statee.Core.csproj" />
   </Folder>

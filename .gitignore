@@ -6,6 +6,9 @@
 bin/
 obj/
 
+# Godot cache and build artifacts
+.godot/
+
 # IDE metadata
 .idea/
 .vs/
