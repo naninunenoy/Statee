@@ -128,5 +128,5 @@ Statee.sln
 
 ## 未決事項
 
-- なし(Godot 4.7 × net10.0 は検証済み → MEMO.md D-016。
-  フェーズ 0 の残りは各ライブラリ(Arch / R3 / VitalRouter 等)の動作確認)
+- なし。**フェーズ 0(環境検証)は完了**:
+  Godot 4.7 × net10.0(MEMO.md D-016)、Arch 実行検証・ライブラリ互換(MEMO.md D-017)
