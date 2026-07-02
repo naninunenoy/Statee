@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Statee.Core/Statee.Core.csproj" />
+  </Folder>
+</Solution>

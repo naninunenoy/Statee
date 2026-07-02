@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh .claude/hooks/format-cs.sh",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}
