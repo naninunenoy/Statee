@@ -6,5 +6,10 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Statee.Core/Statee.Core.csproj" />
+    <Project Path="src/Statee.Remote/Statee.Remote.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Statee.Core.Tests/Statee.Core.Tests.csproj" />
+    <Project Path="tests/Statee.Remote.Tests/Statee.Remote.Tests.csproj" />
   </Folder>
 </Solution>
