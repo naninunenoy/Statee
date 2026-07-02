@@ -87,17 +87,21 @@ AI による自動確認の再現性を担保する要。
 ## ソリューション構成(案)
 
 ```
-Statee.sln
+Statee.slnx
 ├─ src/
 │  ├─ Statee.Core         … State/Command/Log の抽象定義(Godot 非依存)
 │  ├─ Statee.Remote       … 接続待ち受け・プロトコル実装
+│  ├─ Statee.Cli          … 汎用 CLI クライアント(ConsoleAppFramework)
 │  └─ Statee.Mcp          … MCP サーバー(汎用・CLI を起動するだけ)
+├─ sandbox/
+│  └─ PingTarget.Godot    … フレームワーク検証用の最小ダミーターゲット(D-013)
 ├─ game/
 │  ├─ SuikaGame.Logic     … スイカゲームの純C#ロジック(Arch / R3 / VitalRouter)
 │  ├─ SuikaGame.Godot     … Godot 4.7 プロジェクト(EntryPoint・描画・入力)
-│  └─ SuikaGame.Cli       … ゲーム用 CLI クライアント(ConsoleAppFramework)
+│  └─ SuikaGame.Cli       … ゲーム用 CLI(汎用 CLI を包む。スイカゲーム着手時に作成)
 └─ tests/
    ├─ Statee.Core.Tests
+   ├─ Statee.Remote.Tests
    └─ SuikaGame.Logic.Tests
 ```
 
@@ -125,6 +129,18 @@ Statee.sln
 | 3 | スイカゲームロジック | 純C#で合体・スコア・ゲームオーバーが動き、ユニットテストが通る |
 | 4 | Godot 統合 | 描画・入力込みでプレイ可能。headless でも動作 |
 | 5 | AI 自動動作確認の実証 | AI Agent が MCP 経由でゲームを操作し、動作確認シナリオを完遂する |
+
+## 現在のマイルストーン: ping 縦切りスライス(フェーズ1最小分+フェーズ2)
+
+「ゲーム起動 → MCP/CLI から操作 → State/ログを AI が取得・評価」の最小 E2E を
+ダミーターゲット(`sandbox/PingTarget.Godot`)で貫通させる。設計は MEMO.md D-018。
+
+1. Statee.Core 最小実装(State/Command/Log + リクエスト処理)— テストファーストで
+2. Statee.Remote(TCP サーバー)— xUnit からの TCP 統合テストまで
+3. Statee.Cli + PingTarget.Godot(headless 疎通)
+4. Statee.Mcp + E2E 評価(AI が ping/state/logs を実行し期待値と照合)
+
+pause / step、メインスレッドディスパッチ、UI 幾何の State 公開などは次スライス以降。
 
 ## 未決事項
 
