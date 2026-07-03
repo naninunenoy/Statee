@@ -1,8 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Godot;
+using Microsoft.Extensions.Logging;
 using R3;
+using Statee.Core;
+using Statee.Remote;
 using SuikaGame.Logic;
+using ZLogger;
 
 namespace SuikaGame;
 
@@ -11,9 +16,11 @@ namespace SuikaGame;
 /// 規則(合体・スコア・ゲームオーバー)は SuikaGame.Logic に委ねる(D-011, D-024)。
 /// 境界: 接触 → ReportContact / 溢れ → SetOverflowing / 時間 → Tick、
 /// 逆向きは Merges 購読で物理ボディを差し替える。
+/// Statee を組み込み、drop コマンドと盤面 State(game/board)を外部へ公開する。
 /// </summary>
 public partial class Main : Node2D
 {
+    private const int DefaultPort = 9310;
     private const int DefaultSeed = 12345;
     private const float WallLeft = 100f;
     private const float WallRight = 500f;
@@ -22,29 +29,51 @@ public partial class Main : Node2D
     private const float DropY = 120f;
 
     private readonly Dictionary<FruitId, Fruit> _fruits = [];
+    private readonly MainThreadDispatcher _dispatcher = new();
+    private readonly BoardState _board = new();
     private SuikaLogic _logic = null!;
     private IDisposable _subscriptions = null!;
+    private StateeTcpServer? _server;
+    private ILoggerFactory? _loggerFactory;
+    private ILogger _logger = null!;
     private float _dropX = (WallLeft + WallRight) / 2f;
 
     public override void _Ready()
     {
-        _logic = new SuikaLogic(DefaultSeed);
+        var buffer = new LogBuffer(1024);
+        _loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.SetMinimumLevel(LogLevel.Debug);
+            builder.AddProvider(new BufferLoggerProvider(buffer));
+            builder.AddZLoggerConsole();
+        });
+        _logger = _loggerFactory.CreateLogger<Main>();
+
+        _logic = new SuikaLogic(ParseIntArg("--seed=", DefaultSeed));
         var subscriptions = Disposable.CreateBuilder();
         _logic.Merges.Subscribe(Logic_MergeOccurred).AddTo(ref subscriptions);
-        _logic.Score.Subscribe(score => GD.Print($"Score: {score}")).AddTo(ref subscriptions);
+        _logic
+            .Score.Subscribe(score => _logger.ZLogInformation($"スコア: {score}"))
+            .AddTo(ref subscriptions);
         _logic
             .IsGameOver.Where(gameOver => gameOver)
-            .Subscribe(_ => GD.Print("GameOver"))
+            .Subscribe(_ => _logger.ZLogInformation($"ゲームオーバー"))
             .AddTo(ref subscriptions);
         _subscriptions = subscriptions.Build();
 
         BuildContainer();
-        GD.Print($"SuikaGame 起動 next={_logic.PeekNext()}");
+        StartStatee(buffer);
+        _logger.ZLogInformation($"SuikaGame 起動 next={_logic.PeekNext()}");
 
         if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--smoke") >= 0)
         {
             RunSmoke();
         }
+    }
+
+    public override void _Process(double delta)
+    {
+        _dispatcher.Pump();
     }
 
     public override void _PhysicsProcess(double delta)
@@ -59,6 +88,7 @@ public partial class Main : Node2D
         }
 
         _logic.Tick(delta);
+        UpdateBoardState();
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -100,21 +130,66 @@ public partial class Main : Node2D
 
     public override void _ExitTree()
     {
+        _server?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
         _subscriptions.Dispose();
         _logic.Dispose();
+        _loggerFactory?.Dispose();
     }
 
-    private void Drop()
+    private void StartStatee(LogBuffer buffer)
+    {
+        var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
+        host.RegisterStateProvider(_board);
+        host.RegisterMainThreadCommand(
+            "drop",
+            args =>
+            {
+                if (args.GetString("x") is { } xText)
+                {
+                    _dropX = float.Parse(xText, CultureInfo.InvariantCulture);
+                }
+
+                var dropped =
+                    Drop() ?? throw new InvalidOperationException("ゲームオーバー中は投下できない");
+                _logger.ZLogInformation(
+                    $"drop id={dropped.Id.AsPrimitive()} kind={dropped.Kind} x={dropped.X}"
+                );
+                return new
+                {
+                    Id = dropped.Id.AsPrimitive(),
+                    Kind = dropped.Kind.ToString(),
+                    X = dropped.X,
+                    Next = _logic.PeekNext().ToString(),
+                };
+            }
+        );
+        host.RegisterMainThreadCommand(
+            "quit",
+            _ =>
+            {
+                _logger.ZLogInformation($"quit を受信。終了する");
+                GetTree().Quit();
+                return new { Quitting = true };
+            }
+        );
+        _server = new StateeTcpServer(host, ParseIntArg("--port=", DefaultPort));
+        _server.Start();
+        _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
+    }
+
+    private (FruitId Id, FruitKind Kind, float X)? Drop()
     {
         if (_logic.IsGameOver.CurrentValue)
         {
-            return;
+            return null;
         }
 
         var kind = _logic.PeekNext();
         var radius = Fruit.RadiusOf(kind);
         var x = Mathf.Clamp(_dropX, WallLeft + radius, WallRight - radius);
-        SpawnBody(_logic.SpawnNext(), kind, new Vector2(x, DropY));
+        var id = _logic.SpawnNext();
+        SpawnBody(id, kind, new Vector2(x, DropY));
+        return (id, kind, x);
     }
 
     private void SpawnBody(FruitId id, FruitKind kind, Vector2 position)
@@ -151,6 +226,28 @@ public partial class Main : Node2D
         _fruits.Remove(id);
     }
 
+    private void UpdateBoardState()
+    {
+        var entries = new BoardState.FruitEntry[_fruits.Count];
+        var index = 0;
+        foreach (var (id, fruit) in _fruits)
+        {
+            entries[index++] = new BoardState.FruitEntry(
+                id.AsPrimitive(),
+                fruit.Kind.ToString(),
+                fruit.Position.X,
+                fruit.Position.Y
+            );
+        }
+
+        _board.Update(
+            _logic.Score.CurrentValue,
+            _logic.IsGameOver.CurrentValue,
+            _logic.PeekNext().ToString(),
+            entries
+        );
+    }
+
     private void BuildContainer()
     {
         var container = new StaticBody2D { Name = "Container" };
@@ -164,6 +261,22 @@ public partial class Main : Node2D
             {
                 Shape = new SegmentShape2D { A = a, B = b },
             };
+    }
+
+    private static int ParseIntArg(string prefix, int defaultValue)
+    {
+        foreach (var arg in OS.GetCmdlineUserArgs())
+        {
+            if (
+                arg.StartsWith(prefix, StringComparison.Ordinal)
+                && int.TryParse(arg[prefix.Length..], out var value)
+            )
+            {
+                return value;
+            }
+        }
+
+        return defaultValue;
     }
 
     /// <summary>

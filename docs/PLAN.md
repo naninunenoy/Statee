@@ -137,7 +137,8 @@ Statee.slnx
 - フェーズ 0〜2 ✅ / フェーズ 3(スイカゲームロジック、D-024)✅
 - フェーズ 4 の進行: ① メインスレッドディスパッチ(D-025)✅ →
   ② SuikaGame.Godot 最小シーン(容器 + RigidBody2D 投下 + ReportContact/Merges 配線)✅ →
-  ③ Statee 組み込み(drop コマンド、スコア・盤面 State 公開)→ ④ pause / step(D-003)
+  ③ Statee 組み込み(drop コマンド、盤面 State `game/board` 公開)✅ →
+  ④ pause / step(D-003)
 - 境界設計(物理・入力)の悩みどころは docs/NOTES.md に書き捨てで記録中
 - フレームワーク側の先送り課題: 条件待機(GUIDELINE.md §7)。フェーズ 5 までに実装する
 
