@@ -22,7 +22,20 @@ public sealed class StateeHost
 
     public LogBuffer Logs { get; }
 
+    /// <summary>
+    /// メインスレッドで実行するコマンド(RegisterMainThreadCommand)用のディスパッチャ。
+    /// ゲーム側が生成して設定し、メインループから Pump を呼ぶ。
+    /// </summary>
+    public MainThreadDispatcher? MainThreadDispatcher { get; set; }
+
     public void RegisterCommand(string name, CommandHandler handler) => _commands[name] = handler;
+
+    /// <summary>
+    /// メインスレッドで実行するコマンドを登録する(Godot API 等を触るコマンド用)。
+    /// 実行には MainThreadDispatcher の設定が必要。
+    /// </summary>
+    public void RegisterMainThreadCommand(string name, CommandHandler handler) =>
+        throw new NotImplementedException();
 
     public void RegisterStateProvider(IStateProvider provider) =>
         _providers[provider.Path] = provider;
