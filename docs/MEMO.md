@@ -300,3 +300,37 @@
     ReferenceOutputAssembly="false" />` で参照する(Godot.NET.Sdk のプロジェクトでも動作)
   - `[StateeField]` は getter のみの計算プロパティにも付けられるので、
     Interlocked / Stopwatch によるスレッド安全な読み出しを型の中に閉じ込められる
+
+## D-023 ゲームロジック層は外部 tick 駆動・壁時計禁止
+
+- **決定**: 純C#のゲームロジックは `Tick(delta)` を外から呼ばれたときだけ時間が進む
+  受動的な設計にする。ロジック内部での `DateTime.Now` / `Task.Delay` /
+  自前スレッド・タイマーは禁止。
+- **背景**: pause / step(D-003)を成立させる土台。pause =「Tick を呼ばない」、
+  step N =「Tick を N 回呼ぶ」となり、ロジック層に pause の実装は不要になる。
+  「N tick 後にこうなる」というユニットテストが決定論的に書ける(GUIDELINE.md §4)。
+- **補足**: スイカゲームは物理が Godot 側(D-011)なので、pause/step コマンドの実体は
+  Godot 層のフレーム制御になる。ロジック層はこの規律を守ることで一時停止に追従できる。
+
+## D-024 スイカゲームロジックの設計【暫定】
+
+- **決定**: `game/SuikaGame.Logic`(純C#)は物理を持たない規則エンジンとする。
+  Godot 層との境界は以下の通り:
+  - 入力: `ReportContact(a, b)`(衝突報告)/ `SetOverflowing(id, bool)`
+    (ゲームオーバーライン超えの報告)/ `Tick(delta)`
+  - 出力: `Merges`(R3 Observable。Godot 層が物理ボディの削除・生成に使う)/
+    `Score` / `IsGameOver`(R3 ReadOnlyReactiveProperty)
+  - フルーツの位置はロジック層で持たない(Godot 物理が所有: D-011)
+- **ルール(暫定。本家準拠だが簡略化)**:
+  - フルーツは 11 種(Cherry → Watermelon)。同種の接触で一段大きい種に合体
+  - スイカ同士は両方消滅(新フルーツなし)
+  - スコアは合体で生まれた種の三角数(Strawberry=1, Grape=3, …, Watermelon=55,
+    スイカ消滅=66)を加算
+  - 次に落ちるフルーツはシード付き乱数で先頭5種から選ぶ(シードはコンストラクタ引数。
+    D-019 で見送った「シード公開」の土台)
+  - ゲームオーバー: いずれかのフルーツが猶予時間(既定 1 秒)連続で溢れ状態。
+    以後 ReportContact / Tick は無視(盤面凍結)
+- **採用ライブラリ**: Arch(フルーツを Entity として管理)/ R3(Score 等の通知)/
+  UnitGenerator(`FruitId`。D-006 の初適用)
+- **テスト都合**: `Spawn(kind)` を公開する(初期配置・リプレイ・テストで種を指定して
+  場に出すため。乱数経由だけだと合体テストが書けない)。

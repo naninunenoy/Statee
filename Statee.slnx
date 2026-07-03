@@ -3,6 +3,7 @@
     <Project Path="game/SuikaGame.Godot/SuikaGame.Godot.csproj">
       <BuildType Project="Debug" />
     </Project>
+    <Project Path="game/SuikaGame.Logic/SuikaGame.Logic.csproj" />
   </Folder>
   <Folder Name="/sandbox/">
     <Project Path="sandbox/PingTarget.Godot/PingTarget.Godot.csproj">
@@ -20,5 +21,6 @@
     <Project Path="tests/Statee.Core.Tests/Statee.Core.Tests.csproj" />
     <Project Path="tests/Statee.Generator.Tests/Statee.Generator.Tests.csproj" />
     <Project Path="tests/Statee.Remote.Tests/Statee.Remote.Tests.csproj" />
+    <Project Path="tests/SuikaGame.Logic.Tests/SuikaGame.Logic.Tests.csproj" />
   </Folder>
 </Solution>
