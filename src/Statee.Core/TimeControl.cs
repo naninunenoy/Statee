@@ -8,22 +8,69 @@ namespace Statee.Core;
 /// </summary>
 public sealed class TimeControl
 {
+    private readonly Lock _gate = new();
+
+    // Set 状態 = 「step が進行していない」。step 開始で Reset、完了・打ち切りで Set
+    private readonly ManualResetEventSlim _stepIdle = new(true);
+    private int _remainingFrames;
+    private volatile bool _isPaused;
+
     /// <summary>ポーズ中か。ゲームループはこれをエンジンのポーズに反映する。</summary>
-    public bool IsPaused => default;
+    public bool IsPaused => _isPaused;
 
     /// <summary>即時ポーズする。進行中の step は打ち切られる。</summary>
-    public void Pause() { }
+    public void Pause()
+    {
+        lock (_gate)
+        {
+            _remainingFrames = 0;
+            _isPaused = true;
+            _stepIdle.Set();
+        }
+    }
 
     /// <summary>ポーズを解除し、通常進行に戻す。</summary>
-    public void Resume() { }
+    public void Resume()
+    {
+        lock (_gate)
+        {
+            _remainingFrames = 0;
+            _isPaused = false;
+            _stepIdle.Set();
+        }
+    }
 
     /// <summary>指定フレーム数だけ進めた後、自動で再ポーズする。</summary>
-    public void Step(int frames) { }
+    public void Step(int frames)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(frames, 1);
+        lock (_gate)
+        {
+            _remainingFrames = frames;
+            _isPaused = false;
+            _stepIdle.Reset();
+        }
+    }
 
     /// <summary>ゲームループが1シミュレーションフレームごとに呼ぶ。ポーズ中の呼び出しは無視する。</summary>
-    public void OnFrame() { }
+    public void OnFrame()
+    {
+        lock (_gate)
+        {
+            if (_isPaused || _remainingFrames == 0)
+            {
+                return;
+            }
+
+            if (--_remainingFrames == 0)
+            {
+                _isPaused = true;
+                _stepIdle.Set();
+            }
+        }
+    }
 
     /// <summary>進行中の step の完了(または非 step 状態)まで呼び出しスレッドをブロックする。</summary>
     /// <returns>タイムアウトした場合 false。</returns>
-    public bool WaitForStep(TimeSpan timeout) => default;
+    public bool WaitForStep(TimeSpan timeout) => _stepIdle.Wait(timeout);
 }
