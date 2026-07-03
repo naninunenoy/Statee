@@ -214,3 +214,15 @@
     D-001 の「ゲーム依存 CLI」はスイカゲーム着手時に汎用 CLI を包む形で別途作る
 - **MCP ツール粒度**: コマンドごとにツール化せず、CLI 引数をそのまま渡す汎用1ツール。
   D-001(MCP は汎用・再ビルド不要)に忠実にする。
+- **結果: ✅ E2E 成功**(実装はテストファーストの4段階コミットで実施。ユニット+統合テスト26件緑):
+  - CLI 直・MCP(JSON-RPC)の両経路で ping / state / logs / quit が動作
+  - state でフレーム進行(3秒で 75720→76248)と `.NET 10.0.1` / Godot 4.7 を確認
+  - logs で起動〜ping履歴〜quit の時系列を取得。quit で headless Godot が exit 0 で正常終了
+- **実装で得た知見**:
+  - ToonEncoder.Encode は匿名型・`IReadOnlyList<LogEntry>` をそのまま TOON 化できる
+  - Godot は `.godot/mono/temp/bin` から実行するため、NuGet 依存を持つ場合
+    `<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>` が必要
+  - Godot.NET.Sdk は ImplicitUsings が無効(System 系の using を明示する)
+  - `.mcp.json` は相対パスで書ける(MCP サーバーの CWD はプロジェクトルート)。
+    ツール側で `Path.GetFullPath` により絶対化する
+  - MCP ツールを Claude Code から使うには `.mcp.json` 登録後にセッション再起動が必要

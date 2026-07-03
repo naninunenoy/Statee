@@ -130,17 +130,15 @@ Statee.slnx
 | 4 | Godot 統合 | 描画・入力込みでプレイ可能。headless でも動作 |
 | 5 | AI 自動動作確認の実証 | AI Agent が MCP 経由でゲームを操作し、動作確認シナリオを完遂する |
 
-## 現在のマイルストーン: ping 縦切りスライス(フェーズ1最小分+フェーズ2)
+## 現在のマイルストーン: ping 縦切りスライス — ✅ 達成(MEMO.md D-018)
 
 「ゲーム起動 → MCP/CLI から操作 → State/ログを AI が取得・評価」の最小 E2E を
-ダミーターゲット(`sandbox/PingTarget.Godot`)で貫通させる。設計は MEMO.md D-018。
+ダミーターゲット(`sandbox/PingTarget.Godot`)で貫通させた。
+CLI 直・MCP 両経路で ping / state / logs / quit が動作し、テスト26件緑。
+フェーズ2の完了条件を最小ゲーム(ping)について満たした。
 
-1. Statee.Core 最小実装(State/Command/Log + リクエスト処理)— テストファーストで
-2. Statee.Remote(TCP サーバー)— xUnit からの TCP 統合テストまで
-3. Statee.Cli + PingTarget.Godot(headless 疎通)
-4. Statee.Mcp + E2E 評価(AI が ping/state/logs を実行し期待値と照合)
-
-pause / step、メインスレッドディスパッチ、UI 幾何の State 公開などは次スライス以降。
+次スライスの候補: pause / step(D-003)、コマンドのメインスレッドディスパッチ、
+「State が条件を満たすまで進める」条件待機(GUIDELINE.md §7)。
 
 ## 未決事項
 
