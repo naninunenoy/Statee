@@ -4,7 +4,13 @@
       <BuildType Project="Debug" />
     </Project>
   </Folder>
+  <Folder Name="/sandbox/">
+    <Project Path="sandbox/PingTarget.Godot/PingTarget.Godot.csproj">
+      <BuildType Project="Debug" />
+    </Project>
+  </Folder>
   <Folder Name="/src/">
+    <Project Path="src/Statee.Cli/Statee.Cli.csproj" />
     <Project Path="src/Statee.Core/Statee.Core.csproj" />
     <Project Path="src/Statee.Remote/Statee.Remote.csproj" />
   </Folder>
