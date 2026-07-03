@@ -16,6 +16,7 @@ public partial class Main : Node
     private const int DefaultPort = 9310;
 
     private readonly RuntimeState _runtime = new();
+    private readonly MainThreadDispatcher _dispatcher = new();
     private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
 
@@ -31,7 +32,7 @@ public partial class Main : Node
         var logger = _loggerFactory.CreateLogger<Main>();
 
         var port = ParsePort();
-        var host = new StateeHost(buffer);
+        var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
 
         // 起動時に確定する不変情報 (D-019)。Godot API はメインスレッド以外から触れないため、
         // ここで一度だけスナップショットを構築し、ソケットスレッドからは完成品を返すだけにする
@@ -64,12 +65,21 @@ public partial class Main : Node
                 };
             }
         );
-        host.RegisterCommand(
+        // メインスレッドディスパッチの実証。ハンドラ内から Godot API を直接触れる
+        host.RegisterMainThreadCommand(
+            "mainthread",
+            _ => new
+            {
+                CallerThreadId = (long)OS.GetThreadCallerId(),
+                MainThreadId = (long)OS.GetMainThreadId(),
+            }
+        );
+        host.RegisterMainThreadCommand(
             "quit",
             _ =>
             {
                 logger.ZLogInformation($"quit を受信。終了する");
-                Callable.From(() => GetTree().Quit()).CallDeferred();
+                GetTree().Quit();
                 return new { Quitting = true };
             }
         );
@@ -79,7 +89,11 @@ public partial class Main : Node
         logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
     }
 
-    public override void _Process(double delta) => _runtime.IncrementFrame();
+    public override void _Process(double delta)
+    {
+        _runtime.IncrementFrame();
+        _dispatcher.Pump();
+    }
 
     public override void _ExitTree()
     {
