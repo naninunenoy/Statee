@@ -35,7 +35,18 @@ public sealed class StateeHost
     /// 実行には MainThreadDispatcher の設定が必要。
     /// </summary>
     public void RegisterMainThreadCommand(string name, CommandHandler handler) =>
-        throw new NotImplementedException();
+        RegisterCommand(
+            name,
+            args =>
+            {
+                var dispatcher =
+                    MainThreadDispatcher
+                    ?? throw new InvalidOperationException(
+                        $"コマンド '{name}' の実行には MainThreadDispatcher の設定が必要"
+                    );
+                return dispatcher.Run(() => handler(args));
+            }
+        );
 
     public void RegisterStateProvider(IStateProvider provider) =>
         _providers[provider.Path] = provider;
