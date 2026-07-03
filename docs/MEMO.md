@@ -290,3 +290,13 @@
   - (−) Roslyn incremental generator の実装・保守コスト(netstandard2.0 制約)
 - **見送り(最小実装のため)**: `[StateeField(Immutable = true)]` 等のメタデータ、
   パス一覧ディスカバリ、Command の Attribute 化。必要になったスライスで追加する。
+- **結果: ✅ 実装完了**。PingTarget の `system/runtime` を生成版 `RuntimeState` に置き換えて
+  ドッグフーディングし、headless E2E でフレーム進行と quit を確認。全31テスト緑・警告ゼロ。
+- **実装で得た知見**:
+  - ジェネレータは netstandard2.0 必須。record を使うには `IsExternalInit` ポリフィルが要る
+  - 診断(STATEE001)を定義すると RS2008 警告が出るため、
+    `AnalyzerReleases.Shipped/Unshipped.md` を AdditionalFiles として置く
+  - 利用側 csproj は `<ProjectReference ... OutputItemType="Analyzer"
+    ReferenceOutputAssembly="false" />` で参照する(Godot.NET.Sdk のプロジェクトでも動作)
+  - `[StateeField]` は getter のみの計算プロパティにも付けられるので、
+    Interlocked / Stopwatch によるスレッド安全な読み出しを型の中に閉じ込められる

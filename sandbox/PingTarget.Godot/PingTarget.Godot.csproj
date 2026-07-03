@@ -11,6 +11,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Statee.Core\Statee.Core.csproj" />
+    <ProjectReference
+      Include="..\..\src\Statee.Generator\Statee.Generator.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\..\src\Statee.Remote\Statee.Remote.csproj" />
   </ItemGroup>
 </Project>

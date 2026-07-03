@@ -1,6 +1,4 @@
 using System;
-using System.Diagnostics;
-using System.Threading;
 using Godot;
 using Microsoft.Extensions.Logging;
 using Statee.Core;
@@ -17,8 +15,7 @@ public partial class Main : Node
 {
     private const int DefaultPort = 9310;
 
-    private long _frame;
-    private readonly Stopwatch _uptime = Stopwatch.StartNew();
+    private readonly RuntimeState _runtime = new();
     private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
 
@@ -51,18 +48,8 @@ public partial class Main : Node
         };
         host.RegisterStateProvider(new SnapshotStateProvider("system/platform", () => platform));
 
-        // 可変情報 (D-019)。毎回その場でキャプチャする
-        host.RegisterStateProvider(
-            new SnapshotStateProvider(
-                "system/runtime",
-                () =>
-                    new
-                    {
-                        Frame = Interlocked.Read(ref _frame),
-                        UptimeSeconds = Math.Round(_uptime.Elapsed.TotalSeconds, 3),
-                    }
-            )
-        );
+        // 可変情報 (D-019)。[StateeState] からジェネレータが生成した実装を登録する (D-022)
+        host.RegisterStateProvider(_runtime);
         host.RegisterCommand(
             "ping",
             args =>
@@ -73,7 +60,7 @@ public partial class Main : Node
                 {
                     Pong = true,
                     Message = message,
-                    Frame = Interlocked.Read(ref _frame),
+                    Frame = _runtime.Frame,
                 };
             }
         );
@@ -92,7 +79,7 @@ public partial class Main : Node
         logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
     }
 
-    public override void _Process(double delta) => Interlocked.Increment(ref _frame);
+    public override void _Process(double delta) => _runtime.IncrementFrame();
 
     public override void _ExitTree()
     {
