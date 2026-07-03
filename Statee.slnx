@@ -12,6 +12,7 @@
   <Folder Name="/src/">
     <Project Path="src/Statee.Cli/Statee.Cli.csproj" />
     <Project Path="src/Statee.Core/Statee.Core.csproj" />
+    <Project Path="src/Statee.Mcp/Statee.Mcp.csproj" />
     <Project Path="src/Statee.Remote/Statee.Remote.csproj" />
   </Folder>
   <Folder Name="/tests/">
