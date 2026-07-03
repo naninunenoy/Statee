@@ -92,7 +92,8 @@ Statee.slnx
 │  ├─ Statee.Core         … State/Command/Log の抽象定義(Godot 非依存)
 │  ├─ Statee.Remote       … 接続待ち受け・プロトコル実装
 │  ├─ Statee.Cli          … 汎用 CLI クライアント(ConsoleAppFramework)
-│  └─ Statee.Mcp          … MCP サーバー(汎用・CLI を起動するだけ)
+│  ├─ Statee.Mcp          … MCP サーバー(汎用・CLI を起動するだけ)
+│  └─ Statee.Generator    … Attribute → IStateProvider 実装のソースジェネレータ(D-022)
 ├─ sandbox/
 │  └─ PingTarget.Godot    … フレームワーク検証用の最小ダミーターゲット(D-013)
 ├─ game/
@@ -102,6 +103,7 @@ Statee.slnx
 └─ tests/
    ├─ Statee.Core.Tests
    ├─ Statee.Remote.Tests
+   ├─ Statee.Generator.Tests
    └─ SuikaGame.Logic.Tests
 ```
 

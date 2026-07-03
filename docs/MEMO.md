@@ -269,3 +269,24 @@
 - **注意**: PowerShell 5.1 の `Get-Content` は既定で UTF-8 を正しく表示しない
   (`-Encoding utf8` を付けるか、エディタ/`cat` で見る)。
   `.mcp.json` の変更はセッション再起動後に有効。
+
+## D-022 State 公開の宣言は Attribute、拘束の実体は interface(ソースジェネレータで橋渡し)
+
+- **決定**: State を公開するゲーム側の型は Attribute で宣言し、
+  ソースジェネレータ(`src/Statee.Generator`)が `IStateProvider` 実装を partial に生成する。
+  - `[StateeState("system/runtime")]` を partial class に付与、
+    公開するメンバーに `[StateeField]` を付与する
+  - フレームワーク内部(StateeHost)は従来どおり `IStateProvider` だけを見る。
+    ジェネレータは「interface を手書きしなくて済む糖衣」であり、
+    動的なケースや特殊な事情がある場合は interface の手書き実装で逃げられる
+- **背景**: 公開 State の「形」を宣言的に拘束したい。Attribute + ジェネレータなら
+  リフレクション無しで AOT/トリミングに安全(Godot .NET 環境でも安心)なスナップショット
+  構築コードを生成でき、Cysharp 系(MemoryPack / VitalRouter の `[Routes]`)と同じ
+  馴染みのあるパターンになる。
+- **トレードオフ**:
+  - (+) ゲーム側は Attribute を付けるだけ。スナップショット構築の手書きが不要
+  - (+) 将来のメタデータ(D-019 で見送った不変フラグ、パス一覧ディスカバリ、スキーマ)の
+    自然な置き場になる
+  - (−) Roslyn incremental generator の実装・保守コスト(netstandard2.0 制約)
+- **見送り(最小実装のため)**: `[StateeField(Immutable = true)]` 等のメタデータ、
+  パス一覧ディスカバリ、Command の Attribute 化。必要になったスライスで追加する。
