@@ -30,7 +30,10 @@ public sealed class StateeTcpServer(StateeHost host, int port) : IAsyncDisposabl
         {
             while (!ct.IsCancellationRequested)
             {
-                var client = await _listener.AcceptTcpClientAsync(ct);
+                // ConfigureAwait(false): Godot 等の SynchronizationContext に継続を戻さない。
+                // 戻すとリクエスト処理がメインスレッドで走り、メインスレッド待ちのコマンドが
+                // 自己デッドロックする(tests の SynchronizationContextTest)
+                var client = await _listener.AcceptTcpClientAsync(ct).ConfigureAwait(false);
                 _ = HandleClientAsync(client, ct);
             }
         }
@@ -53,7 +56,7 @@ public sealed class StateeTcpServer(StateeHost host, int port) : IAsyncDisposabl
         {
             while (!ct.IsCancellationRequested)
             {
-                var line = await reader.ReadLineAsync(ct);
+                var line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
                 if (line is null)
                 {
                     break;
@@ -68,7 +71,9 @@ public sealed class StateeTcpServer(StateeHost host, int port) : IAsyncDisposabl
                 var response = request is null
                     ? StateeResponse.Fail("?", "リクエストを JSON として解釈できない")
                     : host.HandleRequest(request);
-                await writer.WriteLineAsync(StateeJson.Serialize(response).AsMemory(), ct);
+                await writer
+                    .WriteLineAsync(StateeJson.Serialize(response).AsMemory(), ct)
+                    .ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -83,13 +88,13 @@ public sealed class StateeTcpServer(StateeHost host, int port) : IAsyncDisposabl
 
     public async ValueTask DisposeAsync()
     {
-        await _cts.CancelAsync();
+        await _cts.CancelAsync().ConfigureAwait(false);
         _listener.Stop();
         if (_acceptLoop is not null)
         {
             try
             {
-                await _acceptLoop;
+                await _acceptLoop.ConfigureAwait(false);
             }
             catch (SocketException)
             {

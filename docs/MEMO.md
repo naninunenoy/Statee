@@ -354,3 +354,27 @@
   - R3: `Score` / `IsGameOver` / `Merges` の境界通知として素直に機能。
     Godot 層(フェーズ 4)の購読側で真価が出る見込み
   - UnitGenerator: `FruitId` で初適用。int の裸回しを防ぎ、テストの意図が明確になった
+
+## D-025 Godot API を触るコマンドは MainThreadDispatcher で同期ディスパッチ
+
+- **決定**: `StateeHost.RegisterMainThreadCommand` で登録したコマンドは、
+  `MainThreadDispatcher`(キュー + 完了待ち)経由でメインスレッドで実行する。
+  ゲーム側はディスパッチャを `StateeHost.MainThreadDispatcher` に設定し、
+  メインループ(`_Process`)から毎フレーム `Pump()` を呼ぶ。
+- **背景**: コマンドハンドラはソケットスレッドで走る(D-018)ため Godot API を触れない。
+  フェーズ4の drop 等の前提となる土台。`CallDeferred` は結果を返せないので、
+  応答を返すコマンドには完了待ち付きの同期ディスパッチが必要。
+- **トレードオフ**:
+  - (+) ハンドラ内から Godot API を直接呼べる(PingTarget の quit / mainthread で実証)
+  - (−) コマンド実行中はソケットスレッドがブロックする(タイムアウト既定5秒が保険)
+  - メインスレッド自身から `Run` を呼ぶとデッドロック。検出はせず「ソケットスレッド専用」
+    と割り切る
+- **実装で得た知見(実バグ)**: Godot .NET は await の継続をメインスレッドへ戻す
+  SynchronizationContext をインストールする。StateeTcpServer の await に
+  `ConfigureAwait(false)` が無く、リクエスト処理が実はメインスレッドで走っており、
+  Run のブロックが自己デッドロックになっていた(quit / mainthread が5秒タイムアウト)。
+  純C#の再現テスト(SynchronizationContextTest)を先に書いてから
+  全 await に `ConfigureAwait(false)` を付けて修正。
+  **Godot に埋め込む非同期コードの await には必ず ConfigureAwait(false)**。
+  スレッドの実測には `OS.GetThreadCallerId()` / `OS.GetMainThreadId()`
+  (PingTarget の mainthread コマンド)が使える。
