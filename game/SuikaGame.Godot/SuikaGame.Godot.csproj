@@ -3,5 +3,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>SuikaGame</RootNamespace>
     <Nullable>enable</Nullable>
+    <!-- Godot は .godot/mono/temp/bin から実行するため、NuGet 依存 DLL を出力へコピーする必要がある -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SuikaGame.Logic\SuikaGame.Logic.csproj" />
+  </ItemGroup>
 </Project>

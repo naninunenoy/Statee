@@ -132,19 +132,14 @@ Statee.slnx
 | 4 | Godot 統合 | 描画・入力込みでプレイ可能。headless でも動作 |
 | 5 | AI 自動動作確認の実証 | AI Agent が MCP 経由でゲームを操作し、動作確認シナリオを完遂する |
 
-## 現在のマイルストーン: フェーズ 3 スイカゲームロジック(MEMO.md D-024)
+## 現在のマイルストーン: フェーズ 4 Godot 統合
 
-- フェーズ 0(環境検証)/ 1(Statee.Core)/ 2(ping 縦切りスライス、D-018)は ✅ 達成
-- フレームワーク側の先送り課題: pause / step(D-003)、条件待機(GUIDELINE.md §7)。
-  フェーズ 4〜5 までに実装する(メインスレッドディスパッチは D-025 で実装済み)
-
-「ゲーム起動 → MCP/CLI から操作 → State/ログを AI が取得・評価」の最小 E2E を
-ダミーターゲット(`sandbox/PingTarget.Godot`)で貫通させた。
-CLI 直・MCP 両経路で ping / state / logs / quit が動作し、テスト26件緑。
-フェーズ2の完了条件を最小ゲーム(ping)について満たした。
-
-次スライスの候補: pause / step(D-003)、コマンドのメインスレッドディスパッチ、
-「State が条件を満たすまで進める」条件待機(GUIDELINE.md §7)。
+- フェーズ 0〜2 ✅ / フェーズ 3(スイカゲームロジック、D-024)✅
+- フェーズ 4 の進行: ① メインスレッドディスパッチ(D-025)✅ →
+  ② SuikaGame.Godot 最小シーン(容器 + RigidBody2D 投下 + ReportContact/Merges 配線)✅ →
+  ③ Statee 組み込み(drop コマンド、スコア・盤面 State 公開)→ ④ pause / step(D-003)
+- 境界設計(物理・入力)の悩みどころは docs/NOTES.md に書き捨てで記録中
+- フレームワーク側の先送り課題: 条件待機(GUIDELINE.md §7)。フェーズ 5 までに実装する
 
 ## 未決事項
 
