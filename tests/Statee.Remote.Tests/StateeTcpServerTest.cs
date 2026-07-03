@@ -56,6 +56,7 @@ public class StateeTcpServerTest
         response.ShouldNotBeNull();
         response.Id.ShouldBe("1");
         response.Status.ShouldBe(StateeResponse.StatusOk);
+        response.Payload.ShouldNotBeNull();
         response.Payload.ShouldContain("hello");
     }
 
@@ -83,6 +84,7 @@ public class StateeTcpServerTest
         var response = StateeJson.DeserializeResponse(okLine);
         response.ShouldNotBeNull();
         response.Status.ShouldBe(StateeResponse.StatusOk);
+        response.Payload.ShouldNotBeNull();
         response.Payload.ShouldContain("まだ生きてる");
     }
 }
