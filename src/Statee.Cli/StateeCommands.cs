@@ -20,9 +20,9 @@ public class StateeCommands
         SendRequest("ping", new Dictionary<string, string> { ["message"] = message }, port);
 
     /// <summary>State スナップショットを取得する。</summary>
-    /// <param name="path">State のパス(例: system)。</param>
+    /// <param name="path">State のパス(例: system/runtime, system/platform)。</param>
     /// <param name="port">接続先ポート。</param>
-    public int State(string path = "system", int port = DefaultPort) =>
+    public int State(string path = "system/runtime", int port = DefaultPort) =>
         SendRequest("state", new Dictionary<string, string> { ["path"] = path }, port);
 
     /// <summary>ターゲットが保持するログを取得する。</summary>

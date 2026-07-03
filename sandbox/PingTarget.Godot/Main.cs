@@ -18,16 +18,12 @@ public partial class Main : Node
     private const int DefaultPort = 9310;
 
     private long _frame;
-    private string _engineVersion = "";
     private readonly Stopwatch _uptime = Stopwatch.StartNew();
     private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
 
     public override void _Ready()
     {
-        // Godot API はメインスレッド以外から触れないため、ここで値を確定させておく
-        _engineVersion = (string)Engine.GetVersionInfo()["string"];
-
         var buffer = new LogBuffer(1024);
         _loggerFactory = LoggerFactory.Create(builder =>
         {
@@ -37,8 +33,36 @@ public partial class Main : Node
         });
         var logger = _loggerFactory.CreateLogger<Main>();
 
+        var port = ParsePort();
         var host = new StateeHost(buffer);
-        host.RegisterStateProvider(new SystemStateProvider(this));
+
+        // 起動時に確定する不変情報 (D-019)。Godot API はメインスレッド以外から触れないため、
+        // ここで一度だけスナップショットを構築し、ソケットスレッドからは完成品を返すだけにする
+        var platform = new
+        {
+            Engine = $"Godot {(string)Engine.GetVersionInfo()["string"]}",
+            Runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+            Os = $"{OS.GetName()} {OS.GetVersion()}",
+            Headless = DisplayServer.GetName() == "headless",
+            ProcessorCount = System.Environment.ProcessorCount,
+            Pid = System.Environment.ProcessId,
+            Port = port,
+            StartedAt = DateTimeOffset.Now,
+        };
+        host.RegisterStateProvider(new SnapshotStateProvider("system/platform", () => platform));
+
+        // 可変情報 (D-019)。毎回その場でキャプチャする
+        host.RegisterStateProvider(
+            new SnapshotStateProvider(
+                "system/runtime",
+                () =>
+                    new
+                    {
+                        Frame = Interlocked.Read(ref _frame),
+                        UptimeSeconds = Math.Round(_uptime.Elapsed.TotalSeconds, 3),
+                    }
+            )
+        );
         host.RegisterCommand(
             "ping",
             args =>
@@ -63,7 +87,7 @@ public partial class Main : Node
             }
         );
 
-        _server = new StateeTcpServer(host, ParsePort());
+        _server = new StateeTcpServer(host, port);
         _server.Start();
         logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
     }
@@ -92,18 +116,11 @@ public partial class Main : Node
         return DefaultPort;
     }
 
-    /// <summary>system パスの State。ソケットスレッドから呼ばれるため Godot API には触れない。</summary>
-    private sealed class SystemStateProvider(Main main) : IStateProvider
+    /// <summary>デリゲートでスナップショットを返す State プロバイダ。ソケットスレッドから呼ばれる。</summary>
+    private sealed class SnapshotStateProvider(string path, Func<object> capture) : IStateProvider
     {
-        public string Path => "system";
+        public string Path => path;
 
-        public object CaptureState() =>
-            new
-            {
-                Frame = Interlocked.Read(ref main._frame),
-                UptimeSeconds = Math.Round(main._uptime.Elapsed.TotalSeconds, 3),
-                Engine = $"Godot {main._engineVersion}",
-                Runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
-            };
+        public object CaptureState() => capture();
     }
 }
