@@ -1,8 +1,3 @@
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using Statee.Core;
-
 namespace Statee.Cli;
 
 /// <summary>
@@ -33,7 +28,7 @@ public class StateeCommands
 
     /// <summary>任意のコマンドを送る。ターゲット固有コマンドの呼び出しに使う。</summary>
     /// <param name="command">コマンド名。</param>
-    /// <param name="arg">key=value 形式の引数(複数指定可)。</param>
+    /// <param name="arg">key=value 形式の引数(複数はカンマ区切り)。</param>
     /// <param name="port">接続先ポート。</param>
     public int Send(string command, string[]? arg = null, int port = DefaultPort)
     {
@@ -62,86 +57,13 @@ public class StateeCommands
     {
         try
         {
-            using var client = new TcpClient();
-            client.Connect(IPAddress.Loopback, port);
-            using var stream = client.GetStream();
-            using var reader = new StreamReader(stream, Encoding.UTF8);
-            using var writer = new StreamWriter(stream, new UTF8Encoding(false))
-            {
-                AutoFlush = true,
-            };
-
-            var id = Guid.NewGuid().ToString("N")[..8];
-            var requestLine = StateeJson.Serialize(new StateeRequest(id, command, args));
-            Trace("→", requestLine);
-            writer.WriteLine(requestLine);
-            var line = reader.ReadLine();
-            if (line is null)
-            {
-                Trace("×", "応答が無いまま切断された");
-                Console.Error.WriteLine("応答が無いまま切断された");
-                return 1;
-            }
-
-            Trace("←", line);
-
-            var response = StateeJson.DeserializeResponse(line);
-            if (response is null)
-            {
-                Console.Error.WriteLine($"応答を JSON として解釈できない: {line}");
-                return 1;
-            }
-
-            if (response.Status != StateeResponse.StatusOk)
-            {
-                Console.Error.WriteLine($"error: {response.Error}");
-                return 1;
-            }
-
-            Console.WriteLine(response.Payload);
+            Console.WriteLine(new StateeClient(port).Invoke(command, args));
             return 0;
         }
-        catch (SocketException e)
+        catch (StateeClientException e)
         {
-            Trace("×", $"接続できない (port={port}): {e.Message}");
-            Console.Error.WriteLine($"接続できない (port={port}): {e.Message}");
+            Console.Error.WriteLine(e.IsErrorResponse ? $"error: {e.Message}" : e.Message);
             return 1;
-        }
-    }
-
-    /// <summary>
-    /// 環境変数 STATEE_TRACE にファイルパスが設定されていれば、ワイヤ入出力を追記する(docs/MEMO.md D-021)。
-    /// 先頭の ~ はユーザープロファイルに展開する。トレースはベストエフォートで、失敗しても動作に影響させない。
-    /// </summary>
-    private static void Trace(string direction, string line)
-    {
-        var path = Environment.GetEnvironmentVariable("STATEE_TRACE");
-        if (string.IsNullOrEmpty(path))
-        {
-            return;
-        }
-
-        if (path.StartsWith('~'))
-        {
-            path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + path[1..];
-        }
-
-        try
-        {
-            var directory = Path.GetDirectoryName(Path.GetFullPath(path));
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            File.AppendAllText(
-                path,
-                $"{DateTimeOffset.Now:yyyy-MM-dd'T'HH:mm:ss.fffzzz} {direction} {line}{Environment.NewLine}"
-            );
-        }
-        catch (IOException)
-        {
-            // トレース先に書けなくても本来の入出力は継続する
         }
     }
 }

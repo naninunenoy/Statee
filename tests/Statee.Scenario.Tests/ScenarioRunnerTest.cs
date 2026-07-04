@@ -13,9 +13,10 @@ public class ScenarioRunnerTest
         var exit = runner.Run("""send "drop", "x=300", "power=2" """);
 
         exit.ShouldBe(0);
-        client.Invocations.ShouldBe([
-            ("drop", new Dictionary<string, string> { ["x"] = "300", ["power"] = "2" }),
-        ]);
+        client.Invocations.Single().Command.ShouldBe("drop");
+        client
+            .Invocations.Single()
+            .Args.ShouldBe(new Dictionary<string, string> { ["x"] = "300", ["power"] = "2" });
     }
 
     [Fact]
@@ -39,9 +40,10 @@ public class ScenarioRunnerTest
         var exit = runner.Run("""state "game/board" """);
 
         exit.ShouldBe(0);
-        client.Invocations.ShouldBe([
-            ("state", new Dictionary<string, string> { ["path"] = "game/board" }),
-        ]);
+        client.Invocations.Single().Command.ShouldBe("state");
+        client
+            .Invocations.Single()
+            .Args.ShouldBe(new Dictionary<string, string> { ["path"] = "game/board" });
     }
 
     [Fact]
@@ -53,9 +55,10 @@ public class ScenarioRunnerTest
         var exit = runner.Run("""wait "game/board", "Score", "ge", 1 """);
 
         exit.ShouldBe(0);
-        client.Invocations.ShouldBe([
-            (
-                "wait",
+        client.Invocations.Single().Command.ShouldBe("wait");
+        client
+            .Invocations.Single()
+            .Args.ShouldBe(
                 new Dictionary<string, string>
                 {
                     ["path"] = "game/board",
@@ -63,8 +66,7 @@ public class ScenarioRunnerTest
                     ["op"] = "ge",
                     ["value"] = "1",
                 }
-            ),
-        ]);
+            );
     }
 
     [Fact]
