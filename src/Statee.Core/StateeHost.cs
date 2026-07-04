@@ -76,16 +76,8 @@ public sealed class StateeHost
         }
     }
 
-    private object HandleStateCommand(CommandArgs args)
-    {
-        var path = args.GetString("path") ?? throw new ArgumentException("path 引数が必要");
-        if (!_providers.TryGetValue(path, out var provider))
-        {
-            throw new KeyNotFoundException($"未知の State パス: {path}");
-        }
-
-        return provider.CaptureState();
-    }
+    private object HandleStateCommand(CommandArgs args) =>
+        CaptureState(args.GetString("path") ?? throw new ArgumentException("path 引数が必要"));
 
     private object HandleLogsCommand(CommandArgs args)
     {
