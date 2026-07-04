@@ -139,9 +139,11 @@ Statee.slnx
   ③ Statee 組み込み(drop コマンド、盤面 State `game/board`)→ ④ pause / step(D-026)
 - スイカゲームは headless で drop / pause / resume / step / state / logs / quit が動作。
   シード注入(`-- --seed=`)込みで決定論的に操作・観測できる
+- **初回シナリオ完遂 ✅(D-027)**: AI が MCP 経由で「合体スコア検証 →
+  ゲームオーバー到達 → 凍結確認」を完遂。フェーズ5の完了条件を最初のシナリオで満たした
 - 境界設計(物理・入力)の悩みどころは docs/NOTES.md に書き捨てで記録中
-- フレームワーク側の先送り課題: 条件待機(GUIDELINE.md §7)、InputEvent 注入、
-  UI 幾何の State 公開。フェーズ 5 のシナリオが要求したものから実装する
+- 次: 条件待機コマンド(GUIDELINE.md §7-1。D-027 で必要性を実地確認)、
+  シナリオ拡充(連鎖合体、UI/幾何検証)、InputEvent 注入、UI 幾何の State 公開
 
 ## 未決事項
 
