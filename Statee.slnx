@@ -16,11 +16,13 @@
     <Project Path="src/Statee.Generator/Statee.Generator.csproj" />
     <Project Path="src/Statee.Mcp/Statee.Mcp.csproj" />
     <Project Path="src/Statee.Remote/Statee.Remote.csproj" />
+    <Project Path="src/Statee.Scenario/Statee.Scenario.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Statee.Core.Tests/Statee.Core.Tests.csproj" />
     <Project Path="tests/Statee.Generator.Tests/Statee.Generator.Tests.csproj" />
     <Project Path="tests/Statee.Remote.Tests/Statee.Remote.Tests.csproj" />
+    <Project Path="tests/Statee.Scenario.Tests/Statee.Scenario.Tests.csproj" />
     <Project Path="tests/SuikaGame.Logic.Tests/SuikaGame.Logic.Tests.csproj" />
   </Folder>
 </Solution>
