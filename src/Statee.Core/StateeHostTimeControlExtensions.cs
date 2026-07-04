@@ -11,7 +11,8 @@ public static class StateeHostTimeControlExtensions
     public static void RegisterTimeControl(
         this StateeHost host,
         TimeControl timeControl,
-        TimeSpan? stepTimeout = null
+        TimeSpan? stepTimeout = null,
+        TimeSpan? waitTimeout = null
     )
     {
         var timeout = stepTimeout ?? DefaultStepTimeout;
