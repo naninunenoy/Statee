@@ -17,17 +17,21 @@ public partial class BoardState
     private sealed record Snapshot(
         int Score,
         bool IsGameOver,
+        bool Paused,
         string NextKind,
         IReadOnlyList<FruitEntry> Fruits
     );
 
-    private volatile Snapshot _current = new(0, false, "", []);
+    private volatile Snapshot _current = new(0, false, false, "", []);
 
     [StateeField]
     public int Score => _current.Score;
 
     [StateeField]
     public bool IsGameOver => _current.IsGameOver;
+
+    [StateeField]
+    public bool Paused => _current.Paused;
 
     [StateeField]
     public string NextKind => _current.NextKind;
@@ -42,10 +46,11 @@ public partial class BoardState
     public void Update(
         int score,
         bool isGameOver,
+        bool paused,
         string nextKind,
         IReadOnlyList<FruitEntry> fruits
     )
     {
-        _current = new Snapshot(score, isGameOver, nextKind, fruits);
+        _current = new Snapshot(score, isGameOver, paused, nextKind, fruits);
     }
 }

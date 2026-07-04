@@ -132,15 +132,16 @@ Statee.slnx
 | 4 | Godot 統合 | 描画・入力込みでプレイ可能。headless でも動作 |
 | 5 | AI 自動動作確認の実証 | AI Agent が MCP 経由でゲームを操作し、動作確認シナリオを完遂する |
 
-## 現在のマイルストーン: フェーズ 4 Godot 統合
+## 現在のマイルストーン: フェーズ 5 AI 自動動作確認の実証
 
-- フェーズ 0〜2 ✅ / フェーズ 3(スイカゲームロジック、D-024)✅
-- フェーズ 4 の進行: ① メインスレッドディスパッチ(D-025)✅ →
-  ② SuikaGame.Godot 最小シーン(容器 + RigidBody2D 投下 + ReportContact/Merges 配線)✅ →
-  ③ Statee 組み込み(drop コマンド、盤面 State `game/board` 公開)✅ →
-  ④ pause / step(D-003)
+- フェーズ 0〜2 ✅ / フェーズ 3(スイカゲームロジック、D-024)✅ / フェーズ 4 ✅:
+  ① メインスレッドディスパッチ(D-025)→ ② SuikaGame.Godot 最小シーン →
+  ③ Statee 組み込み(drop コマンド、盤面 State `game/board`)→ ④ pause / step(D-026)
+- スイカゲームは headless で drop / pause / resume / step / state / logs / quit が動作。
+  シード注入(`-- --seed=`)込みで決定論的に操作・観測できる
 - 境界設計(物理・入力)の悩みどころは docs/NOTES.md に書き捨てで記録中
-- フレームワーク側の先送り課題: 条件待機(GUIDELINE.md §7)。フェーズ 5 までに実装する
+- フレームワーク側の先送り課題: 条件待機(GUIDELINE.md §7)、InputEvent 注入、
+  UI 幾何の State 公開。フェーズ 5 のシナリオが要求したものから実装する
 
 ## 未決事項
 

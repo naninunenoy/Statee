@@ -31,6 +31,7 @@ public partial class Main : Node2D
     private readonly Dictionary<FruitId, Fruit> _fruits = [];
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly BoardState _board = new();
+    private readonly TimeControl _time = new();
     private SuikaLogic _logic = null!;
     private IDisposable _subscriptions = null!;
     private StateeTcpServer? _server;
@@ -40,6 +41,10 @@ public partial class Main : Node2D
 
     public override void _Ready()
     {
+        // pause 中も Statee のコマンド処理(Pump)と State 更新を動かし続ける。
+        // 物理を止める役は Pausable な子(フルーツ)が担う
+        ProcessMode = ProcessModeEnum.Always;
+
         var buffer = new LogBuffer(1024);
         _loggerFactory = LoggerFactory.Create(builder =>
         {
@@ -74,20 +79,29 @@ public partial class Main : Node2D
     public override void _Process(double delta)
     {
         _dispatcher.Pump();
+        GetTree().Paused = _time.IsPaused;
     }
 
     public override void _PhysicsProcess(double delta)
     {
-        // 溢れ判定は Area2D でなく毎フレームの位置走査で行う(理由は docs/NOTES.md)。
-        // 落下直後の誤検知を避けるため、一度でも接触したフルーツだけを対象にする
-        foreach (var (id, fruit) in _fruits)
+        // step のフレーム計数は「実際に物理が動いたフレーム」だけを数える
+        // (IsPaused の変更がツリーへ反映されるまでの1フレームのずれを数えない)
+        if (!GetTree().Paused)
         {
-            var overflowing =
-                fruit.HasContacted && fruit.Position.Y - Fruit.RadiusOf(fruit.Kind) < OverflowLineY;
-            _logic.SetOverflowing(id, overflowing);
+            // 溢れ判定は Area2D でなく毎フレームの位置走査で行う(理由は docs/NOTES.md)。
+            // 落下直後の誤検知を避けるため、一度でも接触したフルーツだけを対象にする
+            foreach (var (id, fruit) in _fruits)
+            {
+                var overflowing =
+                    fruit.HasContacted
+                    && fruit.Position.Y - Fruit.RadiusOf(fruit.Kind) < OverflowLineY;
+                _logic.SetOverflowing(id, overflowing);
+            }
+
+            _logic.Tick(delta);
+            _time.OnFrame();
         }
 
-        _logic.Tick(delta);
         UpdateBoardState();
     }
 
@@ -140,6 +154,7 @@ public partial class Main : Node2D
     {
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
         host.RegisterStateProvider(_board);
+        host.RegisterTimeControl(_time);
         host.RegisterMainThreadCommand(
             "drop",
             args =>
@@ -243,6 +258,7 @@ public partial class Main : Node2D
         _board.Update(
             _logic.Score.CurrentValue,
             _logic.IsGameOver.CurrentValue,
+            _time.IsPaused,
             _logic.PeekNext().ToString(),
             entries
         );
