@@ -8,24 +8,20 @@ namespace Statee.Core;
 /// </summary>
 public sealed class TimeControl
 {
-    private readonly Lock _gate = new();
+    // Monitor.Wait/PulseAll でフレーム進行を通知するため System.Threading.Lock でなく object
+    private readonly object _gate = new();
 
     // Set 状態 = 「step が進行していない」。step 開始で Reset、完了・打ち切りで Set
     private readonly ManualResetEventSlim _stepIdle = new(true);
     private int _remainingFrames;
+    private long _frameCount;
     private volatile bool _isPaused;
 
     /// <summary>ポーズ中か。ゲームループはこれをエンジンのポーズに反映する。</summary>
     public bool IsPaused => _isPaused;
 
     /// <summary>OnFrame が呼ばれた累計回数(= 実際に進んだシミュレーションフレーム数)。</summary>
-    public long FrameCount => default;
-
-    /// <summary>
-    /// observedFrameCount から1フレーム以上進むまで呼び出しスレッドをブロックする(wait コマンド用)。
-    /// </summary>
-    /// <returns>タイムアウトした場合 false。</returns>
-    public bool WaitForNextFrame(long observedFrameCount, TimeSpan timeout) => default;
+    public long FrameCount => Interlocked.Read(ref _frameCount);
 
     /// <summary>即時ポーズする。進行中の step は打ち切られる。</summary>
     public void Pause()
@@ -66,12 +62,14 @@ public sealed class TimeControl
     {
         lock (_gate)
         {
-            if (_isPaused || _remainingFrames == 0)
+            if (_isPaused)
             {
                 return;
             }
 
-            if (--_remainingFrames == 0)
+            Interlocked.Increment(ref _frameCount);
+            Monitor.PulseAll(_gate);
+            if (_remainingFrames > 0 && --_remainingFrames == 0)
             {
                 _isPaused = true;
                 _stepIdle.Set();
@@ -82,4 +80,26 @@ public sealed class TimeControl
     /// <summary>進行中の step の完了(または非 step 状態)まで呼び出しスレッドをブロックする。</summary>
     /// <returns>タイムアウトした場合 false。</returns>
     public bool WaitForStep(TimeSpan timeout) => _stepIdle.Wait(timeout);
+
+    /// <summary>
+    /// observedFrameCount から1フレーム以上進むまで呼び出しスレッドをブロックする(wait コマンド用)。
+    /// </summary>
+    /// <returns>タイムアウトした場合 false。</returns>
+    public bool WaitForNextFrame(long observedFrameCount, TimeSpan timeout)
+    {
+        var deadline = System.Diagnostics.Stopwatch.StartNew();
+        lock (_gate)
+        {
+            while (Interlocked.Read(ref _frameCount) <= observedFrameCount)
+            {
+                var remaining = timeout - deadline.Elapsed;
+                if (remaining <= TimeSpan.Zero || !Monitor.Wait(_gate, remaining))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
 }

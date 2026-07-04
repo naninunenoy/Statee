@@ -52,7 +52,10 @@ public sealed class StateeHost
         _providers[provider.Path] = provider;
 
     /// <summary>登録済みプロバイダから State スナップショットを取得する(wait コマンド等の条件評価用)。</summary>
-    public object CaptureState(string path) => default!;
+    public object CaptureState(string path) =>
+        _providers.TryGetValue(path, out var provider)
+            ? provider.CaptureState()
+            : throw new KeyNotFoundException($"未知の State パス: {path}");
 
     public StateeResponse HandleRequest(StateeRequest request)
     {
