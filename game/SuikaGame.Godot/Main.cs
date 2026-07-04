@@ -99,10 +99,15 @@ public partial class Main : Node2D
             }
 
             _logic.Tick(delta);
-            _time.OnFrame();
         }
 
+        // OnFrame は wait 中のソケットスレッドを起こすため、State 更新の後に呼ぶ
+        // (先に呼ぶと wait が1フレーム古い盤面を読む)
         UpdateBoardState();
+        if (!GetTree().Paused)
+        {
+            _time.OnFrame();
+        }
     }
 
     public override void _UnhandledInput(InputEvent @event)

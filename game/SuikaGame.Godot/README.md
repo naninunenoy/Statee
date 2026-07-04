@@ -31,6 +31,13 @@ dotnet run --project src/Statee.Cli -- quit
 時間制御(D-026): `send --command pause` / `resume` /
 `send --command step --arg frames=30`(指定フレーム進めて再ポーズ。完了後に応答が返る)。
 
+条件待機(D-028): State のフィールドが条件を満たすまで進めて待つ。
+複数引数はカンマ区切りで指定する。
+
+```powershell
+dotnet run --project src/Statee.Cli -- send --command wait --arg path=game/board,field=Score,op=ge,value=1
+```
+
 `game/board` は Score / IsGameOver / NextKind / FruitCount / Fruits(Id, Kind, X, Y)を返す。
 
 ## 構成
