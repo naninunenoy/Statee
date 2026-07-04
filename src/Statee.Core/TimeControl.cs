@@ -18,6 +18,15 @@ public sealed class TimeControl
     /// <summary>ポーズ中か。ゲームループはこれをエンジンのポーズに反映する。</summary>
     public bool IsPaused => _isPaused;
 
+    /// <summary>OnFrame が呼ばれた累計回数(= 実際に進んだシミュレーションフレーム数)。</summary>
+    public long FrameCount => default;
+
+    /// <summary>
+    /// observedFrameCount から1フレーム以上進むまで呼び出しスレッドをブロックする(wait コマンド用)。
+    /// </summary>
+    /// <returns>タイムアウトした場合 false。</returns>
+    public bool WaitForNextFrame(long observedFrameCount, TimeSpan timeout) => default;
+
     /// <summary>即時ポーズする。進行中の step は打ち切られる。</summary>
     public void Pause()
     {

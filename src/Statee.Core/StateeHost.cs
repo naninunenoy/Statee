@@ -51,6 +51,9 @@ public sealed class StateeHost
     public void RegisterStateProvider(IStateProvider provider) =>
         _providers[provider.Path] = provider;
 
+    /// <summary>登録済みプロバイダから State スナップショットを取得する(wait コマンド等の条件評価用)。</summary>
+    public object CaptureState(string path) => default!;
+
     public StateeResponse HandleRequest(StateeRequest request)
     {
         if (!_commands.TryGetValue(request.Command, out var handler))
