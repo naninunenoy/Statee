@@ -60,6 +60,7 @@ dotnet build Statee.slnx
 
 | ファイル | 内容 |
 |---|---|
+| [docs/HANDOVER.md](docs/HANDOVER.md) | 引き継ぎ文書(思想・判断基準・ハマりどころ。最初に読む) |
 | [docs/PLAN.md](docs/PLAN.md) | 開発計画(目的・アーキテクチャ・フェーズ) |
 | [docs/adr/](docs/adr/) | 設計上の決定とトレードオフの記録 |
 | [docs/GUIDELINE.md](docs/GUIDELINE.md) | 開発ガイドライン(テスト設計・コーディング規約) |
