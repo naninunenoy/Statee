@@ -11,6 +11,21 @@
 3. `docs/GUIDELINE.md` — どう作るか(テスト設計・規約。**コードを書く前に必読**)
 4. `docs/adr/README.md` — なぜそうしたか(決定の索引。必要な D-xxx だけ読めばよい)
 
+## 新しい環境のセットアップ
+
+1. **.NET 10 SDK** をインストールする(全プロジェクト net10.0 統一。D-016, D-017)
+2. **Godot 4.7.stable の .NET 版**を [godotengine.org のダウンロード](https://godotengine.org/download)から入手する。
+   - 必ず「**.NET**」版(zip 名に `mono` を含む。例: `Godot_v4.7-stable_mono_win64.zip`)。
+     標準版は C# を実行できない
+   - 任意の場所に展開し、`*_console.exe` の絶対パスを **CLAUDE.md「環境の知識」に書き換える**
+     (skill・エージェントはそこを参照している)
+3. リポジトリ直下で `dotnet tool restore`(CSharpier などのローカルツール)
+4. 動作確認: `dotnet test tests/Statee.Core.Tests` が緑になること。
+   headless E2E まで確認するなら `/verify` skill の手順(初回は `--import` が必要。
+   完了後にクラッシュするが exit code は無視してよい: D-016)
+5. MCP を使うなら `dotnet build src/Statee.Mcp` 後にセッションを再起動する
+   (`.mcp.json` は登録済み。MCP サーバー実行中は Statee.Mcp を再ビルドできない点に注意)
+
 ## このプロジェクトは何か(30秒版)
 
 **AI にゲームの動作確認をさせるためのフレームワーク**を作っている。

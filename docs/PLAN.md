@@ -143,6 +143,11 @@ Statee.slnx
   ゲームオーバー到達 → 凍結確認」を完遂。フェーズ5の完了条件を最初のシナリオで満たした
 - 境界設計(物理・入力)の悩みどころは docs/adr/notes/ に書き捨てで記録中
 - 条件待機コマンド `wait` ✅(D-028。「State が条件を満たすまで進める」が一級機能に)
+- **仕掛かり: Ruby シナリオランナー(Statee.Scenario)**。ChibiRuby 埋め込みで
+  send / state / wait / assert の4語彙を実装済み・テスト11件緑(D-029)だが、
+  **CLI に `run <scenario.rb>` コマンドとして未接続**。次の一手はこの接続
+  (StateeClient を IScenarioClient として渡すだけの薄い配線)と、
+  実シナリオ(合体スコア検証)での E2E 確認
 - 次: シナリオ拡充(連鎖合体、UI/幾何検証)、InputEvent 注入、UI 幾何の State 公開、
   静止判定(IsSleeping)の State 追加(D-027)
 

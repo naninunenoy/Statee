@@ -13,8 +13,8 @@ description: >-
 
 ## 0. 前提
 
-- Godot は **.NET 版**の絶対パスを使う(標準版は C# を実行できない):
-  `C:\Users\naninunenoy\Downloads\Godot_v4.7-stable_mono_win64\Godot_v4.7-stable_mono_win64\Godot_v4.7-stable_mono_win64_console.exe`
+- Godot は **.NET 版**の絶対パスを使う(標準版は C# を実行できない)。
+  パスは CLAUDE.md「環境の知識」に記載のもの(`*_console.exe`)を使う
 - ターゲットは2つ。確認対象に応じて選ぶ:
   - `sandbox/PingTarget.Godot` … フレームワーク(`src/`)の疎通・プロトコル確認用の最小ターゲット
   - `game/SuikaGame.Godot` … ゲーム込みのシナリオ確認用(drop / pause / step / wait / 合体 / ゲームオーバー)

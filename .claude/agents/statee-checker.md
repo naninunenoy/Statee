@@ -25,8 +25,10 @@ model: haiku
 ## ターゲットの起動(PingTarget の場合)
 
 ```
-& "C:\Users\naninunenoy\Downloads\Godot_v4.7-stable_mono_win64\Godot_v4.7-stable_mono_win64\Godot_v4.7-stable_mono_win64_console.exe" --headless --path sandbox/PingTarget.Godot -- --port=9310
+& "<godot_console.exe>" --headless --path sandbox/PingTarget.Godot -- --port=9310
 ```
+
+- `<godot_console.exe>` は CLAUDE.md「環境の知識」に記載の Godot .NET 版のパス
 
 - バックグラウンドで起動し、接続拒否されたら待ち受け開始前なので少し待って再試行する
 - 事前ビルドが必要なら `dotnet build sandbox/PingTarget.Godot`
