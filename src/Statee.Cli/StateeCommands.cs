@@ -1,7 +1,7 @@
 namespace Statee.Cli;
 
 /// <summary>
-/// Statee を組み込んだターゲット(ゲーム)へ TCP でコマンドを送る汎用 CLI(docs/MEMO.md D-018)。
+/// Statee を組み込んだターゲット(ゲーム)へ TCP でコマンドを送る汎用 CLI(docs/adr/D-018.md)。
 /// 成功時は payload(TOON)を stdout に出力し exit 0、失敗時は stderr に理由を出力し exit 1。
 /// </summary>
 public class StateeCommands

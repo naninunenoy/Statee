@@ -8,7 +8,7 @@ namespace Statee.Generator;
 
 /// <summary>
 /// [StateeState] を付与した partial class に IStateProvider 実装を生成する
-/// incremental generator(docs/MEMO.md D-022)。
+/// incremental generator(docs/adr/D-022.md)。
 /// スナップショットは [StateeField] を付与したプロパティ・フィールドの現在値を持つ匿名型。
 /// </summary>
 [Generator]

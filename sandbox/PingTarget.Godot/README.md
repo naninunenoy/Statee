@@ -1,6 +1,6 @@
 # PingTarget.Godot
 
-フレームワーク検証用の最小ダミーターゲット(docs/MEMO.md D-013)。
+フレームワーク検証用の最小ダミーターゲット(docs/adr/D-013.md)。
 StateeHost を組み込んだ Godot プロジェクトで、ping / state / logs / quit に応答する。
 
 起動(Godot は .NET 版を使うこと):

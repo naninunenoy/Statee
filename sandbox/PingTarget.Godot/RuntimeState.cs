@@ -6,7 +6,7 @@ using Statee.Core;
 namespace PingTarget;
 
 /// <summary>
-/// 可変の system State(docs/MEMO.md D-019)。
+/// 可変の system State(docs/adr/D-019.md)。
 /// IStateProvider 実装はソースジェネレータが生成する(D-022)。
 /// ソケットスレッドから読まれるため、可変値は Interlocked / Stopwatch でスレッド安全にする。
 /// </summary>

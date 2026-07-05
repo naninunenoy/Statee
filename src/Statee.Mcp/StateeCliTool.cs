@@ -5,7 +5,7 @@ using ModelContextProtocol.Server;
 namespace Statee.Mcp;
 
 /// <summary>
-/// Statee CLI を起動するだけの汎用ツール(docs/MEMO.md D-001, D-018)。
+/// Statee CLI を起動するだけの汎用ツール(docs/adr/D-001.md, D-018)。
 /// ゲーム依存の知識を持たないため、ゲーム側が変わっても MCP サーバーの再ビルドは不要。
 /// </summary>
 [McpServerToolType]

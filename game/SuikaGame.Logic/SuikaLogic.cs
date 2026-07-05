@@ -4,7 +4,7 @@ using R3;
 namespace SuikaGame.Logic;
 
 /// <summary>
-/// スイカゲームの規則エンジン(docs/MEMO.md D-024)。物理は持たず、Godot 層からの
+/// スイカゲームの規則エンジン(docs/adr/D-024.md)。物理は持たず、Godot 層からの
 /// 接触・溢れ報告と Tick(D-023: 外部駆動・壁時計禁止)で状態が進む。
 /// フルーツは Arch の Entity として管理する。
 /// </summary>

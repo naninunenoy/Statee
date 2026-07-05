@@ -30,7 +30,7 @@ model: haiku
 
 - バックグラウンドで起動し、接続拒否されたら待ち受け開始前なので少し待って再試行する
 - 事前ビルドが必要なら `dotnet build sandbox/PingTarget.Godot`
-- 初回のみ `--import` が必要(完了後にクラッシュするので exit code は無視: docs/MEMO.md D-016)
+- 初回のみ `--import` が必要(完了後にクラッシュするので exit code は無視: docs/adr/D-016.md)
 
 ## 確認の進め方
 

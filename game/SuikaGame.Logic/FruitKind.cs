@@ -1,6 +1,6 @@
 namespace SuikaGame.Logic;
 
-/// <summary>フルーツの種類。値の昇順に大きくなり、同種の接触で次の種に合体する(docs/MEMO.md D-024)。</summary>
+/// <summary>フルーツの種類。値の昇順に大きくなり、同種の接触で次の種に合体する(docs/adr/D-024.md)。</summary>
 public enum FruitKind
 {
     Cherry = 0,

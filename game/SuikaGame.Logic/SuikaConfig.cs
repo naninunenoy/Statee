@@ -1,6 +1,6 @@
 namespace SuikaGame.Logic;
 
-/// <summary>ゲームルールの調整値(docs/MEMO.md D-024)。</summary>
+/// <summary>ゲームルールの調整値(docs/adr/D-024.md)。</summary>
 public sealed record SuikaConfig
 {
     /// <summary>溢れ状態がこの秒数連続したらゲームオーバー。</summary>

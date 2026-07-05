@@ -8,7 +8,7 @@ using ZLogger;
 namespace PingTarget;
 
 /// <summary>
-/// フレームワーク検証用の最小ダミーターゲット(docs/MEMO.md D-013, D-018)。
+/// フレームワーク検証用の最小ダミーターゲット(docs/adr/D-013.md, D-018)。
 /// StateeHost を組み込み、ping / state / logs / quit に応答する。
 /// </summary>
 public partial class Main : Node

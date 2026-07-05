@@ -1,6 +1,6 @@
 namespace Statee.Core;
 
-/// <summary>リクエストへの応答。ワイヤ上は1行 JSON。Payload は TOON 文字列(docs/MEMO.md D-018)。</summary>
+/// <summary>リクエストへの応答。ワイヤ上は1行 JSON。Payload は TOON 文字列(docs/adr/D-018.md)。</summary>
 public sealed record StateeResponse(
     string Id,
     string Status,

@@ -1,7 +1,7 @@
 namespace Statee.Cli;
 
 /// <summary>
-/// 環境変数 STATEE_TRACE にファイルパスが設定されていれば、ワイヤ入出力を追記する(docs/MEMO.md D-021)。
+/// 環境変数 STATEE_TRACE にファイルパスが設定されていれば、ワイヤ入出力を追記する(docs/adr/D-021.md)。
 /// 先頭の ~ はユーザープロファイルに展開する。トレースはベストエフォートで、失敗しても動作に影響させない。
 /// </summary>
 internal static class WireTrace

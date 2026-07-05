@@ -7,5 +7,5 @@
 - ハンドラの戻り値は `ToonEncoder.Encode` に渡る。TOON 化できる形
   (匿名型・record・`IReadOnlyList<T>`)を返す規約を崩さない
 - `[StateeState]` / `[StateeField]` の仕様を変えるときは Statee.Generator と
-  そのテストを同時に更新する(docs/MEMO.md D-022)
+  そのテストを同時に更新する(docs/adr/D-022.md)
 - 変更はまず `tests/Statee.Core.Tests` の失敗するテストから(docs/GUIDELINE.md §6)

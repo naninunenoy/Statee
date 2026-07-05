@@ -1,0 +1,51 @@
+# 設計決定の記録(ADR)
+
+設計判断を1決定=1ファイル(`D-0xx.md`)で記録する。
+各ファイルは「決定 / 背景 / トレードオフ / 状態」を持つ。
+未決のものは【未決】、暫定のものは【暫定】を付ける。
+
+- 新しい決定は次の番号で `D-0xx.md` を作成し、この索引に1行追加する
+- `notes/` は境界設計の悩みどころの書き捨てメモ。正式な決定になったら D-xxx へ昇格させる
+
+## 索引
+
+| ID | タイトル |
+|---|---|
+| [D-001](D-001.md) | AI 連携は MCP、ゲーム依存実装は CLI に分離 |
+| [D-002](D-002.md) | State は pull 型スナップショット、TOON でシリアライズ |
+| [D-003](D-003.md) | 時間制御コマンドと headless 前提 |
+| [D-004](D-004.md) | ECS は Arch |
+| [D-005](D-005.md) | メッセージングは VitalRouter |
+| [D-006](D-006.md) | ID 等の ValueObject は UnitGenerator |
+| [D-007](D-007.md) | テストは xUnit + Shouldly |
+| [D-008](D-008.md) | ログは ZLogger、AI がログを参照できる機能を持つ |
+| [D-009](D-009.md) | リアクティブは R3 |
+| [D-010](D-010.md) | サンプルゲームはスイカゲーム |
+| [D-011](D-011.md) | 物理は Godot の物理エンジンを使う |
+| [D-012](D-012.md) | CLI ⇔ ゲーム間トランスポートは TCP (localhost) |
+| [D-013](D-013.md) | フレームワーク開発中はサンプルゲームの事情を持ち込まない |
+| [D-014](D-014.md) | unity-coding-skills のエッセンスを開発ガイドラインとして採用 |
+| [D-015](D-015.md) | .cs 編集時に dotnet format + CSharpier を自動実行する hooks |
+| [D-016](D-016.md) | Godot 4.7 × .NET 10 の互換性検証(フェーズ 0) |
+| [D-017](D-017.md) | ライブラリの .NET 10 互換検証(フェーズ 0) |
+| [D-018](D-018.md) | ping 縦切りスライスの設計(ワイヤプロトコル確定) |
+| [D-019](D-019.md) | State を「起動時に確定(不変)」と「可変」でパス分割する |
+| [D-020](D-020.md) | 挙動確認は Haiku のサブエージェントに委譲する |
+| [D-021](D-021.md) | ワイヤ入出力のトレースは STATEE_TRACE 環境変数で opt-in |
+| [D-022](D-022.md) | State 公開の宣言は Attribute、拘束の実体は interface |
+| [D-023](D-023.md) | ゲームロジック層は外部 tick 駆動・壁時計禁止 |
+| [D-024](D-024.md) | スイカゲームロジックの設計【暫定】 |
+| [D-025](D-025.md) | Godot API を触るコマンドは MainThreadDispatcher で同期ディスパッチ |
+| [D-026](D-026.md) | pause / step は TimeControl(エンジン非依存)+ 標準コマンドで提供 |
+| [D-027](D-027.md) | フェーズ5: AI が MCP 経由で動作確認シナリオを完遂(初回実証) |
+| [D-028](D-028.md) | 条件待機は wait コマンド(State フィールドの条件成立まで進める) |
+| [D-029](D-029.md) | シナリオ内の例外はすべて StandardError で raise する |
+| [D-030](D-030.md) | 決定記録を docs/adr 下に1決定1ファイルで分割 |
+
+## notes(書き捨てメモ)
+
+| ファイル | 内容 |
+|---|---|
+| [main-thread-dispatch](notes/main-thread-dispatch.md) | メインスレッドディスパッチの設計経緯(→ D-025 へ昇格) |
+| [godot-synchronizationcontext](notes/godot-synchronizationcontext.md) | Godot の SynchronizationContext による自己デッドロック(実バグ) |
+| [suika-physics-boundary](notes/suika-physics-boundary.md) | スイカゲーム最小シーンの物理 ↔ ロジック境界 |

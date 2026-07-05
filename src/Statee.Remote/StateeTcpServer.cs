@@ -7,7 +7,7 @@ namespace Statee.Remote;
 
 /// <summary>
 /// localhost の TCP で待ち受け、改行区切りの1行 JSON リクエストを StateeHost に委譲する。
-/// 1接続で複数リクエスト可。不正な JSON 行には error 応答を返し、接続は維持する(docs/MEMO.md D-018)。
+/// 1接続で複数リクエスト可。不正な JSON 行には error 応答を返し、接続は維持する(docs/adr/D-018.md)。
 /// </summary>
 public sealed class StateeTcpServer(StateeHost host, int port) : IAsyncDisposable
 {

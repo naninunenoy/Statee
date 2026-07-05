@@ -1,7 +1,7 @@
 # Statee.Generator
 
 `[StateeState]` を付与した partial class に `IStateProvider` 実装を生成する
-Roslyn incremental generator(docs/MEMO.md D-022)。
+Roslyn incremental generator(docs/adr/D-022.md)。
 
 ```csharp
 [StateeState("system/runtime")]

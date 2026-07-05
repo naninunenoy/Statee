@@ -1,7 +1,7 @@
 namespace Statee.Core;
 
 /// <summary>
-/// pause / step 実行の中核(docs/MEMO.md D-003)。エンジン非依存。
+/// pause / step 実行の中核(docs/adr/D-003.md)。エンジン非依存。
 /// ゲームループが「ポーズ中でない間」毎フレーム OnFrame() を呼び、
 /// ゲーム側は IsPaused を自身のポーズ機構(Godot なら SceneTree.Paused)に写す。
 /// Pause/Resume/Step はソケットスレッドから、OnFrame はメインスレッドから呼ばれる。

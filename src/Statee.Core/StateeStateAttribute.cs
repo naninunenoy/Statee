@@ -1,7 +1,7 @@
 namespace Statee.Core;
 
 /// <summary>
-/// State を公開する型に付与する(docs/MEMO.md D-022)。
+/// State を公開する型に付与する(docs/adr/D-022.md)。
 /// partial class に付与すると、ソースジェネレータが <see cref="IStateProvider"/> 実装を生成する。
 /// 公開するメンバーには <see cref="StateeFieldAttribute"/> を付与する。
 /// </summary>

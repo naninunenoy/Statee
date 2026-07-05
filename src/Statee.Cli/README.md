@@ -14,4 +14,4 @@ dotnet run --project src/Statee.Cli -- quit
 - 成功: payload(TOON)を stdout に出力して exit 0。失敗: stderr に理由を出力して exit 1
 - 接続先は `--port`(既定 9310)
 - 環境変数 `STATEE_TRACE` にファイルパスを設定すると、ワイヤ入出力を追記する
-  (docs/MEMO.md D-021。`~` はユーザープロファイルに展開)
+  (docs/adr/D-021.md。`~` はユーザープロファイルに展開)

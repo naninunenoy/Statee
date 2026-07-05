@@ -11,7 +11,7 @@ namespace Statee.Remote.Tests;
 /// <summary>
 /// Godot .NET は await の継続をメインスレッドへ戻す SynchronizationContext を
 /// インストールする。サーバーがそれを捕捉すると、メインスレッドコマンドの待機が
-/// メインスレッド自身をブロックして自己デッドロックする(docs/NOTES.md)。その再現テスト。
+/// メインスレッド自身をブロックして自己デッドロックする(docs/adr/notes/godot-synchronizationcontext.md)。その再現テスト。
 /// </summary>
 [Trait("Category", "Integration")]
 public class SynchronizationContextTest

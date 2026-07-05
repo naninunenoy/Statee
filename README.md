@@ -61,6 +61,6 @@ dotnet build Statee.slnx
 | ファイル | 内容 |
 |---|---|
 | [docs/PLAN.md](docs/PLAN.md) | 開発計画(目的・アーキテクチャ・フェーズ) |
-| [docs/MEMO.md](docs/MEMO.md) | 設計上の決定とトレードオフの記録 |
+| [docs/adr/](docs/adr/) | 設計上の決定とトレードオフの記録 |
 | [docs/GUIDELINE.md](docs/GUIDELINE.md) | 開発ガイドライン(テスト設計・コーディング規約) |
 | [CLAUDE.md](CLAUDE.md) | AI Agent 向けの開発指針 |

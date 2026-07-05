@@ -88,7 +88,7 @@ public partial class Main : Node2D
         // (IsPaused の変更がツリーへ反映されるまでの1フレームのずれを数えない)
         if (!GetTree().Paused)
         {
-            // 溢れ判定は Area2D でなく毎フレームの位置走査で行う(理由は docs/NOTES.md)。
+            // 溢れ判定は Area2D でなく毎フレームの位置走査で行う(理由は docs/adr/notes/suika-physics-boundary.md)。
             // 落下直後の誤検知を避けるため、一度でも接触したフルーツだけを対象にする
             foreach (var (id, fruit) in _fruits)
             {

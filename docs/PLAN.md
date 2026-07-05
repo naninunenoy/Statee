@@ -57,7 +57,7 @@ AI による自動確認の再現性を担保する要。
 ## テスト方針
 
 詳細は **GUIDELINE.md**([unity-coding-skills](https://github.com/nowsprinting/unity-coding-skills)
-のエッセンスを本プロジェクト向けに翻案したもの。MEMO.md D-014)。要点:
+のエッセンスを本プロジェクト向けに翻案したもの。docs/adr/D-014.md)。要点:
 
 - 基本理念は「**Green means done**」— エージェントが自律開発できるよう、テストの緑を信頼できる完了シグナルに保つ
 - テストはレイヤー化する: 純C#ユニットテスト(最厚)→ headless Godot 統合テスト(薄く)→
@@ -73,7 +73,7 @@ AI による自動確認の再現性を担保する要。
 | 領域 | 採用 | 備考 |
 |---|---|---|
 | 言語 / ランタイム | C# / .NET 10 | |
-| ゲームエンジン | Godot 4.7.stable(.NET 版) | net10.0 ターゲット検証済み(MEMO.md D-016) |
+| ゲームエンジン | Godot 4.7.stable(.NET 版) | net10.0 ターゲット検証済み(docs/adr/D-016.md) |
 | ECS | [Arch](https://github.com/genaray/Arch) | |
 | メッセージング | [VitalRouter](https://github.com/hadashiA/VitalRouter) | |
 | リアクティブ | [R3](https://github.com/Cysharp/R3) | システム全体で使用 |
@@ -81,7 +81,7 @@ AI による自動確認の再現性を担保する要。
 | ID 等 ValueObject | [UnitGenerator](https://github.com/Cysharp/UnitGenerator) | |
 | State シリアライズ | [ToonEncoder](https://github.com/Cysharp/ToonEncoder) | TOON 形式 |
 | CLI | [ConsoleAppFramework](https://github.com/Cysharp/ConsoleAppFramework) | |
-| AI 連携 | MCP | ゲーム依存実装は CLI に分離(MEMO.md D-001) |
+| AI 連携 | MCP | ゲーム依存実装は CLI に分離(docs/adr/D-001.md) |
 | テスト | xUnit + Shouldly | |
 
 ## ソリューション構成(案)
@@ -116,9 +116,9 @@ Statee.slnx
 - スコア、ゲームオーバー判定(容器から溢れる)を持つ
 - シーン遷移(タイトル → ゲーム → リザルト)、UI、多数のオブジェクト状態が揃い、
   フレームワークの検証対象として十分な要素を持つ
-- 物理(落下・衝突)は Godot の物理エンジンを使う(MEMO.md D-011)
+- 物理(落下・衝突)は Godot の物理エンジンを使う(docs/adr/D-011.md)
 
-**注意**: フレームワークを作る間はスイカゲームのことは忘れて設計する(MEMO.md D-013)。
+**注意**: フレームワークを作る間はスイカゲームのことは忘れて設計する(docs/adr/D-013.md)。
 フレームワークの検証には最小のダミーターゲットを使い、スイカゲームはフェーズ 3 以降で扱う。
 
 ## 開発フェーズ
@@ -141,7 +141,7 @@ Statee.slnx
   シード注入(`-- --seed=`)込みで決定論的に操作・観測できる
 - **初回シナリオ完遂 ✅(D-027)**: AI が MCP 経由で「合体スコア検証 →
   ゲームオーバー到達 → 凍結確認」を完遂。フェーズ5の完了条件を最初のシナリオで満たした
-- 境界設計(物理・入力)の悩みどころは docs/NOTES.md に書き捨てで記録中
+- 境界設計(物理・入力)の悩みどころは docs/adr/notes/ に書き捨てで記録中
 - 条件待機コマンド `wait` ✅(D-028。「State が条件を満たすまで進める」が一級機能に)
 - 次: シナリオ拡充(連鎖合体、UI/幾何検証)、InputEvent 注入、UI 幾何の State 公開、
   静止判定(IsSleeping)の State 追加(D-027)
@@ -149,4 +149,4 @@ Statee.slnx
 ## 未決事項
 
 - なし。**フェーズ 0(環境検証)は完了**:
-  Godot 4.7 × net10.0(MEMO.md D-016)、Arch 実行検証・ライブラリ互換(MEMO.md D-017)
+  Godot 4.7 × net10.0(docs/adr/D-016.md)、Arch 実行検証・ライブラリ互換(docs/adr/D-017.md)

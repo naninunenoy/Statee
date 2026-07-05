@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace Statee.Core;
 
-/// <summary>ワイヤ(1行 JSON)と DTO の相互変換(docs/MEMO.md D-018)。Remote と CLI が共用する。</summary>
+/// <summary>ワイヤ(1行 JSON)と DTO の相互変換(docs/adr/D-018.md)。Remote と CLI が共用する。</summary>
 public static class StateeJson
 {
     private static readonly JsonSerializerOptions Options = new()
