@@ -8,11 +8,22 @@ namespace SuikaGame.Logic;
 /// </summary>
 public sealed class GameFlow : IDisposable
 {
+    private readonly ReactiveProperty<GamePhase> _phase = new(GamePhase.Title);
+
     /// <summary>現在のフェーズ。初期状態はタイトル。</summary>
-    public ReadOnlyReactiveProperty<GamePhase> Phase => throw new NotImplementedException();
+    public ReadOnlyReactiveProperty<GamePhase> Phase => _phase;
 
     /// <summary>ゲームを開始する。タイトルにいるときだけ Playing へ遷移し true を返す。</summary>
-    public bool StartGame() => throw new NotImplementedException();
+    public bool StartGame()
+    {
+        if (_phase.Value != GamePhase.Title)
+        {
+            return false;
+        }
 
-    public void Dispose() => throw new NotImplementedException();
+        _phase.Value = GamePhase.Playing;
+        return true;
+    }
+
+    public void Dispose() => _phase.Dispose();
 }
