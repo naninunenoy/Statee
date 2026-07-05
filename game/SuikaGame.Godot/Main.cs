@@ -228,6 +228,27 @@ public partial class Main : Node2D
             }
         );
         host.RegisterMainThreadCommand(
+            "click",
+            args =>
+            {
+                var position = new Vector2(
+                    float.Parse(
+                        args.GetString("x")
+                            ?? throw new InvalidOperationException("x を指定すること"),
+                        CultureInfo.InvariantCulture
+                    ),
+                    float.Parse(
+                        args.GetString("y")
+                            ?? throw new InvalidOperationException("y を指定すること"),
+                        CultureInfo.InvariantCulture
+                    )
+                );
+                PushClick(position);
+                _logger.ZLogInformation($"click x={position.X} y={position.Y}");
+                return new { X = position.X, Y = position.Y };
+            }
+        );
+        host.RegisterMainThreadCommand(
             "quit",
             _ =>
             {
@@ -239,6 +260,36 @@ public partial class Main : Node2D
         _server = new StateeTcpServer(host, ParseIntArg("--port=", DefaultPort));
         _server.Start();
         _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
+    }
+
+    /// <summary>
+    /// 実際の入力経路で左クリックを再現する(GUIDELINE 3.2, D-031 スライス③)。
+    /// UI のヒットテストを通るため、非表示・無効なボタンへのクリックは正しく「効かない」。
+    /// </summary>
+    private void PushClick(Vector2 position)
+    {
+        var viewport = GetViewport();
+        viewport.PushInput(
+            new InputEventMouseMotion { Position = position, GlobalPosition = position }
+        );
+        viewport.PushInput(
+            new InputEventMouseButton
+            {
+                Position = position,
+                GlobalPosition = position,
+                ButtonIndex = MouseButton.Left,
+                Pressed = true,
+            }
+        );
+        viewport.PushInput(
+            new InputEventMouseButton
+            {
+                Position = position,
+                GlobalPosition = position,
+                ButtonIndex = MouseButton.Left,
+                Pressed = false,
+            }
+        );
     }
 
     private (FruitId Id, FruitKind Kind, float X)? Drop()

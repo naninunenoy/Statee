@@ -148,12 +148,12 @@ Statee.slnx
   **CLI に `run <scenario.rb>` コマンドとして未接続**。次の一手はこの接続
   (StateeClient を IScenarioClient として渡すだけの薄い配線)と、
   実シナリオ(合体スコア検証)での E2E 確認
-- **UI 導入スライス①完了(D-031)**: タイトル画面(開始 / 終了)とスコア HUD を導入。
-  画面遷移は純C#の `GameFlow`(Title → Playing)、`game/scene` State と `start` コマンドで
-  外部から観測・駆動できる(headless E2E 確認済み)
-- 次: UI 導入スライス②(UI 幾何・テキストの State 公開 → スコア表示の幾何述語検証)、
-  スライス③(InputEvent 注入。`start` を入力経路経由に置換)、
-  シナリオ拡充(連鎖合体)、静止判定(IsSleeping)の State 追加(D-027)
+- **UI 導入 全3スライス完了(D-031)**: タイトル画面(開始 / 終了)とスコア HUD を導入。
+  ① 画面遷移は純C#の `GameFlow`(Title → Playing)+ `game/scene` State + `start` コマンド、
+  ② UI 幾何・テキストの `game/ui` State(GUIDELINE §7-2)、
+  ③ `click` コマンドによる InputEvent 注入(GUIDELINE §7-3)。headless E2E 確認済み
+- 次: シナリオ拡充(連鎖合体、UI/幾何検証をシナリオ化)、
+  静止判定(IsSleeping)の State 追加(D-027)
 
 ## 未決事項
 
