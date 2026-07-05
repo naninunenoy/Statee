@@ -16,7 +16,8 @@ namespace SuikaGame;
 /// 規則(合体・スコア・ゲームオーバー)は SuikaGame.Logic に委ねる(D-011, D-024)。
 /// 境界: 接触 → ReportContact / 溢れ → SetOverflowing / 時間 → Tick、
 /// 逆向きは Merges 購読で物理ボディを差し替える。
-/// Statee を組み込み、drop コマンドと盤面 State(game/board)を外部へ公開する。
+/// Statee を組み込み、start / drop コマンドと State(game/board, game/scene)を外部へ公開する。
+/// 画面遷移(タイトル → プレイ)の規則は GameFlow が持ち、ここは Phase 購読で UI を差し替えるだけ。
 /// </summary>
 public partial class Main : Node2D
 {
@@ -31,8 +32,12 @@ public partial class Main : Node2D
     private readonly Dictionary<FruitId, Fruit> _fruits = [];
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly BoardState _board = new();
+    private readonly SceneState _scene = new();
     private readonly TimeControl _time = new();
+    private readonly GameFlow _flow = new();
     private SuikaLogic _logic = null!;
+    private Control _titleScreen = null!;
+    private Label _scoreLabel = null!;
     private IDisposable _subscriptions = null!;
     private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
@@ -55,18 +60,23 @@ public partial class Main : Node2D
         _logger = _loggerFactory.CreateLogger<Main>();
 
         _logic = new SuikaLogic(ParseIntArg("--seed=", DefaultSeed));
+        BuildUi();
         var subscriptions = Disposable.CreateBuilder();
         _logic.Merges.Subscribe(Logic_MergeOccurred).AddTo(ref subscriptions);
         _logic
-            .Score.Subscribe(score => _logger.ZLogInformation($"スコア: {score}"))
+            .Score.Subscribe(score =>
+            {
+                _scoreLabel.Text = $"スコア: {score}";
+                _logger.ZLogInformation($"スコア: {score}");
+            })
             .AddTo(ref subscriptions);
         _logic
             .IsGameOver.Where(gameOver => gameOver)
             .Subscribe(_ => _logger.ZLogInformation($"ゲームオーバー"))
             .AddTo(ref subscriptions);
+        _flow.Phase.Subscribe(Flow_PhaseChanged).AddTo(ref subscriptions);
         _subscriptions = subscriptions.Build();
 
-        BuildContainer();
         StartStatee(buffer);
         _logger.ZLogInformation($"SuikaGame 起動 next={_logic.PeekNext()}");
 
@@ -112,6 +122,11 @@ public partial class Main : Node2D
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (_flow.Phase.CurrentValue != GamePhase.Playing)
+        {
+            return;
+        }
+
         switch (@event)
         {
             case InputEventMouseMotion motion:
@@ -125,6 +140,11 @@ public partial class Main : Node2D
 
     public override void _Draw()
     {
+        if (_flow.Phase.CurrentValue != GamePhase.Playing)
+        {
+            return;
+        }
+
         var wallColor = new Color(0.35f, 0.3f, 0.25f);
         DrawLine(
             new Vector2(WallLeft, OverflowLineY),
@@ -151,6 +171,7 @@ public partial class Main : Node2D
     {
         _server?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
         _subscriptions.Dispose();
+        _flow.Dispose();
         _logic.Dispose();
         _loggerFactory?.Dispose();
     }
@@ -159,7 +180,21 @@ public partial class Main : Node2D
     {
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
         host.RegisterStateProvider(_board);
+        host.RegisterStateProvider(_scene);
         host.RegisterTimeControl(_time);
+        host.RegisterMainThreadCommand(
+            "start",
+            _ =>
+            {
+                if (!_flow.StartGame())
+                {
+                    throw new InvalidOperationException("タイトル画面ではないので開始できない");
+                }
+
+                _logger.ZLogInformation($"ゲーム開始");
+                return new { Phase = _flow.Phase.CurrentValue.ToString() };
+            }
+        );
         host.RegisterMainThreadCommand(
             "drop",
             args =>
@@ -167,6 +202,11 @@ public partial class Main : Node2D
                 if (args.GetString("x") is { } xText)
                 {
                     _dropX = float.Parse(xText, CultureInfo.InvariantCulture);
+                }
+
+                if (_flow.Phase.CurrentValue != GamePhase.Playing)
+                {
+                    throw new InvalidOperationException("プレイ中ではないので投下できない");
                 }
 
                 var dropped =
@@ -199,7 +239,7 @@ public partial class Main : Node2D
 
     private (FruitId Id, FruitKind Kind, float X)? Drop()
     {
-        if (_logic.IsGameOver.CurrentValue)
+        if (_flow.Phase.CurrentValue != GamePhase.Playing || _logic.IsGameOver.CurrentValue)
         {
             return null;
         }
@@ -269,6 +309,52 @@ public partial class Main : Node2D
         );
     }
 
+    /// <summary>
+    /// タイトル画面とプレイ中 HUD を構築する。ノード名は安定 ID(GUIDELINE 3.4)。
+    /// </summary>
+    private void BuildUi()
+    {
+        var startButton = new Button { Name = "StartButton", Text = "はじめる" };
+        startButton.Pressed += () => _flow.StartGame();
+        var exitButton = new Button { Name = "ExitButton", Text = "おわる" };
+        exitButton.Pressed += () => GetTree().Quit();
+
+        var menu = new VBoxContainer { Name = "TitleMenu" };
+        menu.SetAnchorsPreset(Control.LayoutPreset.Center);
+        menu.AddChild(new Label { Name = "TitleLabel", Text = "スイカゲーム" });
+        menu.AddChild(startButton);
+        menu.AddChild(exitButton);
+
+        _titleScreen = new Control { Name = "TitleScreen" };
+        _titleScreen.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _titleScreen.AddChild(menu);
+
+        _scoreLabel = new Label
+        {
+            Name = "ScoreLabel",
+            Text = "スコア: 0",
+            Position = new Vector2(16f, 16f),
+            Visible = false,
+        };
+
+        var ui = new CanvasLayer { Name = "Ui" };
+        ui.AddChild(_titleScreen);
+        ui.AddChild(_scoreLabel);
+        AddChild(ui);
+    }
+
+    private void Flow_PhaseChanged(GamePhase phase)
+    {
+        _scene.Update(phase.ToString());
+        _titleScreen.Visible = phase == GamePhase.Title;
+        _scoreLabel.Visible = phase == GamePhase.Playing;
+        if (phase == GamePhase.Playing)
+        {
+            BuildContainer();
+            QueueRedraw();
+        }
+    }
+
     private void BuildContainer()
     {
         var container = new StaticBody2D { Name = "Container" };
@@ -306,6 +392,7 @@ public partial class Main : Node2D
     /// </summary>
     private void RunSmoke()
     {
+        _flow.StartGame();
         _logic
             .Merges.Take(1)
             .Subscribe(merge =>

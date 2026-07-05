@@ -13,7 +13,8 @@
 <godot> --headless --path game/SuikaGame.Godot -- --smoke
 ```
 
-- マウス移動で投下位置を決め、左クリックで次のフルーツを落とす
+- 起動するとタイトル画面。「はじめる」でプレイ開始、「おわる」で終了
+- マウス移動で投下位置を決め、左クリックで次のフルーツを落とす(プレイ中のみ)
 - 赤い破線がゲームオーバーライン。接触済みフルーツが猶予時間(1秒)を超えて
   ラインより上に留まるとゲームオーバー
 
@@ -22,7 +23,9 @@
 TCP(既定 port 9310、`-- --port=` で変更可。`-- --seed=` で乱数シード注入)で待ち受ける。
 
 ```powershell
-dotnet run --project src/Statee.Cli -- send --command drop --arg x=300  # フルーツ投下
+dotnet run --project src/Statee.Cli -- send --command start             # タイトル → プレイ開始
+dotnet run --project src/Statee.Cli -- send --command drop --arg x=300  # フルーツ投下(プレイ中のみ)
+dotnet run --project src/Statee.Cli -- state --path game/scene          # 画面フェーズ(Title / Playing)
 dotnet run --project src/Statee.Cli -- state --path game/board          # スコア・盤面
 dotnet run --project src/Statee.Cli -- logs                             # ゲームログ
 dotnet run --project src/Statee.Cli -- quit
@@ -47,3 +50,4 @@ dotnet run --project src/Statee.Cli -- send --command wait --arg path=game/board
 | `Main.cs` | エントリポイント。容器の構築、入力、ロジックとの境界配線、Statee 組み込み |
 | `Fruit.cs` | フルーツの RigidBody2D。接触をイベントで上位へ報告するだけ |
 | `BoardState.cs` | 盤面 State のスレッド境界ブリッジ(`[StateeState]`) |
+| `SceneState.cs` | 画面フェーズ State のスレッド境界ブリッジ(`[StateeState]`) |
