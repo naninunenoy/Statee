@@ -33,6 +33,8 @@ public partial class Main : Node2D
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly BoardState _board = new();
     private readonly SceneState _scene = new();
+    private readonly UiState _ui = new();
+    private readonly List<Control> _uiElements = [];
     private readonly TimeControl _time = new();
     private readonly GameFlow _flow = new();
     private SuikaLogic _logic = null!;
@@ -114,6 +116,7 @@ public partial class Main : Node2D
         // OnFrame は wait 中のソケットスレッドを起こすため、State 更新の後に呼ぶ
         // (先に呼ぶと wait が1フレーム古い盤面を読む)
         UpdateBoardState();
+        UpdateUiState();
         if (!GetTree().Paused)
         {
             _time.OnFrame();
@@ -181,6 +184,7 @@ public partial class Main : Node2D
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
         host.RegisterStateProvider(_board);
         host.RegisterStateProvider(_scene);
+        host.RegisterStateProvider(_ui);
         host.RegisterTimeControl(_time);
         host.RegisterMainThreadCommand(
             "start",
@@ -320,13 +324,11 @@ public partial class Main : Node2D
         exitButton.Pressed += () => GetTree().Quit();
 
         var menu = new VBoxContainer { Name = "TitleMenu" };
-        menu.SetAnchorsPreset(Control.LayoutPreset.Center);
         menu.AddChild(new Label { Name = "TitleLabel", Text = "スイカゲーム" });
         menu.AddChild(startButton);
         menu.AddChild(exitButton);
 
         _titleScreen = new Control { Name = "TitleScreen" };
-        _titleScreen.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _titleScreen.AddChild(menu);
 
         _scoreLabel = new Label
@@ -341,6 +343,45 @@ public partial class Main : Node2D
         ui.AddChild(_titleScreen);
         ui.AddChild(_scoreLabel);
         AddChild(ui);
+        // アンカーはツリーに入って親サイズが確定してから設定する
+        // (親なしで呼ぶとサイズ 0 のまま確定し、中央寄せが効かない)
+        _titleScreen.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        menu.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.Center);
+
+        _uiElements.AddRange([
+            menu.GetNode<Control>("TitleLabel"),
+            startButton,
+            exitButton,
+            _scoreLabel,
+        ]);
+    }
+
+    private void UpdateUiState()
+    {
+        var entries = new UiState.ElementEntry[_uiElements.Count];
+        for (var i = 0; i < _uiElements.Count; i++)
+        {
+            var control = _uiElements[i];
+            var rect = control.GetGlobalRect();
+            entries[i] = new UiState.ElementEntry(
+                control.Name,
+                control switch
+                {
+                    Label label => label.Text,
+                    Button button => button.Text,
+                    _ => "",
+                },
+                rect.Position.X,
+                rect.Position.Y,
+                rect.Size.X,
+                rect.Size.Y,
+                control.IsVisibleInTree(),
+                control is BaseButton { Disabled: false } && control.IsVisibleInTree()
+            );
+        }
+
+        var viewport = GetViewport().GetVisibleRect().Size;
+        _ui.Update(viewport.X, viewport.Y, entries);
     }
 
     private void Flow_PhaseChanged(GamePhase phase)
