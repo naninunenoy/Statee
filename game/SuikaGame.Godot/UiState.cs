@@ -12,7 +12,11 @@ namespace SuikaGame;
 [StateeState("game/ui")]
 public partial class UiState
 {
-    /// <summary>UI 要素1個。Id はノード名由来でフレームを跨いで安定(GUIDELINE 3.4)。</summary>
+    /// <summary>
+    /// UI 要素1個。Id はノード名由来でフレームを跨いで安定(GUIDELINE 3.4)。
+    /// Publishes は操作時に発行されるコマンド型名(配線から導出。D-032)、
+    /// Explain は人間が書いたヒントで検証の根拠にはしない。
+    /// </summary>
     public sealed record ElementEntry(
         string Id,
         string Text,
@@ -21,7 +25,9 @@ public partial class UiState
         float Width,
         float Height,
         bool Visible,
-        bool Interactable
+        bool Interactable,
+        string Publishes,
+        string Explain
     );
 
     private sealed record Snapshot(

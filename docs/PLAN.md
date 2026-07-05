@@ -152,6 +152,9 @@ Statee.slnx
   ① 画面遷移は純C#の `GameFlow`(Title → Playing)+ `game/scene` State + `start` コマンド、
   ② UI 幾何・テキストの `game/ui` State(GUIDELINE §7-2)、
   ③ `click` コマンドによる InputEvent 注入(GUIDELINE §7-3)。headless E2E 確認済み
+- **UI 作用の公開(D-032)**: `game/ui` の要素が Publishes(操作時に発行される
+  VitalRouter コマンド型名。配線から導出)と Explain(人間向けヒント)を持つ。
+  VitalRouter はこれが初使用。既存境界(直接呼び出し・R3)は移行しない
 - 次: シナリオ拡充(連鎖合体、UI/幾何検証をシナリオ化)、
   静止判定(IsSleeping)の State 追加(D-027)
 

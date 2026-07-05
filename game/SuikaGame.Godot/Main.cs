@@ -7,6 +7,7 @@ using R3;
 using Statee.Core;
 using Statee.Remote;
 using SuikaGame.Logic;
+using VitalRouter;
 using ZLogger;
 
 namespace SuikaGame;
@@ -21,6 +22,9 @@ namespace SuikaGame;
 /// </summary>
 public partial class Main : Node2D
 {
+    /// <summary>State 公開の対象となる UI 要素と、その作用・説明(D-032)。</summary>
+    private sealed record UiElement(Control Control, string Publishes, string Explain);
+
     private const int DefaultPort = 9310;
     private const int DefaultSeed = 12345;
     private const float WallLeft = 100f;
@@ -34,10 +38,11 @@ public partial class Main : Node2D
     private readonly BoardState _board = new();
     private readonly SceneState _scene = new();
     private readonly UiState _ui = new();
-    private readonly List<Control> _uiElements = [];
+    private readonly List<UiElement> _uiElements = [];
     private readonly TimeControl _time = new();
     private readonly GameFlow _flow = new();
     private SuikaLogic _logic = null!;
+    private GameCommandRouter _commands = null!;
     private Control _titleScreen = null!;
     private Label _scoreLabel = null!;
     private IDisposable _subscriptions = null!;
@@ -62,6 +67,7 @@ public partial class Main : Node2D
         _logger = _loggerFactory.CreateLogger<Main>();
 
         _logic = new SuikaLogic(ParseIntArg("--seed=", DefaultSeed));
+        _commands = new GameCommandRouter(_flow);
         BuildUi();
         var subscriptions = Disposable.CreateBuilder();
         _logic.Merges.Subscribe(Logic_MergeOccurred).AddTo(ref subscriptions);
@@ -77,6 +83,13 @@ public partial class Main : Node2D
             .Subscribe(_ => _logger.ZLogInformation($"ゲームオーバー"))
             .AddTo(ref subscriptions);
         _flow.Phase.Subscribe(Flow_PhaseChanged).AddTo(ref subscriptions);
+        _commands
+            .ExitRequests.Subscribe(_ =>
+            {
+                _logger.ZLogInformation($"終了要求を受信。終了する");
+                GetTree().Quit();
+            })
+            .AddTo(ref subscriptions);
         _subscriptions = subscriptions.Build();
 
         StartStatee(buffer);
@@ -174,6 +187,7 @@ public partial class Main : Node2D
     {
         _server?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
         _subscriptions.Dispose();
+        _commands.Dispose();
         _flow.Dispose();
         _logic.Dispose();
         _loggerFactory?.Dispose();
@@ -370,12 +384,15 @@ public partial class Main : Node2D
     private void BuildUi()
     {
         var startButton = new Button { Name = "StartButton", Text = "はじめる" };
-        startButton.Pressed += () => _flow.StartGame();
+        Bind(startButton, new StartGameCommand(), explain: "ゲームを開始するボタン");
         var exitButton = new Button { Name = "ExitButton", Text = "おわる" };
-        exitButton.Pressed += () => GetTree().Quit();
+        Bind(exitButton, new ExitGameCommand(), explain: "ゲームを終了するボタン");
+
+        var titleLabel = new Label { Name = "TitleLabel", Text = "スイカゲーム" };
+        Describe(titleLabel, "タイトルロゴ");
 
         var menu = new VBoxContainer { Name = "TitleMenu" };
-        menu.AddChild(new Label { Name = "TitleLabel", Text = "スイカゲーム" });
+        menu.AddChild(titleLabel);
         menu.AddChild(startButton);
         menu.AddChild(exitButton);
 
@@ -389,6 +406,7 @@ public partial class Main : Node2D
             Position = new Vector2(16f, 16f),
             Visible = false,
         };
+        Describe(_scoreLabel, "現在のスコアの表示");
 
         var ui = new CanvasLayer { Name = "Ui" };
         ui.AddChild(_titleScreen);
@@ -398,13 +416,23 @@ public partial class Main : Node2D
         // (親なしで呼ぶとサイズ 0 のまま確定し、中央寄せが効かない)
         _titleScreen.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         menu.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.Center);
+    }
 
-        _uiElements.AddRange([
-            menu.GetNode<Control>("TitleLabel"),
-            startButton,
-            exitButton,
-            _scoreLabel,
-        ]);
+    /// <summary>
+    /// ボタンを「操作 → コマンド発行」で配線する(D-032)。State に公開される
+    /// Publishes(作用)はこの配線から導出されるため、実装と乖離しない。
+    /// </summary>
+    private void Bind<TCommand>(BaseButton button, TCommand command, string explain)
+        where TCommand : ICommand
+    {
+        button.Pressed += () => _ = _commands.Router.PublishAsync(command);
+        _uiElements.Add(new UiElement(button, typeof(TCommand).Name, explain));
+    }
+
+    /// <summary>操作を持たない UI 要素を、説明付きで State 公開の対象にする。</summary>
+    private void Describe(Control control, string explain)
+    {
+        _uiElements.Add(new UiElement(control, Publishes: "", explain));
     }
 
     private void UpdateUiState()
@@ -412,7 +440,7 @@ public partial class Main : Node2D
         var entries = new UiState.ElementEntry[_uiElements.Count];
         for (var i = 0; i < _uiElements.Count; i++)
         {
-            var control = _uiElements[i];
+            var (control, publishes, explain) = _uiElements[i];
             var rect = control.GetGlobalRect();
             entries[i] = new UiState.ElementEntry(
                 control.Name,
@@ -427,7 +455,9 @@ public partial class Main : Node2D
                 rect.Size.X,
                 rect.Size.Y,
                 control.IsVisibleInTree(),
-                control is BaseButton { Disabled: false } && control.IsVisibleInTree()
+                control is BaseButton { Disabled: false } && control.IsVisibleInTree(),
+                publishes,
+                explain
             );
         }
 

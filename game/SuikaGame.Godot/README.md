@@ -44,7 +44,9 @@ dotnet run --project src/Statee.Cli -- send --command wait --arg path=game/board
 ```
 
 `game/board` は Score / IsGameOver / NextKind / FruitCount / Fruits(Id, Kind, X, Y)を返す。
-`game/ui` は ViewportWidth / Height と Elements(Id, Text, Rect, Visible, Interactable)を返す。
+`game/ui` は ViewportWidth / Height と Elements(Id, Text, Rect, Visible, Interactable,
+Publishes, Explain)を返す。Publishes は操作時に発行されるコマンド型名(配線から導出。D-032)、
+Explain は人間向けのヒント。
 UI の操作は `click`(InputEvent 注入。非表示・無効なボタンには正しく「効かない」)で行う。
 headless ではビューポートが 64×64 になる点に注意(幾何述語は ViewportWidth/Height 基準で書く)。
 
