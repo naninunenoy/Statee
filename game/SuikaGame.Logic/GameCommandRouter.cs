@@ -9,16 +9,38 @@ namespace SuikaGame.Logic;
 /// </summary>
 public sealed class GameCommandRouter : ICommandSubscriber, IDisposable
 {
-    public GameCommandRouter(GameFlow flow) => throw new NotImplementedException();
+    private readonly GameFlow _flow;
+    private readonly Subject<Unit> _exitRequests = new();
+
+    public GameCommandRouter(GameFlow flow)
+    {
+        _flow = flow;
+        Router.Subscribe(this);
+    }
 
     /// <summary>コマンドの発行先。UI・外部コマンドはここへ Publish する。</summary>
-    public Router Router => throw new NotImplementedException();
+    public Router Router { get; } = new();
 
     /// <summary>終了要求の通知。Godot 層が購読してプロセスを終了する。</summary>
-    public Observable<Unit> ExitRequests => throw new NotImplementedException();
+    public Observable<Unit> ExitRequests => _exitRequests;
 
     public void Receive<T>(T command, PublishContext context)
-        where T : ICommand => throw new NotImplementedException();
+        where T : ICommand
+    {
+        switch (command)
+        {
+            case StartGameCommand:
+                _flow.StartGame();
+                break;
+            case ExitGameCommand:
+                _exitRequests.OnNext(Unit.Default);
+                break;
+        }
+    }
 
-    public void Dispose() => throw new NotImplementedException();
+    public void Dispose()
+    {
+        Router.Dispose();
+        _exitRequests.Dispose();
+    }
 }
