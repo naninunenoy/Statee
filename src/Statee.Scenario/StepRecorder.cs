@@ -3,11 +3,13 @@ namespace Statee.Scenario;
 /// <summary>IStepRecorder の標準実装。メモリ上にステップを蓄積する。</summary>
 public sealed class StepRecorder : IStepRecorder
 {
-    public string? CurrentExpectation => throw new NotImplementedException();
+    private readonly List<ScenarioStep> _steps = [];
 
-    public IReadOnlyList<ScenarioStep> Steps => throw new NotImplementedException();
+    public string? CurrentExpectation { get; private set; }
 
-    public void BeginExpectation(string description) => throw new NotImplementedException();
+    public IReadOnlyList<ScenarioStep> Steps => _steps;
 
-    public void Record(ScenarioStep step) => throw new NotImplementedException();
+    public void BeginExpectation(string description) => CurrentExpectation = description;
+
+    public void Record(ScenarioStep step) => _steps.Add(step);
 }
