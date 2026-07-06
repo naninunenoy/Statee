@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using Godot;
 using Microsoft.Extensions.Logging;
 using R3;
@@ -260,6 +261,25 @@ public partial class Main : Node2D
                 PushClick(position);
                 _logger.ZLogInformation($"click x={position.X} y={position.Y}");
                 return new { X = position.X, Y = position.Y };
+            }
+        );
+        host.RegisterMainThreadCommand(
+            "screenshot",
+            args =>
+            {
+                var path =
+                    args.GetString("path")
+                    ?? throw new InvalidOperationException("path を指定すること");
+                var image = GetViewport().GetTexture().GetImage();
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)) ?? ".");
+                var error = image.SavePng(path);
+                if (error != Error.Ok)
+                {
+                    throw new InvalidOperationException($"スクリーンショット保存失敗: {error}");
+                }
+
+                _logger.ZLogInformation($"screenshot path={path}");
+                return new { Path = Path.GetFullPath(path) };
             }
         );
         host.RegisterMainThreadCommand(
