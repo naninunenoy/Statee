@@ -6,14 +6,19 @@ namespace Statee.Scenario;
 
 /// <summary>
 /// Ruby で書かれた動作確認シナリオを実行する(ChibiRuby 埋め込み)。
-/// Ruby へ公開する語彙は send / state / wait / assert の4つだけに保つ。
+/// Ruby へ公開する語彙は send / state / wait / assert + expect の5つだけに保つ(D-034)。
 /// - send(command, *"key=value")  … 任意コマンド。payload(TOON)文字列を返す
 /// - state(path)                  … State 取得の糖衣
 /// - wait(path, field, op, value, timeout_ms = nil) … 条件待機(D-028)の糖衣
 /// - assert(condition, message = nil) … 偽ならシナリオ失敗
+/// - expect(description)          … レポート用の期待説明。ワイヤには何も送らない(D-034)
 /// コマンドのエラー応答は Ruby の例外になる(rescue で異常系シナリオも書ける)。
 /// </summary>
-public sealed class ScenarioRunner(IScenarioClient client, TextWriter output)
+public sealed class ScenarioRunner(
+    IScenarioClient client,
+    TextWriter output,
+    IStepRecorder? recorder = null
+)
 {
     /// <summary>シナリオを実行する。成功なら 0、失敗(assert 失敗・コマンドエラー・構文エラー)なら 1。</summary>
     public int Run(string rubySource)
@@ -110,6 +115,16 @@ public sealed class ScenarioRunner(IScenarioClient client, TextWriter output)
                     s.Raise(s.StandardErrorClass, s.NewString(message));
                 }
 
+                return MRubyValue.Nil;
+            }
+        );
+
+        mrb.DefineMethod(
+            mrb.ObjectClass,
+            mrb.Intern("expect"u8),
+            (s, _) =>
+            {
+                recorder?.BeginExpectation(ArgumentToString(s, 0));
                 return MRubyValue.Nil;
             }
         );
