@@ -94,6 +94,9 @@ Statee.slnx
 │  ├─ Statee.Cli          … 汎用 CLI クライアント(ConsoleAppFramework)
 │  ├─ Statee.Mcp          … MCP サーバー(汎用・CLI を起動するだけ)
 │  └─ Statee.Generator    … Attribute → IStateProvider 実装のソースジェネレータ(D-022)
+├─ declaree/
+│  ├─ Declaree            … 宣言的 UI の IR(UiNode)+ reconciler(Godot 非依存。D-035)
+│  └─ Declaree.Godot      … UiNode → Godot Control 変換(Godot 依存はここだけ)
 ├─ sandbox/
 │  └─ PingTarget.Godot    … フレームワーク検証用の最小ダミーターゲット(D-013)
 ├─ game/
@@ -159,6 +162,9 @@ Statee.slnx
   レポート実行は窓あり Godot(headless は描画が無くスクショ不可)。窓あり E2E 確認済み
 - 次: シナリオ拡充(連鎖合体、UI/幾何検証をシナリオ化)、
   静止判定(IsSleeping)の State 追加(D-027)
+- **宣言的 UI フレームワーク Declaree を立ち上げる(D-035)**: UI を C# record の
+  IR(UiNode ツリー)で宣言し、Declaree.Godot が Control に変換する。
+  Statee とは独立(接続は UiNode → State の薄いアダプタのみ)。実装未着手
 
 ## 未決事項
 
