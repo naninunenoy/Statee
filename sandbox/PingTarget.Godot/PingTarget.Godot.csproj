@@ -10,6 +10,9 @@
     <PackageReference Include="ZLogger" Version="2.5.10" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\declaree\Declaree\Declaree.csproj" />
+    <ProjectReference Include="..\..\declaree\Declaree.Godot\Declaree.Godot.csproj" />
+    <ProjectReference Include="..\..\declaree\Declaree.Statee\Declaree.Statee.csproj" />
     <ProjectReference Include="..\..\src\Statee.Core\Statee.Core.csproj" />
     <ProjectReference
       Include="..\..\src\Statee.Generator\Statee.Generator.csproj"

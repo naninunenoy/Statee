@@ -1,9 +1,14 @@
 using System;
+using Declaree;
+using Declaree.Godot;
+using Declaree.Statee;
 using Godot;
 using Microsoft.Extensions.Logging;
 using Statee.Core;
 using Statee.Remote;
 using ZLogger;
+using Button = Declaree.Button;
+using Label = Declaree.Label;
 
 namespace PingTarget;
 
@@ -19,6 +24,11 @@ public partial class Main : Node
     private readonly MainThreadDispatcher _dispatcher = new();
     private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
+
+    // Declaree 検証用の最小 UI(D-035)。カウンタとボタンだけを宣言的に持つ
+    private int _count;
+    private volatile UiNode _uiTree = BuildUi(0);
+    private Control? _uiRoot;
 
     public override void _Ready()
     {
@@ -74,6 +84,31 @@ public partial class Main : Node
                 MainThreadId = (long)OS.GetMainThreadId(),
             }
         );
+        // Declaree の UI ツリーを State として公開する(D-035)。
+        // _uiTree は不変 record への参照なので、ソケットスレッドからの読み取りは安全
+        host.RegisterStateProvider(new UiStateProvider("ui/tree", () => _uiTree));
+        // 実際の入力経路で左クリックを再現する(GUIDELINE 3.2)
+        host.RegisterMainThreadCommand(
+            "click",
+            args =>
+            {
+                var position = new Vector2(
+                    float.Parse(
+                        args.GetString("x")
+                            ?? throw new InvalidOperationException("x を指定すること"),
+                        System.Globalization.CultureInfo.InvariantCulture
+                    ),
+                    float.Parse(
+                        args.GetString("y")
+                            ?? throw new InvalidOperationException("y を指定すること"),
+                        System.Globalization.CultureInfo.InvariantCulture
+                    )
+                );
+                PushClick(position);
+                logger.ZLogInformation($"click x={position.X} y={position.Y}");
+                return new { X = position.X, Y = position.Y };
+            }
+        );
         host.RegisterMainThreadCommand(
             "quit",
             _ =>
@@ -84,9 +119,60 @@ public partial class Main : Node
             }
         );
 
+        RebuildUi();
+
         _server = new StateeTcpServer(host, port);
         _server.Start();
         logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
+    }
+
+    /// <summary>状態(カウンタ)から UI ツリーを導出する純関数。</summary>
+    private static UiNode BuildUi(int count) =>
+        new VBox(new Label($"Count: {count}"), new Button("Increment", OnClick: "ui/increment"));
+
+    /// <summary>全破棄・全再構築(D-035)。UI イベントで呼ばれるためメインスレッド前提。</summary>
+    private void RebuildUi()
+    {
+        _uiRoot?.QueueFree();
+        _uiRoot = UiRenderer.Render(_uiTree, Dispatch);
+        AddChild(_uiRoot);
+    }
+
+    private void Dispatch(string eventId)
+    {
+        if (eventId == "ui/increment")
+        {
+            _count++;
+            _uiTree = BuildUi(_count);
+            RebuildUi();
+        }
+    }
+
+    /// <summary>実際の入力経路で左クリックを再現する(GUIDELINE 3.2, SuikaGame と同型)。</summary>
+    private void PushClick(Vector2 position)
+    {
+        var viewport = GetViewport();
+        viewport.PushInput(
+            new InputEventMouseMotion { Position = position, GlobalPosition = position }
+        );
+        viewport.PushInput(
+            new InputEventMouseButton
+            {
+                Position = position,
+                GlobalPosition = position,
+                ButtonIndex = MouseButton.Left,
+                Pressed = true,
+            }
+        );
+        viewport.PushInput(
+            new InputEventMouseButton
+            {
+                Position = position,
+                GlobalPosition = position,
+                ButtonIndex = MouseButton.Left,
+                Pressed = false,
+            }
+        );
     }
 
     public override void _Process(double delta)
