@@ -270,7 +270,11 @@ public partial class Main : Node2D
                 var path =
                     args.GetString("path")
                     ?? throw new InvalidOperationException("path を指定すること");
-                var image = GetViewport().GetTexture().GetImage();
+                var image =
+                    GetViewport().GetTexture()?.GetImage()
+                    ?? throw new InvalidOperationException(
+                        "描画が無いため撮影できない(headless では screenshot は使えない。D-034)"
+                    );
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)) ?? ".");
                 var error = image.SavePng(path);
                 if (error != Error.Ok)
