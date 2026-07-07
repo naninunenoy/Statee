@@ -7,5 +7,6 @@ namespace Declaree;
 public record UiDescriptor(
     string Type,
     IReadOnlyDictionary<string, string> Props,
-    IReadOnlyList<UiDescriptor> Children
+    IReadOnlyList<UiDescriptor> Children,
+    UiRect? Rect = null
 );
