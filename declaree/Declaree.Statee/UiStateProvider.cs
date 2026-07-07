@@ -14,7 +14,7 @@ public class UiStateProvider(string path, Func<UiDescriptor> getSnapshot) : ISta
     private readonly string path = path;
     private readonly Func<UiDescriptor> getSnapshot = getSnapshot;
 
-    public string Path => default!;
+    public string Path => path;
 
-    public object CaptureState() => default!;
+    public object CaptureState() => getSnapshot();
 }
