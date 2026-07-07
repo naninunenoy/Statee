@@ -75,7 +75,12 @@ public sealed class RecordingScenarioClient : IScenarioClient
             }
             catch (Exception e)
             {
-                step = step with { Error = $"state 取得失敗: {e.Message}" };
+                var error = $"state 取得失敗: {e.Message}";
+                // screenshot 失敗のエラーを上書きせず併記する
+                step = step with
+                {
+                    Error = step.Error is null ? error : $"{step.Error} / {error}",
+                };
             }
         }
 

@@ -14,13 +14,13 @@ internal static class WireTrace
             return;
         }
 
-        if (path.StartsWith('~'))
-        {
-            path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + path[1..];
-        }
-
         try
         {
+            if (path.StartsWith('~'))
+            {
+                path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + path[1..];
+            }
+
             var directory = Path.GetDirectoryName(Path.GetFullPath(path));
             if (!string.IsNullOrEmpty(directory))
             {
@@ -32,9 +32,9 @@ internal static class WireTrace
                 $"{DateTimeOffset.Now:yyyy-MM-dd'T'HH:mm:ss.fffzzz} {direction} {line}{Environment.NewLine}"
             );
         }
-        catch (IOException)
+        catch (Exception)
         {
-            // トレース先に書けなくても本来の入出力は継続する
+            // パス不正・権限不足などトレース先に書けなくても本来の入出力は継続する
         }
     }
 }

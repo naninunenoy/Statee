@@ -66,5 +66,10 @@ public sealed class StateeClient(int port)
             WireTrace.Write("×", $"接続できない (port={port}): {e.Message}");
             throw new StateeClientException($"接続できない (port={port}): {e.Message}");
         }
+        catch (IOException e)
+        {
+            WireTrace.Write("×", $"通信が中断された (port={port}): {e.Message}");
+            throw new StateeClientException($"通信が中断された (port={port}): {e.Message}");
+        }
     }
 }

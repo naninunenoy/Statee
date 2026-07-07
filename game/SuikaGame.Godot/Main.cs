@@ -218,14 +218,14 @@ public partial class Main : Node2D
             "drop",
             args =>
             {
-                if (args.GetString("x") is { } xText)
-                {
-                    _dropX = float.Parse(xText, CultureInfo.InvariantCulture);
-                }
-
                 if (_flow.Phase.CurrentValue != GamePhase.Playing)
                 {
                     throw new InvalidOperationException("プレイ中ではないので投下できない");
+                }
+
+                if (args.GetString("x") is { } xText)
+                {
+                    _dropX = float.Parse(xText, CultureInfo.InvariantCulture);
                 }
 
                 var dropped =
