@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/declaree/">
     <Project Path="declaree/Declaree.Godot/Declaree.Godot.csproj" />
+    <Project Path="declaree/Declaree.Statee/Declaree.Statee.csproj" />
     <Project Path="declaree/Declaree/Declaree.csproj" />
   </Folder>
   <Folder Name="/game/">
