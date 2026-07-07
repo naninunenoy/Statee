@@ -162,9 +162,12 @@ Statee.slnx
   レポート実行は窓あり Godot(headless は描画が無くスクショ不可)。窓あり E2E 確認済み
 - 次: シナリオ拡充(連鎖合体、UI/幾何検証をシナリオ化)、
   静止判定(IsSleeping)の State 追加(D-027)
-- **宣言的 UI フレームワーク Declaree を立ち上げる(D-035)**: UI を C# record の
+- **宣言的 UI フレームワーク Declaree 立ち上げ(D-035)**: UI を C# record の
   IR(UiNode ツリー)で宣言し、Declaree.Godot が Control に変換する。
-  Statee とは独立(接続は UiNode → State の薄いアダプタのみ)。実装未着手
+  Statee とは独立(接続は UiNode → State の薄いアダプタのみ)。
+  最初のスライス実装済み: Declaree(IR + UiTree.Describe)、
+  Declaree.Godot(UiRenderer、全再構築方式)、Declaree.Statee(UiStateProvider)。
+  次: 実ターゲットへの組み込みと headless E2E 確認
 
 ## 未決事項
 
