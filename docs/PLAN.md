@@ -143,11 +143,9 @@ Statee.slnx
   ゲームオーバー到達 → 凍結確認」を完遂。フェーズ5の完了条件を最初のシナリオで満たした
 - 境界設計(物理・入力)の悩みどころは docs/adr/notes/ に書き捨てで記録中
 - 条件待機コマンド `wait` ✅(D-028。「State が条件を満たすまで進める」が一級機能に)
-- **仕掛かり: Ruby シナリオランナー(Statee.Scenario)**。ChibiRuby 埋め込みで
-  send / state / wait / assert の4語彙を実装済み・テスト11件緑(D-029)だが、
-  **CLI に `run <scenario.rb>` コマンドとして未接続**。次の一手はこの接続
-  (StateeClient を IScenarioClient として渡すだけの薄い配線)と、
-  実シナリオ(合体スコア検証)での E2E 確認
+- **Ruby シナリオランナー(Statee.Scenario)CLI 接続済み**。
+  `dotnet run --project src/Statee.Scenario -- run --script <foo.rb> --port 9310` で実行できる。
+  語彙は send / state / wait / assert + expect(D-029, D-034)
 - **UI 導入 全3スライス完了(D-031)**: タイトル画面(開始 / 終了)とスコア HUD を導入。
   ① 画面遷移は純C#の `GameFlow`(Title → Playing)+ `game/scene` State + `start` コマンド、
   ② UI 幾何・テキストの `game/ui` State(GUIDELINE §7-2)、
@@ -155,6 +153,10 @@ Statee.slnx
 - **UI 作用の公開(D-032)**: `game/ui` の要素が Publishes(操作時に発行される
   VitalRouter コマンド型名。配線から導出)と Explain(人間向けヒント)を持つ。
   VitalRouter はこれが初使用。既存境界(直接呼び出し・R3)は移行しない
+- **人間向け検証レポート(D-034)✅**: シナリオ実行を `--report-dir` 付きで走らせると、
+  send / wait の各ステップ直後にスクショ(ゲーム側 `screenshot` コマンド)+ State を記録し、
+  期待(expect 語彙)と実際を並べた自己完結 HTML を出力する。
+  レポート実行は窓あり Godot(headless は描画が無くスクショ不可)。窓あり E2E 確認済み
 - 次: シナリオ拡充(連鎖合体、UI/幾何検証をシナリオ化)、
   静止判定(IsSleeping)の State 追加(D-027)
 

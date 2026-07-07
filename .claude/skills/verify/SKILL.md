@@ -62,8 +62,10 @@ dotnet build game/SuikaGame.Godot   # または sandbox/PingTarget.Godot
 - **複数引数はカンマ区切り**: `--arg key1=v1,key2=v2`(`--arg` の繰り返しは最後だけが残る)
 - 出力は TOON 形式。`exit: 0` 以外や `error:` は失敗
 - **固定フレーム数・固定秒数の待機は書かない**。`wait` か state の再取得で条件成立を待つ
-- Ruby シナリオ(Statee.Scenario、語彙は send / state / wait / assert。D-029)は
-  CLI 未接続。CLI に `run` コマンドが追加されたらここを更新する
+- Ruby シナリオ(Statee.Scenario、語彙は send / state / wait / assert + expect。D-029, D-034)は
+  `dotnet run --project src/Statee.Scenario -- run --script <foo.rb> --port 9310` で実行できる
+- 人間向け HTML レポート(`--report-dir` / `--report-state`。D-034)を出す場合は
+  **--headless を付けずに**ターゲットを起動する(headless は描画が無くスクショ不可)
 
 ## 4. 後始末と報告
 
