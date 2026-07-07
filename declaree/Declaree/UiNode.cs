@@ -14,4 +14,7 @@ public abstract record UiNode
 
     /// <summary>最小高さ(px)。Godot の CustomMinimumSize.Y に対応する。</summary>
     public int? MinHeight { get; init; }
+
+    /// <summary>人間向けの説明ヒント(D-032 の Explain)。描画には影響せず、記述子にのみ現れる。</summary>
+    public string? Explain { get; init; }
 }

@@ -23,6 +23,10 @@ public static class UiTree
         {
             props["minHeight"] = minHeight.ToString(CultureInfo.InvariantCulture);
         }
+        if (node.Explain is { } explain)
+        {
+            props["explain"] = explain;
+        }
 
         return node switch
         {

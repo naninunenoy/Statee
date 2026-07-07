@@ -94,6 +94,19 @@ public class UiTreeTest
     }
 
     [Fact]
+    public void Describe_Explain付きノード_explainが変換される()
+    {
+        var descriptor = UiTree.Describe(
+            new Button("はじめる", OnClick: "StartGameCommand")
+            {
+                Explain = "ゲームを開始するボタン",
+            }
+        );
+
+        descriptor.Props["explain"].ShouldBe("ゲームを開始するボタン");
+    }
+
+    [Fact]
     public void Describe_RectはIRからは常にnull()
     {
         var descriptor = UiTree.Describe(new Label("A"));
