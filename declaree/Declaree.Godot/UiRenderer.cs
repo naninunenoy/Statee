@@ -18,17 +18,41 @@ public static class UiRenderer
     /// </summary>
     public static GdControl Render(UiNode node, Action<string> dispatch)
     {
+        var control = CreateControl(node, dispatch);
+        control.Visible = node.Visible;
+        if (node.MinWidth is not null || node.MinHeight is not null)
+        {
+            control.CustomMinimumSize = new global::Godot.Vector2(
+                node.MinWidth ?? 0,
+                node.MinHeight ?? 0
+            );
+        }
+        return control;
+    }
+
+    private static GdControl CreateControl(UiNode node, Action<string> dispatch)
+    {
         switch (node)
         {
             case VBox vbox:
                 return RenderContainer(new global::Godot.VBoxContainer(), vbox.Children, dispatch);
             case HBox hbox:
                 return RenderContainer(new global::Godot.HBoxContainer(), hbox.Children, dispatch);
+            case Margin margin:
+            {
+                var container = new global::Godot.MarginContainer();
+                container.AddThemeConstantOverride("margin_left", margin.All);
+                container.AddThemeConstantOverride("margin_top", margin.All);
+                container.AddThemeConstantOverride("margin_right", margin.All);
+                container.AddThemeConstantOverride("margin_bottom", margin.All);
+                container.AddChild(Render(margin.Child, dispatch));
+                return container;
+            }
             case Label label:
                 return new GdLabel { Text = label.Text };
             case Button button:
             {
-                var gdButton = new GdButton { Text = button.Text };
+                var gdButton = new GdButton { Text = button.Text, Disabled = button.Disabled };
                 var eventId = button.OnClick;
                 gdButton.Pressed += () => dispatch(eventId);
                 return gdButton;
