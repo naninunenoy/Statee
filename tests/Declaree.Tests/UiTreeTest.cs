@@ -83,6 +83,17 @@ public class UiTreeTest
     }
 
     [Fact]
+    public void Describe_Center_Typeと子が変換される()
+    {
+        var descriptor = UiTree.Describe(new Center(new Label("inner")));
+
+        descriptor.Type.ShouldBe("Center");
+        descriptor.Props.ShouldBeEmpty();
+        descriptor.Children.Count.ShouldBe(1);
+        descriptor.Children[0].Type.ShouldBe("Label");
+    }
+
+    [Fact]
     public void Describe_RectはIRからは常にnull()
     {
         var descriptor = UiTree.Describe(new Label("A"));
