@@ -47,6 +47,50 @@ public class UiTreeTest
     }
 
     [Fact]
+    public void Describe_非表示のノード_visibleがfalseで変換される()
+    {
+        var descriptor = UiTree.Describe(new Label("hidden") { Visible = false });
+
+        descriptor.Props["visible"].ShouldBe("false");
+    }
+
+    [Fact]
+    public void Describe_最小サイズ指定のノード_minWidthとminHeightが変換される()
+    {
+        var descriptor = UiTree.Describe(new Label("sized") { MinWidth = 200, MinHeight = 48 });
+
+        descriptor.Props["minWidth"].ShouldBe("200");
+        descriptor.Props["minHeight"].ShouldBe("48");
+    }
+
+    [Fact]
+    public void Describe_無効化したButton_disabledがtrueで変換される()
+    {
+        var descriptor = UiTree.Describe(new Button("Locked", OnClick: "noop") { Disabled = true });
+
+        descriptor.Props["disabled"].ShouldBe("true");
+    }
+
+    [Fact]
+    public void Describe_Margin_Typeとallと子が変換される()
+    {
+        var descriptor = UiTree.Describe(new Margin(16, new Label("inner")));
+
+        descriptor.Type.ShouldBe("Margin");
+        descriptor.Props.ShouldBe(new Dictionary<string, string> { ["all"] = "16" });
+        descriptor.Children.Count.ShouldBe(1);
+        descriptor.Children[0].Type.ShouldBe("Label");
+    }
+
+    [Fact]
+    public void Describe_RectはIRからは常にnull()
+    {
+        var descriptor = UiTree.Describe(new Label("A"));
+
+        descriptor.Rect.ShouldBeNull();
+    }
+
+    [Fact]
     public void Describe_入れ子のコンテナ_深さを保って変換される()
     {
         var descriptor = UiTree.Describe(
