@@ -28,6 +28,7 @@ public static class UiTree
         {
             VBox vbox => new UiDescriptor("VBox", props, Describe(vbox.Children)),
             HBox hbox => new UiDescriptor("HBox", props, Describe(hbox.Children)),
+            Center center => new UiDescriptor("Center", props, [Describe(center.Child)]),
             Margin margin => new UiDescriptor(
                 "Margin",
                 Add(props, "all", margin.All.ToString(CultureInfo.InvariantCulture)),

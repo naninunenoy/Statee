@@ -38,6 +38,12 @@ public static class UiRenderer
                 return RenderContainer(new global::Godot.VBoxContainer(), vbox.Children, dispatch);
             case HBox hbox:
                 return RenderContainer(new global::Godot.HBoxContainer(), hbox.Children, dispatch);
+            case Center center:
+            {
+                var container = new global::Godot.CenterContainer();
+                container.AddChild(Render(center.Child, dispatch));
+                return container;
+            }
             case Margin margin:
             {
                 var container = new global::Godot.MarginContainer();
