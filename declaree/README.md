@@ -22,17 +22,19 @@ Declaree.Statee  … UiStateProvider(記述子スナップショットを State 
 | `VBox` | VBoxContainer | |
 | `HBox` | HBoxContainer | |
 | `Margin(all, child)` | MarginContainer | 四辺等幅のみ |
+| `Center(child)` | CenterContainer | 中央寄せ。ルートに使う場合はホストが FullRect アンカーを設定する |
 | `Label(text)` | Label | |
 | `Button(text, onClick)` | Button | `Disabled` 対応。押下でイベント ID を発行 |
 | `Visible`(全ノード共通) | CanvasItem.Visible | |
 | `MinWidth` / `MinHeight`(全ノード共通) | Control.CustomMinimumSize | |
+| `Explain`(全ノード共通) | —(描画に影響しない) | 人間向けヒント(D-032)。記述子の `explain` にのみ現れる |
 | `UiRect`(記述子のみ) | Control.GetGlobalRect() | IR には無く UiSnapshot が実行時に採取 |
 
 ### 未対応(主なもの)
 
 | カテゴリ | Godot のコンポーネント・機能 |
 |---|---|
-| コンテナ | GridContainer / ScrollContainer / PanelContainer / TabContainer / SplitContainer / CenterContainer / FlowContainer |
+| コンテナ | GridContainer / ScrollContainer / PanelContainer / TabContainer / SplitContainer / FlowContainer |
 | 表示 | RichTextLabel / TextureRect / ProgressBar / ColorRect |
 | ボタン系 | CheckBox / CheckButton / OptionButton / MenuButton |
 | テキスト・値の入力 | LineEdit / TextEdit / SpinBox / Slider(値を運ぶイベントモデルが未設計) |
@@ -44,8 +46,10 @@ Declaree.Statee  … UiStateProvider(記述子スナップショットを State 
 
 - イベントは `OnClick`(ID のみ)だけ。LineEdit の TextChanged のような
   「値を運ぶイベント」は `dispatch(eventId, payload)` への拡張判断が必要
-- アンカー・SizeFlags が無いため「画面中央にメニュー」のような実用レイアウトは未対応。
-  SuikaGame UI の Declaree 化(次ターゲット)で最初に必要になる見込み
+- SizeFlags(Expand/Fill)・アンカーの直接指定は未対応。中央寄せは `Center` で足りたが、
+  ルートのアンカー(FullRect)や MouseFilter はホストの責任
+  (game/SuikaGame.Godot/Main.cs の `RebuildUi` 参照)。
+  なおコンテナ直下の Label は縦センターに置かれるため、上寄せしたい場合は `VBox` で包む
 
 ## 状態更新のモデル
 

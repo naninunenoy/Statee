@@ -173,8 +173,13 @@ Statee.slnx
   および UiSnapshot による幾何(Rect)の State 公開。AI は座標決め打ちでなく
   「ui/tree の Rect からボタン中心を導出してクリック」できる(E2E 確認済み)。
   注意: headless のビューポートは 64x64 固定のため、UI を置くターゲットは
-  GetWindow().Size を実行時に明示する(PingTarget Main.cs 参照)。
-  次: SuikaGame UI の Declaree 化検討
+  GetWindow().Size を実行時に明示する(PingTarget Main.cs 参照)
+- **SuikaGame UI の Declaree 移行(D-036)✅**: タイトル画面とスコア HUD を
+  `(Phase, Score) → UiNode` の純関数で宣言し、手書き `UiState`(`game/ui`)を廃止して
+  `ui/tree` に一本化。語彙に Center(中央寄せ)と Explain(D-032 のヒント)を追加。
+  headless E2E 確認済み(タイトルツリー → Rect からはじめるをクリック → Playing →
+  スコア HUD → drop / クリック投下のスコア反映 → quit exit 0)。
+  次: シナリオ・レポート(D-034)を ui/tree ベースで更新、ゲームオーバー画面の Declaree 化検討
 
 ## 未決事項
 
