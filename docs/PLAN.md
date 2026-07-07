@@ -169,7 +169,12 @@ Statee.slnx
   Declaree.Godot(UiRenderer、全再構築方式)、Declaree.Statee(UiStateProvider)。
   PingTarget に組み込み headless E2E 確認済み(ui/tree State、click →
   カウンタ増加がツリーに反映、再構築後のボタンもディスパッチ機能)。
-  次: 語彙拡張(レイアウト・可視性等)と SuikaGame UI の Declaree 化検討
+  語彙拡張済み: Visible / MinWidth / MinHeight / Button.Disabled / Margin、
+  および UiSnapshot による幾何(Rect)の State 公開。AI は座標決め打ちでなく
+  「ui/tree の Rect からボタン中心を導出してクリック」できる(E2E 確認済み)。
+  注意: headless のビューポートは 64x64 固定のため、UI を置くターゲットは
+  GetWindow().Size を実行時に明示する(PingTarget Main.cs 参照)。
+  次: SuikaGame UI の Declaree 化検討
 
 ## 未決事項
 
