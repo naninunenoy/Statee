@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/declaree/">
+    <Project Path="declaree/Declaree/Declaree.csproj" />
+  </Folder>
   <Folder Name="/game/">
     <Project Path="game/SuikaGame.Godot/SuikaGame.Godot.csproj">
       <BuildType Project="Debug" />
@@ -19,6 +22,7 @@
     <Project Path="src/Statee.Scenario/Statee.Scenario.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Declaree.Tests/Declaree.Tests.csproj" />
     <Project Path="tests/Statee.Core.Tests/Statee.Core.Tests.csproj" />
     <Project Path="tests/Statee.Generator.Tests/Statee.Generator.Tests.csproj" />
     <Project Path="tests/Statee.Remote.Tests/Statee.Remote.Tests.csproj" />
