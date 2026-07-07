@@ -24,6 +24,7 @@
     <Project Path="src/Statee.Scenario/Statee.Scenario.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Declaree.Statee.Tests/Declaree.Statee.Tests.csproj" />
     <Project Path="tests/Declaree.Tests/Declaree.Tests.csproj" />
     <Project Path="tests/Statee.Core.Tests/Statee.Core.Tests.csproj" />
     <Project Path="tests/Statee.Generator.Tests/Statee.Generator.Tests.csproj" />

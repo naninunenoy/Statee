@@ -8,10 +8,10 @@ namespace Declaree.Statee;
 /// CaptureState はソケットスレッドから呼ばれるため、<c>getTree</c> は
 /// その時点のツリー(不変 record)への参照をアトミックに返すこと。
 /// </summary>
-public class UiStateProvider(string path, Func<UiNode?> getTree) : IStateProvider
+public class UiStateProvider(string path, Func<UiNode> getTree) : IStateProvider
 {
     private readonly string path = path;
-    private readonly Func<UiNode?> getTree = getTree;
+    private readonly Func<UiNode> getTree = getTree;
 
     public string Path => default!;
 
