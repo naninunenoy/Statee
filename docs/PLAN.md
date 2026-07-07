@@ -167,7 +167,9 @@ Statee.slnx
   Statee とは独立(接続は UiNode → State の薄いアダプタのみ)。
   最初のスライス実装済み: Declaree(IR + UiTree.Describe)、
   Declaree.Godot(UiRenderer、全再構築方式)、Declaree.Statee(UiStateProvider)。
-  次: 実ターゲットへの組み込みと headless E2E 確認
+  PingTarget に組み込み headless E2E 確認済み(ui/tree State、click →
+  カウンタ増加がツリーに反映、再構築後のボタンもディスパッチ機能)。
+  次: 語彙拡張(レイアウト・可視性等)と SuikaGame UI の Declaree 化検討
 
 ## 未決事項
 
