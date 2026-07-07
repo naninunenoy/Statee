@@ -13,7 +13,7 @@ public class UiStateProvider(string path, Func<UiNode> getTree) : IStateProvider
     private readonly string path = path;
     private readonly Func<UiNode> getTree = getTree;
 
-    public string Path => default!;
+    public string Path => path;
 
-    public object CaptureState() => default!;
+    public object CaptureState() => UiTree.Describe(getTree());
 }
