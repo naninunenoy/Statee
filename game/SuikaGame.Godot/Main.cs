@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using Declaree;
+using Declaree.Godot;
+using Declaree.Statee;
 using Godot;
 using Microsoft.Extensions.Logging;
 using R3;
@@ -10,6 +13,8 @@ using Statee.Remote;
 using SuikaGame.Logic;
 using VitalRouter;
 using ZLogger;
+using Button = Declaree.Button;
+using Label = Declaree.Label;
 
 namespace SuikaGame;
 
@@ -23,9 +28,6 @@ namespace SuikaGame;
 /// </summary>
 public partial class Main : Node2D
 {
-    /// <summary>State 公開の対象となる UI 要素と、その作用・説明(D-032)。</summary>
-    private sealed record UiElement(Control Control, string Publishes, string Explain);
-
     private const int DefaultPort = 9310;
     private const int DefaultSeed = 12345;
     private const float WallLeft = 100f;
@@ -38,14 +40,18 @@ public partial class Main : Node2D
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly BoardState _board = new();
     private readonly SceneState _scene = new();
-    private readonly UiState _ui = new();
-    private readonly List<UiElement> _uiElements = [];
     private readonly TimeControl _time = new();
     private readonly GameFlow _flow = new();
     private SuikaLogic _logic = null!;
     private GameCommandRouter _commands = null!;
-    private Control _titleScreen = null!;
-    private Label _scoreLabel = null!;
+
+    // Declaree による宣言的 UI(D-035)。ツリーは (Phase, Score) の純関数で、
+    // 状態が変わるたびに全再構築する。_uiSnapshot はレイアウト確定後の Rect 込み記述子。
+    // メインスレッドが毎物理フレーム差し替え、ソケットスレッド(CaptureState)は読むだけ
+    private CanvasLayer _uiLayer = null!;
+    private UiNode _uiTree = BuildUi(GamePhase.Title, 0);
+    private Control? _uiRoot;
+    private volatile UiDescriptor _uiSnapshot = UiTree.Describe(BuildUi(GamePhase.Title, 0));
     private IDisposable _subscriptions = null!;
     private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
@@ -67,15 +73,21 @@ public partial class Main : Node2D
         });
         _logger = _loggerFactory.CreateLogger<Main>();
 
+        // headless では project.godot の window サイズが反映されず 64x64 になり、
+        // UI が画面外に出るとクリックのヒットテストが外れる。実行時に明示する
+        GetWindow().Size = new Vector2I(600, 800);
+
         _logic = new SuikaLogic(ParseIntArg("--seed=", DefaultSeed));
         _commands = new GameCommandRouter(_flow);
-        BuildUi();
+        _uiLayer = new CanvasLayer { Name = "Ui" };
+        AddChild(_uiLayer);
+        RebuildUi();
         var subscriptions = Disposable.CreateBuilder();
         _logic.Merges.Subscribe(Logic_MergeOccurred).AddTo(ref subscriptions);
         _logic
             .Score.Subscribe(score =>
             {
-                _scoreLabel.Text = $"スコア: {score}";
+                RebuildUi();
                 _logger.ZLogInformation($"スコア: {score}");
             })
             .AddTo(ref subscriptions);
@@ -130,7 +142,10 @@ public partial class Main : Node2D
         // OnFrame は wait 中のソケットスレッドを起こすため、State 更新の後に呼ぶ
         // (先に呼ぶと wait が1フレーム古い盤面を読む)
         UpdateBoardState();
-        UpdateUiState();
+        if (_uiRoot is not null)
+        {
+            _uiSnapshot = UiSnapshot.Capture(_uiTree, _uiRoot);
+        }
         if (!GetTree().Paused)
         {
             _time.OnFrame();
@@ -199,7 +214,8 @@ public partial class Main : Node2D
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
         host.RegisterStateProvider(_board);
         host.RegisterStateProvider(_scene);
-        host.RegisterStateProvider(_ui);
+        // Declaree の UI(幾何 Rect 込みスナップショット)を State として公開する(D-035)
+        host.RegisterStateProvider(new UiStateProvider("ui/tree", () => _uiSnapshot));
         host.RegisterTimeControl(_time);
         host.RegisterMainThreadCommand(
             "start",
@@ -403,97 +419,64 @@ public partial class Main : Node2D
     }
 
     /// <summary>
-    /// タイトル画面とプレイ中 HUD を構築する。ノード名は安定 ID(GUIDELINE 3.4)。
+    /// 状態(フェーズ・スコア)から UI ツリーを導出する純関数(D-035)。
+    /// OnClick の ID は発行される VitalRouter コマンド型名に一致させる(D-032 の Publishes 相当)。
     /// </summary>
-    private void BuildUi()
-    {
-        var startButton = new Button { Name = "StartButton", Text = "はじめる" };
-        Bind(startButton, new StartGameCommand(), explain: "ゲームを開始するボタン");
-        var exitButton = new Button { Name = "ExitButton", Text = "おわる" };
-        Bind(exitButton, new ExitGameCommand(), explain: "ゲームを終了するボタン");
-
-        var titleLabel = new Label { Name = "TitleLabel", Text = "スイカゲーム" };
-        Describe(titleLabel, "タイトルロゴ");
-
-        var menu = new VBoxContainer { Name = "TitleMenu" };
-        menu.AddChild(titleLabel);
-        menu.AddChild(startButton);
-        menu.AddChild(exitButton);
-
-        _titleScreen = new Control { Name = "TitleScreen" };
-        _titleScreen.AddChild(menu);
-
-        _scoreLabel = new Label
+    private static UiNode BuildUi(GamePhase phase, int score) =>
+        phase switch
         {
-            Name = "ScoreLabel",
-            Text = "スコア: 0",
-            Position = new Vector2(16f, 16f),
-            Visible = false,
+            GamePhase.Title => new Center(
+                new VBox(
+                    new Label("スイカゲーム") { Explain = "タイトルロゴ" },
+                    new Button("はじめる", OnClick: nameof(StartGameCommand))
+                    {
+                        Explain = "ゲームを開始するボタン",
+                    },
+                    new Button("おわる", OnClick: nameof(ExitGameCommand))
+                    {
+                        Explain = "ゲームを終了するボタン",
+                    }
+                )
+            ),
+            // Margin 直下の Label は縦センターに置かれるため、VBox で包んで上寄せにする
+            _ => new Margin(
+                16,
+                new VBox(new Label($"スコア: {score}") { Explain = "現在のスコアの表示" })
+            ),
         };
-        Describe(_scoreLabel, "現在のスコアの表示");
 
-        var ui = new CanvasLayer { Name = "Ui" };
-        ui.AddChild(_titleScreen);
-        ui.AddChild(_scoreLabel);
-        AddChild(ui);
+    /// <summary>全破棄・全再構築(D-035)。状態変更(フェーズ・スコア)の購読から呼ばれる。</summary>
+    private void RebuildUi()
+    {
+        _uiTree = BuildUi(_flow.Phase.CurrentValue, _logic.Score.CurrentValue);
+        _uiRoot?.QueueFree();
+        _uiRoot = UiRenderer.Render(_uiTree, Dispatch);
+        _uiLayer.AddChild(_uiRoot);
         // アンカーはツリーに入って親サイズが確定してから設定する
         // (親なしで呼ぶとサイズ 0 のまま確定し、中央寄せが効かない)
-        _titleScreen.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        menu.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.Center);
+        _uiRoot.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        // 全面に広がるルートがプレイ中のクリック(_UnhandledInput → Drop)を飲み込まないようにする
+        _uiRoot.MouseFilter = Control.MouseFilterEnum.Pass;
     }
 
-    /// <summary>
-    /// ボタンを「操作 → コマンド発行」で配線する(D-032)。State に公開される
-    /// Publishes(作用)はこの配線から導出されるため、実装と乖離しない。
-    /// </summary>
-    private void Bind<TCommand>(BaseButton button, TCommand command, string explain)
-        where TCommand : ICommand
+    /// <summary>UI イベント(OnClick の ID)を VitalRouter コマンド発行に変換する(D-032)。</summary>
+    private void Dispatch(string eventId)
     {
-        button.Pressed += () => _ = _commands.Router.PublishAsync(command);
-        _uiElements.Add(new UiElement(button, typeof(TCommand).Name, explain));
-    }
-
-    /// <summary>操作を持たない UI 要素を、説明付きで State 公開の対象にする。</summary>
-    private void Describe(Control control, string explain)
-    {
-        _uiElements.Add(new UiElement(control, Publishes: "", explain));
-    }
-
-    private void UpdateUiState()
-    {
-        var entries = new UiState.ElementEntry[_uiElements.Count];
-        for (var i = 0; i < _uiElements.Count; i++)
+        switch (eventId)
         {
-            var (control, publishes, explain) = _uiElements[i];
-            var rect = control.GetGlobalRect();
-            entries[i] = new UiState.ElementEntry(
-                control.Name,
-                control switch
-                {
-                    Label label => label.Text,
-                    Button button => button.Text,
-                    _ => "",
-                },
-                rect.Position.X,
-                rect.Position.Y,
-                rect.Size.X,
-                rect.Size.Y,
-                control.IsVisibleInTree(),
-                control is BaseButton { Disabled: false } && control.IsVisibleInTree(),
-                publishes,
-                explain
-            );
+            case nameof(StartGameCommand):
+                _ = _commands.Router.PublishAsync(new StartGameCommand());
+                break;
+            case nameof(ExitGameCommand):
+                _ = _commands.Router.PublishAsync(new ExitGameCommand());
+                break;
         }
-
-        var viewport = GetViewport().GetVisibleRect().Size;
-        _ui.Update(viewport.X, viewport.Y, entries);
     }
 
     private void Flow_PhaseChanged(GamePhase phase)
     {
         _scene.Update(phase.ToString());
-        _titleScreen.Visible = phase == GamePhase.Title;
-        _scoreLabel.Visible = phase == GamePhase.Playing;
+        RebuildUi();
         if (phase == GamePhase.Playing)
         {
             BuildContainer();
