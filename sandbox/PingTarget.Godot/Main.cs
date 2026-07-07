@@ -25,13 +25,19 @@ public partial class Main : Node
     private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
 
-    // Declaree 検証用の最小 UI(D-035)。カウンタとボタンだけを宣言的に持つ
+    // Declaree 検証用の最小 UI(D-035)。カウンタとボタンだけを宣言的に持つ。
+    // _uiSnapshot はレイアウト確定後の Rect 込み記述子。メインスレッドが毎フレーム
+    // 差し替え、ソケットスレッド(CaptureState)は読むだけ(SuikaGame UiState と同型)
     private int _count;
-    private volatile UiNode _uiTree = BuildUi(0);
+    private UiNode _uiTree = BuildUi(0);
     private Control? _uiRoot;
+    private volatile UiDescriptor _uiSnapshot = UiTree.Describe(BuildUi(0));
 
     public override void _Ready()
     {
+        // headless では project.godot の window サイズが反映されず 64x64 になり、
+        // UI が画面外に出るとクリックのヒットテストが外れる。実行時に明示する
+        GetWindow().Size = new Vector2I(640, 360);
         var buffer = new LogBuffer(1024);
         _loggerFactory = LoggerFactory.Create(builder =>
         {
@@ -84,9 +90,8 @@ public partial class Main : Node
                 MainThreadId = (long)OS.GetMainThreadId(),
             }
         );
-        // Declaree の UI ツリーを State として公開する(D-035)。
-        // _uiTree は不変 record への参照なので、ソケットスレッドからの読み取りは安全
-        host.RegisterStateProvider(new UiStateProvider("ui/tree", () => _uiTree));
+        // Declaree の UI(幾何 Rect 込みスナップショット)を State として公開する(D-035)
+        host.RegisterStateProvider(new UiStateProvider("ui/tree", () => _uiSnapshot));
         // 実際の入力経路で左クリックを再現する(GUIDELINE 3.2)
         host.RegisterMainThreadCommand(
             "click",
@@ -126,9 +131,17 @@ public partial class Main : Node
         logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
     }
 
-    /// <summary>状態(カウンタ)から UI ツリーを導出する純関数。</summary>
+    /// <summary>状態(カウンタ)から UI ツリーを導出する純関数。
+    /// Margin / MinWidth / Disabled は語彙拡張の E2E 検証を兼ねる。</summary>
     private static UiNode BuildUi(int count) =>
-        new VBox(new Label($"Count: {count}"), new Button("Increment", OnClick: "ui/increment"));
+        new Margin(
+            16,
+            new VBox(
+                new Label($"Count: {count}"),
+                new Button("Increment", OnClick: "ui/increment") { MinWidth = 120 },
+                new Button("Locked", OnClick: "ui/increment") { Disabled = true }
+            )
+        );
 
     /// <summary>全破棄・全再構築(D-035)。UI イベントで呼ばれるためメインスレッド前提。</summary>
     private void RebuildUi()
@@ -179,6 +192,10 @@ public partial class Main : Node
     {
         _runtime.IncrementFrame();
         _dispatcher.Pump();
+        if (_uiRoot is not null)
+        {
+            _uiSnapshot = UiSnapshot.Capture(_uiTree, _uiRoot);
+        }
     }
 
     public override void _ExitTree()
