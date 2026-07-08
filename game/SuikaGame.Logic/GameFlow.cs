@@ -61,5 +61,11 @@ public sealed class GameFlow : IDisposable
         return true;
     }
 
+    /// <summary>ゲームオーバーにする。プレイ中だけ GameOver へ遷移し true を返す。</summary>
+    public bool EndGame() => false;
+
+    /// <summary>タイトルへ戻る。ゲームオーバー中だけ Title へ遷移し true を返す。盤面のリセットは呼び出し側の責任。</summary>
+    public bool GoToTitle() => false;
+
     public void Dispose() => _phase.Dispose();
 }

@@ -11,4 +11,7 @@ public enum GamePhase
 
     /// <summary>ポーズ中。盤面は凍結し、やり直すか終了を選択する。</summary>
     Paused,
+
+    /// <summary>ゲームオーバー。盤面は凍結し、タイトルへ戻ることだけを選択できる。</summary>
+    GameOver,
 }

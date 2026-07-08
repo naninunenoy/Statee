@@ -16,3 +16,6 @@ public readonly record struct ResumeGameCommand : ICommand;
 
 /// <summary>ポーズせよ(プレイ → ポーズ)。ESC キー等の入力がこれを発行する。</summary>
 public readonly record struct PauseGameCommand : ICommand;
+
+/// <summary>タイトルへ戻れ(ゲームオーバー → タイトル)。盤面・スコアのリセットは RestartRequests 購読で行う。</summary>
+public readonly record struct GoToTitleCommand : ICommand;
