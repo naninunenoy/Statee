@@ -11,6 +11,7 @@ public sealed class GameCommandRouter : ICommandSubscriber, IDisposable
 {
     private readonly GameFlow _flow;
     private readonly Subject<Unit> _exitRequests = new();
+    private readonly Subject<Unit> _restartRequests = new();
 
     public GameCommandRouter(GameFlow flow)
     {
@@ -23,6 +24,9 @@ public sealed class GameCommandRouter : ICommandSubscriber, IDisposable
 
     /// <summary>終了要求の通知。Godot 層が購読してプロセスを終了する。</summary>
     public Observable<Unit> ExitRequests => _exitRequests;
+
+    /// <summary>やり直し要求の通知(遷移成立時のみ)。Godot 層が購読して盤面・スコアをリセットする。</summary>
+    public Observable<Unit> RestartRequests => _restartRequests;
 
     public void Receive<T>(T command, PublishContext context)
         where T : ICommand
@@ -42,5 +46,6 @@ public sealed class GameCommandRouter : ICommandSubscriber, IDisposable
     {
         Router.Dispose();
         _exitRequests.Dispose();
+        _restartRequests.Dispose();
     }
 }
