@@ -157,14 +157,19 @@ public partial class Main : Node2D
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (_flow.Phase.CurrentValue != GamePhase.Playing)
+        // ESC はポーズのトグル(D-037)。GameFlow 側の遷移規則により
+        // Playing でだけポーズ、Paused でだけ解除が成立する
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
+            if (!_flow.PauseGame())
+            {
+                _flow.ResumeGame();
+            }
             return;
         }
 
-        if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
+        if (_flow.Phase.CurrentValue != GamePhase.Playing)
         {
-            _flow.PauseGame();
             return;
         }
 
@@ -465,6 +470,10 @@ public partial class Main : Node2D
             GamePhase.Paused => new Center(
                 new VBox(
                     new Label("ポーズ中") { Explain = "ポーズ中であることの表示" },
+                    new Button("続ける", OnClick: nameof(ResumeGameCommand))
+                    {
+                        Explain = "ポーズを解除して再開するボタン(ESC でも解除できる)",
+                    },
                     new Button("やり直す", OnClick: nameof(RestartGameCommand))
                     {
                         Explain = "フルーツとスコアをリセットして再開するボタン",
@@ -503,6 +512,9 @@ public partial class Main : Node2D
         {
             case nameof(StartGameCommand):
                 _ = _commands.Router.PublishAsync(new StartGameCommand());
+                break;
+            case nameof(ResumeGameCommand):
+                _ = _commands.Router.PublishAsync(new ResumeGameCommand());
                 break;
             case nameof(RestartGameCommand):
                 _ = _commands.Router.PublishAsync(new RestartGameCommand());
