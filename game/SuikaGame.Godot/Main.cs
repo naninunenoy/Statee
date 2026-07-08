@@ -48,6 +48,7 @@ public partial class Main : Node2D
     // Declaree による宣言的 UI(D-035)。ツリーは (Phase, Score) の純関数で、
     // 状態が変わるたびに全再構築する。_uiSnapshot はレイアウト確定後の Rect 込み記述子。
     // メインスレッドが毎物理フレーム差し替え、ソケットスレッド(CaptureState)は読むだけ
+    private StaticBody2D? _container;
     private CanvasLayer _uiLayer = null!;
     private UiNode _uiTree = BuildUi(GamePhase.Title, 0);
     private Control? _uiRoot;
@@ -96,6 +97,7 @@ public partial class Main : Node2D
             .Subscribe(_ => _logger.ZLogInformation($"ゲームオーバー"))
             .AddTo(ref subscriptions);
         _flow.Phase.Subscribe(Flow_PhaseChanged).AddTo(ref subscriptions);
+        _commands.RestartRequests.Subscribe(_ => RestartBoard()).AddTo(ref subscriptions);
         _commands
             .ExitRequests.Subscribe(_ =>
             {
@@ -117,7 +119,8 @@ public partial class Main : Node2D
     public override void _Process(double delta)
     {
         _dispatcher.Pump();
-        GetTree().Paused = _time.IsPaused;
+        // 物理を止める要因は2つ: Statee の時間制御(pause/step)とゲーム内ポーズ
+        GetTree().Paused = _time.IsPaused || _flow.Phase.CurrentValue == GamePhase.Paused;
     }
 
     public override void _PhysicsProcess(double delta)
@@ -156,6 +159,12 @@ public partial class Main : Node2D
     {
         if (_flow.Phase.CurrentValue != GamePhase.Playing)
         {
+            return;
+        }
+
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
+        {
+            _flow.PauseGame();
             return;
         }
 
@@ -277,6 +286,21 @@ public partial class Main : Node2D
                 PushClick(position);
                 _logger.ZLogInformation($"click x={position.X} y={position.Y}");
                 return new { X = position.X, Y = position.Y };
+            }
+        );
+        host.RegisterMainThreadCommand(
+            "key",
+            args =>
+            {
+                var name =
+                    args.GetString("key")
+                    ?? throw new InvalidOperationException("key を指定すること(例: escape)");
+                var key = Enum.Parse<Key>(name, ignoreCase: true);
+                var viewport = GetViewport();
+                viewport.PushInput(new InputEventKey { Keycode = key, Pressed = true });
+                viewport.PushInput(new InputEventKey { Keycode = key, Pressed = false });
+                _logger.ZLogInformation($"key {key}");
+                return new { Key = key.ToString() };
             }
         );
         host.RegisterMainThreadCommand(
@@ -438,6 +462,19 @@ public partial class Main : Node2D
                     }
                 )
             ),
+            GamePhase.Paused => new Center(
+                new VBox(
+                    new Label("ポーズ中") { Explain = "ポーズ中であることの表示" },
+                    new Button("やり直す", OnClick: nameof(RestartGameCommand))
+                    {
+                        Explain = "フルーツとスコアをリセットして再開するボタン",
+                    },
+                    new Button("終了", OnClick: nameof(ExitGameCommand))
+                    {
+                        Explain = "ゲームを終了するボタン",
+                    }
+                )
+            ),
             // Margin 直下の Label は縦センターに置かれるため、VBox で包んで上寄せにする
             _ => new Margin(
                 16,
@@ -467,6 +504,9 @@ public partial class Main : Node2D
             case nameof(StartGameCommand):
                 _ = _commands.Router.PublishAsync(new StartGameCommand());
                 break;
+            case nameof(RestartGameCommand):
+                _ = _commands.Router.PublishAsync(new RestartGameCommand());
+                break;
             case nameof(ExitGameCommand):
                 _ = _commands.Router.PublishAsync(new ExitGameCommand());
                 break;
@@ -484,13 +524,32 @@ public partial class Main : Node2D
         }
     }
 
+    /// <summary>やり直し(D-037)。物理ボディを破棄し、規則エンジンをリセットする。</summary>
+    private void RestartBoard()
+    {
+        foreach (var fruit in _fruits.Values)
+        {
+            fruit.QueueFree();
+        }
+        _fruits.Clear();
+        _logic.Reset();
+        _logger.ZLogInformation($"やり直し: フルーツとスコアをリセット");
+    }
+
     private void BuildContainer()
     {
+        // やり直し等で Playing に再入しても容器は一度だけ作る
+        if (_container is not null)
+        {
+            return;
+        }
+
         var container = new StaticBody2D { Name = "Container" };
         container.AddChild(Wall(new Vector2(WallLeft, 0f), new Vector2(WallLeft, FloorY)));
         container.AddChild(Wall(new Vector2(WallRight, 0f), new Vector2(WallRight, FloorY)));
         container.AddChild(Wall(new Vector2(WallLeft, FloorY), new Vector2(WallRight, FloorY)));
         AddChild(container);
+        _container = container;
 
         static CollisionShape2D Wall(Vector2 a, Vector2 b) =>
             new()
