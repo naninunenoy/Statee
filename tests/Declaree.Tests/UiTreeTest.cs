@@ -107,6 +107,49 @@ public class UiTreeTest
     }
 
     [Fact]
+    public void Describe_Name付きノード_nameが変換される()
+    {
+        var descriptor = UiTree.Describe(
+            new Button("はじめる", OnClick: "StartGameCommand") { Name = "StartButton" }
+        );
+
+        descriptor.Props["name"].ShouldBe("StartButton");
+    }
+
+    [Fact]
+    public void FindByName_入れ子の要素_深さを問わず見つかる()
+    {
+        var descriptor = UiTree.Describe(
+            new VBox(
+                new Label("title"),
+                new HBox(new Button("OK", OnClick: "dialog/ok") { Name = "OkButton" })
+            )
+        );
+
+        var found = UiTree.FindByName(descriptor, "OkButton");
+
+        found.ShouldNotBeNull();
+        found.Type.ShouldBe("Button");
+        found.Props["text"].ShouldBe("OK");
+    }
+
+    [Fact]
+    public void FindByName_ルート自身が一致_ルートを返す()
+    {
+        var descriptor = UiTree.Describe(new VBox() { Name = "Root" });
+
+        UiTree.FindByName(descriptor, "Root").ShouldBe(descriptor);
+    }
+
+    [Fact]
+    public void FindByName_存在しない名前_nullを返す()
+    {
+        var descriptor = UiTree.Describe(new VBox(new Label("A") { Name = "TitleLabel" }));
+
+        UiTree.FindByName(descriptor, "Missing").ShouldBeNull();
+    }
+
+    [Fact]
     public void Describe_RectはIRからは常にnull()
     {
         var descriptor = UiTree.Describe(new Label("A"));
