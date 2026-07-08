@@ -98,7 +98,8 @@ AI の動作確認は再現できなければ意味がない。だから:
 - **MCP サーバー実行中は `Statee.Mcp` がビルドできない**(exe ロック)。
   ソリューション全体ではなく対象プロジェクトだけビルドする
 - **CLI の複数引数はカンマ区切り**: `--arg k1=v1,k2=v2`。`--arg` を繰り返すと最後しか残らない
-- **ProcessMode は子ノードに継承される**。ポーズ対象は明示的に `Pausable` を宣言(D-026)
+- **ProcessMode は子ノードに継承される**。freeze(時間凍結。D-040)で止めたい対象は
+  明示的に `Pausable` を宣言(D-026)
 - **物理コールバック(`body_entered`)中のノード操作**は、削除 `QueueFree` /
   追加 `CallDeferred` で次フレームへ(notes/suika-physics-boundary.md)
 - `.cs` のフォーマットは hooks が自動でやる。手動整形も CI 待ちも不要
