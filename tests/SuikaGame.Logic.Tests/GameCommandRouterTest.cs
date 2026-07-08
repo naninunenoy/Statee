@@ -73,6 +73,29 @@ public class GameCommandRouterTest
     }
 
     [Fact]
+    public async Task Receive_プレイ中にPauseGameCommand_Pausedへ遷移する()
+    {
+        using var flow = new GameFlow();
+        using var router = new GameCommandRouter(flow);
+        flow.StartGame();
+
+        await router.Router.PublishAsync(new PauseGameCommand());
+
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Paused);
+    }
+
+    [Fact]
+    public async Task Receive_タイトル中のPauseGameCommand_無視されTitleのまま()
+    {
+        using var flow = new GameFlow();
+        using var router = new GameCommandRouter(flow);
+
+        await router.Router.PublishAsync(new PauseGameCommand());
+
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Title);
+    }
+
+    [Fact]
     public async Task Receive_ポーズ中にResumeGameCommand_Playingへ遷移する()
     {
         using var flow = new GameFlow();
