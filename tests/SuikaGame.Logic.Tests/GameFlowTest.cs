@@ -63,6 +63,31 @@ public class GameFlowTest
     }
 
     [Fact]
+    public void ResumeGame_ポーズ中_Playingへ遷移してtrueを返す()
+    {
+        using var flow = new GameFlow();
+        flow.StartGame();
+        flow.PauseGame();
+
+        var transitioned = flow.ResumeGame();
+
+        transitioned.ShouldBeTrue();
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Playing);
+    }
+
+    [Fact]
+    public void ResumeGame_プレイ中_無視されfalseを返す()
+    {
+        using var flow = new GameFlow();
+        flow.StartGame();
+
+        var transitioned = flow.ResumeGame();
+
+        transitioned.ShouldBeFalse();
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Playing);
+    }
+
+    [Fact]
     public void RestartGame_ポーズ中_Playingへ遷移してtrueを返す()
     {
         using var flow = new GameFlow();

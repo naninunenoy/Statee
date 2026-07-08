@@ -73,6 +73,34 @@ public class GameCommandRouterTest
     }
 
     [Fact]
+    public async Task Receive_ポーズ中にResumeGameCommand_Playingへ遷移する()
+    {
+        using var flow = new GameFlow();
+        using var router = new GameCommandRouter(flow);
+        flow.StartGame();
+        flow.PauseGame();
+
+        await router.Router.PublishAsync(new ResumeGameCommand());
+
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Playing);
+    }
+
+    [Fact]
+    public async Task Receive_ポーズ中にResumeGameCommand_やり直し要求は通知されない()
+    {
+        using var flow = new GameFlow();
+        using var router = new GameCommandRouter(flow);
+        flow.StartGame();
+        flow.PauseGame();
+        var restartRequested = false;
+        using var subscription = router.RestartRequests.Subscribe(_ => restartRequested = true);
+
+        await router.Router.PublishAsync(new ResumeGameCommand());
+
+        restartRequested.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task Receive_ExitGameCommand_フェーズは変わらない()
     {
         using var flow = new GameFlow();
