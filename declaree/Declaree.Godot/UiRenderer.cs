@@ -19,6 +19,11 @@ public static class UiRenderer
     public static GdControl Render(UiNode node, Action<string> dispatch)
     {
         var control = CreateControl(node, dispatch);
+        if (node.Name is { } name)
+        {
+            // シーンツリー上でも安定 ID として追跡できるようにする(GUIDELINE 3.4)
+            control.Name = name;
+        }
         control.Visible = node.Visible;
         if (node.MinWidth is not null || node.MinHeight is not null)
         {

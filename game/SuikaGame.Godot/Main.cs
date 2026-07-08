@@ -276,18 +276,23 @@ public partial class Main : Node2D
             "click",
             args =>
             {
-                var position = new Vector2(
-                    float.Parse(
-                        args.GetString("x")
-                            ?? throw new InvalidOperationException("x を指定すること"),
-                        CultureInfo.InvariantCulture
-                    ),
-                    float.Parse(
-                        args.GetString("y")
-                            ?? throw new InvalidOperationException("y を指定すること"),
-                        CultureInfo.InvariantCulture
-                    )
-                );
+                // name 指定なら ui/tree の Rect から中心を導出する(D-038)。
+                // どちらの形でも実際の入力経路(PushClick)を通るため、
+                // 非表示・無効なボタンには正しく「効かない」
+                var position = args.GetString("name") is { } name
+                    ? CenterOf(name)
+                    : new Vector2(
+                        float.Parse(
+                            args.GetString("x")
+                                ?? throw new InvalidOperationException("x か name を指定すること"),
+                            CultureInfo.InvariantCulture
+                        ),
+                        float.Parse(
+                            args.GetString("y")
+                                ?? throw new InvalidOperationException("y を指定すること"),
+                            CultureInfo.InvariantCulture
+                        )
+                    );
                 PushClick(position);
                 _logger.ZLogInformation($"click x={position.X} y={position.Y}");
                 return new { X = position.X, Y = position.Y };
@@ -343,6 +348,17 @@ public partial class Main : Node2D
         _server = new StateeTcpServer(host, ParseIntArg("--port=", DefaultPort));
         _server.Start();
         _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
+    }
+
+    /// <summary>ui/tree のスナップショットから name の要素を探し、Rect の中心を返す。</summary>
+    private Vector2 CenterOf(string name)
+    {
+        var found =
+            UiTree.FindByName(_uiSnapshot, name)
+            ?? throw new InvalidOperationException($"UI 要素が見つからない: {name}");
+        var rect =
+            found.Rect ?? throw new InvalidOperationException($"UI 要素の Rect が未確定: {name}");
+        return new Vector2(rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f);
     }
 
     /// <summary>
@@ -456,30 +472,39 @@ public partial class Main : Node2D
         {
             GamePhase.Title => new Center(
                 new VBox(
-                    new Label("スイカゲーム") { Explain = "タイトルロゴ" },
+                    new Label("スイカゲーム") { Name = "TitleLabel", Explain = "タイトルロゴ" },
                     new Button("はじめる", OnClick: nameof(StartGameCommand))
                     {
+                        Name = "StartButton",
                         Explain = "ゲームを開始するボタン",
                     },
                     new Button("おわる", OnClick: nameof(ExitGameCommand))
                     {
+                        Name = "ExitButton",
                         Explain = "ゲームを終了するボタン",
                     }
                 )
             ),
             GamePhase.Paused => new Center(
                 new VBox(
-                    new Label("ポーズ中") { Explain = "ポーズ中であることの表示" },
+                    new Label("ポーズ中")
+                    {
+                        Name = "PausedLabel",
+                        Explain = "ポーズ中であることの表示",
+                    },
                     new Button("続ける", OnClick: nameof(ResumeGameCommand))
                     {
+                        Name = "ResumeButton",
                         Explain = "ポーズを解除して再開するボタン(ESC でも解除できる)",
                     },
                     new Button("やり直す", OnClick: nameof(RestartGameCommand))
                     {
+                        Name = "RestartButton",
                         Explain = "フルーツとスコアをリセットして再開するボタン",
                     },
                     new Button("終了", OnClick: nameof(ExitGameCommand))
                     {
+                        Name = "ExitButton",
                         Explain = "ゲームを終了するボタン",
                     }
                 )
@@ -487,7 +512,13 @@ public partial class Main : Node2D
             // Margin 直下の Label は縦センターに置かれるため、VBox で包んで上寄せにする
             _ => new Margin(
                 16,
-                new VBox(new Label($"スコア: {score}") { Explain = "現在のスコアの表示" })
+                new VBox(
+                    new Label($"スコア: {score}")
+                    {
+                        Name = "ScoreLabel",
+                        Explain = "現在のスコアの表示",
+                    }
+                )
             ),
         };
 
