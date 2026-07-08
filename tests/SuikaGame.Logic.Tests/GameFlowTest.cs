@@ -101,6 +101,67 @@ public class GameFlowTest
     }
 
     [Fact]
+    public void EndGame_プレイ中_GameOverへ遷移してtrueを返す()
+    {
+        using var flow = new GameFlow();
+        flow.StartGame();
+
+        var transitioned = flow.EndGame();
+
+        transitioned.ShouldBeTrue();
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.GameOver);
+    }
+
+    [Fact]
+    public void EndGame_タイトル中_無視されfalseを返す()
+    {
+        using var flow = new GameFlow();
+
+        var transitioned = flow.EndGame();
+
+        transitioned.ShouldBeFalse();
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Title);
+    }
+
+    [Fact]
+    public void GoToTitle_ゲームオーバー中_Titleへ遷移してtrueを返す()
+    {
+        using var flow = new GameFlow();
+        flow.StartGame();
+        flow.EndGame();
+
+        var transitioned = flow.GoToTitle();
+
+        transitioned.ShouldBeTrue();
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Title);
+    }
+
+    [Fact]
+    public void GoToTitle_プレイ中_無視されfalseを返す()
+    {
+        using var flow = new GameFlow();
+        flow.StartGame();
+
+        var transitioned = flow.GoToTitle();
+
+        transitioned.ShouldBeFalse();
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Playing);
+    }
+
+    [Fact]
+    public void PauseGame_ゲームオーバー中_無視されfalseを返す()
+    {
+        using var flow = new GameFlow();
+        flow.StartGame();
+        flow.EndGame();
+
+        var transitioned = flow.PauseGame();
+
+        transitioned.ShouldBeFalse();
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.GameOver);
+    }
+
+    [Fact]
     public void RestartGame_プレイ中_無視されfalseを返す()
     {
         using var flow = new GameFlow();

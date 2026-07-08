@@ -124,6 +124,37 @@ public class GameCommandRouterTest
     }
 
     [Fact]
+    public async Task Receive_ゲームオーバー中にGoToTitleCommand_Titleへ遷移しやり直し要求が通知される()
+    {
+        using var flow = new GameFlow();
+        using var router = new GameCommandRouter(flow);
+        flow.StartGame();
+        flow.EndGame();
+        var restartRequested = false;
+        using var subscription = router.RestartRequests.Subscribe(_ => restartRequested = true);
+
+        await router.Router.PublishAsync(new GoToTitleCommand());
+
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Title);
+        restartRequested.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Receive_プレイ中のGoToTitleCommand_無視されやり直し要求は通知されない()
+    {
+        using var flow = new GameFlow();
+        using var router = new GameCommandRouter(flow);
+        flow.StartGame();
+        var restartRequested = false;
+        using var subscription = router.RestartRequests.Subscribe(_ => restartRequested = true);
+
+        await router.Router.PublishAsync(new GoToTitleCommand());
+
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Playing);
+        restartRequested.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task Receive_ExitGameCommand_フェーズは変わらない()
     {
         using var flow = new GameFlow();
