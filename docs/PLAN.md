@@ -198,6 +198,10 @@ Statee.slnx
   (D-037 の PauseGameCommand / GamePhase.Paused)と区別するため、
   `TimeControl.Freeze/Unfreeze/IsFrozen`・コマンド `freeze` / `unfreeze` に改名。
   `game/board` の `Paused` フィールドも `Frozen` に変更
+- **全 UI 要素の安定 id(D-041)✅**: `UiTree.Describe` が全記述子にツリー位置由来の
+  id(ValueObject `UiNodeId`。ルート "0"、子は "0.1.2")を付与し、`FindById` で検索できる。
+  無名要素も `ui/tree` 上で一覧・区別可能に。GUID は決定論と全再構築方式に
+  反するため不採用(docs/NETWORK_PLAN.md「大量エンティティ向け State」の最初の一歩)
 
 ## 未決事項
 
