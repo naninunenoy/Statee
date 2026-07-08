@@ -10,7 +10,9 @@ public class UiTreeTest
         var descriptor = UiTree.Describe(new Label("Score: 120"));
 
         descriptor.Type.ShouldBe("Label");
-        descriptor.Props.ShouldBe(new Dictionary<string, string> { ["text"] = "Score: 120" });
+        descriptor.Props.ShouldBe(
+            new Dictionary<string, string> { ["id"] = "0", ["text"] = "Score: 120" }
+        );
         descriptor.Children.ShouldBeEmpty();
     }
 
@@ -21,7 +23,12 @@ public class UiTreeTest
 
         descriptor.Type.ShouldBe("Button");
         descriptor.Props.ShouldBe(
-            new Dictionary<string, string> { ["text"] = "Restart", ["onClick"] = "game/restart" }
+            new Dictionary<string, string>
+            {
+                ["id"] = "0",
+                ["text"] = "Restart",
+                ["onClick"] = "game/restart",
+            }
         );
         descriptor.Children.ShouldBeEmpty();
     }
@@ -32,7 +39,7 @@ public class UiTreeTest
         var descriptor = UiTree.Describe(new VBox(new Label("A"), new Label("B")));
 
         descriptor.Type.ShouldBe("VBox");
-        descriptor.Props.ShouldBeEmpty();
+        descriptor.Props.ShouldBe(new Dictionary<string, string> { ["id"] = "0" });
         descriptor.Children.Select(c => c.Props["text"]).ShouldBe(["A", "B"]);
     }
 
@@ -42,7 +49,7 @@ public class UiTreeTest
         var descriptor = UiTree.Describe(new HBox());
 
         descriptor.Type.ShouldBe("HBox");
-        descriptor.Props.ShouldBeEmpty();
+        descriptor.Props.ShouldBe(new Dictionary<string, string> { ["id"] = "0" });
         descriptor.Children.ShouldBeEmpty();
     }
 
@@ -77,7 +84,7 @@ public class UiTreeTest
         var descriptor = UiTree.Describe(new Margin(16, new Label("inner")));
 
         descriptor.Type.ShouldBe("Margin");
-        descriptor.Props.ShouldBe(new Dictionary<string, string> { ["all"] = "16" });
+        descriptor.Props.ShouldBe(new Dictionary<string, string> { ["id"] = "0", ["all"] = "16" });
         descriptor.Children.Count.ShouldBe(1);
         descriptor.Children[0].Type.ShouldBe("Label");
     }
@@ -88,7 +95,7 @@ public class UiTreeTest
         var descriptor = UiTree.Describe(new Center(new Label("inner")));
 
         descriptor.Type.ShouldBe("Center");
-        descriptor.Props.ShouldBeEmpty();
+        descriptor.Props.ShouldBe(new Dictionary<string, string> { ["id"] = "0" });
         descriptor.Children.Count.ShouldBe(1);
         descriptor.Children[0].Type.ShouldBe("Label");
     }

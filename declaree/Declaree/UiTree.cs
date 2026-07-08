@@ -11,9 +11,11 @@ public static class UiTree
     /// ツリーを <see cref="UiDescriptor"/> に変換する。Rect は実行時採取(UiSnapshot)の担当で、ここでは常に null。
     /// 全要素にツリー位置由来の安定 id(<see cref="UiNodeId"/>)を付与する。
     /// </summary>
-    public static UiDescriptor Describe(UiNode node)
+    public static UiDescriptor Describe(UiNode node) => Describe(node, UiNodeId.Root);
+
+    private static UiDescriptor Describe(UiNode node, UiNodeId id)
     {
-        var props = new Dictionary<string, string>();
+        var props = new Dictionary<string, string> { ["id"] = id.AsPrimitive() };
         if (node.Name is { } name)
         {
             props["name"] = name;
@@ -37,13 +39,17 @@ public static class UiTree
 
         return node switch
         {
-            VBox vbox => new UiDescriptor("VBox", props, Describe(vbox.Children)),
-            HBox hbox => new UiDescriptor("HBox", props, Describe(hbox.Children)),
-            Center center => new UiDescriptor("Center", props, [Describe(center.Child)]),
+            VBox vbox => new UiDescriptor("VBox", props, Describe(vbox.Children, id)),
+            HBox hbox => new UiDescriptor("HBox", props, Describe(hbox.Children, id)),
+            Center center => new UiDescriptor(
+                "Center",
+                props,
+                [Describe(center.Child, id.Child(0))]
+            ),
             Margin margin => new UiDescriptor(
                 "Margin",
                 Add(props, "all", margin.All.ToString(CultureInfo.InvariantCulture)),
-                [Describe(margin.Child)]
+                [Describe(margin.Child, id.Child(0))]
             ),
             Label label => new UiDescriptor("Label", Add(props, "text", label.Text), NoChildren),
             Button button => new UiDescriptor("Button", AddButtonProps(props, button), NoChildren),
@@ -74,8 +80,23 @@ public static class UiTree
     }
 
     /// <summary>記述子ツリーから id が一致するノードを深さ優先で探す。見つからなければ null。</summary>
-    public static UiDescriptor? FindById(UiDescriptor descriptor, UiNodeId id) =>
-        throw new NotImplementedException();
+    public static UiDescriptor? FindById(UiDescriptor descriptor, UiNodeId id)
+    {
+        if (descriptor.Props.TryGetValue("id", out var value) && value == id.AsPrimitive())
+        {
+            return descriptor;
+        }
+
+        foreach (var child in descriptor.Children)
+        {
+            if (FindById(child, id) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
 
     private static Dictionary<string, string> Add(
         Dictionary<string, string> props,
@@ -101,6 +122,8 @@ public static class UiTree
         return props;
     }
 
-    private static IReadOnlyList<UiDescriptor> Describe(IReadOnlyList<UiNode> children) =>
-        [.. children.Select(Describe)];
+    private static IReadOnlyList<UiDescriptor> Describe(
+        IReadOnlyList<UiNode> children,
+        UiNodeId parent
+    ) => [.. children.Select((child, index) => Describe(child, parent.Child(index)))];
 }

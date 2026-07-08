@@ -1,3 +1,4 @@
+using System.Globalization;
 using UnitGenerator;
 
 namespace Declaree;
@@ -11,8 +12,9 @@ namespace Declaree;
 public readonly partial struct UiNodeId
 {
     /// <summary>ルート要素の ID。</summary>
-    public static UiNodeId Root => throw new NotImplementedException();
+    public static UiNodeId Root => new("0");
 
     /// <summary>この要素の index 番目の子の ID を導出する。</summary>
-    public UiNodeId Child(int index) => throw new NotImplementedException();
+    public UiNodeId Child(int index) =>
+        new(string.Create(CultureInfo.InvariantCulture, $"{value}.{index}"));
 }
