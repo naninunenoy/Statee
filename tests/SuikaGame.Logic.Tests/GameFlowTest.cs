@@ -38,4 +38,52 @@ public class GameFlowTest
         transitioned.ShouldBeFalse();
         flow.Phase.CurrentValue.ShouldBe(GamePhase.Playing);
     }
+
+    [Fact]
+    public void PauseGame_プレイ中_Pausedへ遷移してtrueを返す()
+    {
+        using var flow = new GameFlow();
+        flow.StartGame();
+
+        var transitioned = flow.PauseGame();
+
+        transitioned.ShouldBeTrue();
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Paused);
+    }
+
+    [Fact]
+    public void PauseGame_タイトル中_無視されfalseを返す()
+    {
+        using var flow = new GameFlow();
+
+        var transitioned = flow.PauseGame();
+
+        transitioned.ShouldBeFalse();
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Title);
+    }
+
+    [Fact]
+    public void RestartGame_ポーズ中_Playingへ遷移してtrueを返す()
+    {
+        using var flow = new GameFlow();
+        flow.StartGame();
+        flow.PauseGame();
+
+        var transitioned = flow.RestartGame();
+
+        transitioned.ShouldBeTrue();
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Playing);
+    }
+
+    [Fact]
+    public void RestartGame_プレイ中_無視されfalseを返す()
+    {
+        using var flow = new GameFlow();
+        flow.StartGame();
+
+        var transitioned = flow.RestartGame();
+
+        transitioned.ShouldBeFalse();
+        flow.Phase.CurrentValue.ShouldBe(GamePhase.Playing);
+    }
 }
