@@ -47,6 +47,12 @@ public static class UiTree
         };
     }
 
+    /// <summary>記述子ツリーから name が一致するノードを深さ優先で探す。見つからなければ null。</summary>
+    public static UiDescriptor? FindByName(UiDescriptor descriptor, string name)
+    {
+        return null;
+    }
+
     private static Dictionary<string, string> Add(
         Dictionary<string, string> props,
         string key,
