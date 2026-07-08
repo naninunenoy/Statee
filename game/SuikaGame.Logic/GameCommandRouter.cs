@@ -36,6 +36,9 @@ public sealed class GameCommandRouter : ICommandSubscriber, IDisposable
             case StartGameCommand:
                 _flow.StartGame();
                 break;
+            case ResumeGameCommand:
+                _flow.ResumeGame();
+                break;
             case RestartGameCommand:
                 if (_flow.RestartGame())
                 {

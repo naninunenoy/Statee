@@ -40,7 +40,13 @@ public sealed class GameFlow : IDisposable
     /// <summary>ポーズを解除して続ける。ポーズ中だけ Playing へ遷移し true を返す(盤面はそのまま)。</summary>
     public bool ResumeGame()
     {
-        return false;
+        if (_phase.Value != GamePhase.Paused)
+        {
+            return false;
+        }
+
+        _phase.Value = GamePhase.Playing;
+        return true;
     }
 
     /// <summary>やり直す。ポーズ中だけ Playing へ遷移し true を返す。盤面のリセットは呼び出し側の責任。</summary>
