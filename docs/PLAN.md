@@ -180,6 +180,11 @@ Statee.slnx
   headless E2E 確認済み(タイトルツリー → Rect からはじめるをクリック → Playing →
   スコア HUD → drop / クリック投下のスコア反映 → quit exit 0)。
   次: シナリオ・レポート(D-034)を ui/tree ベースで更新、ゲームオーバー画面の Declaree 化検討
+- **ゲーム内ポーズとやり直し(D-037)✅**: ESC でポーズ(Phase に Paused 追加)、
+  ポーズメニュー([やり直す][終了])を Declaree で宣言。やり直しは
+  RestartGameCommand → RestartRequests 購読で物理ボディ破棄 + SuikaLogic.Reset
+  (乱数系列・ID 採番は継続)。実入力経路のキー注入コマンド `key` を追加。
+  ロジックはユニットテスト、Godot 層は headless E2E で確認済み
 
 ## 未決事項
 

@@ -15,6 +15,7 @@
 
 - 起動するとタイトル画面。「はじめる」でプレイ開始、「おわる」で終了
 - マウス移動で投下位置を決め、左クリックで次のフルーツを落とす(プレイ中のみ)
+- ESC でポーズ(D-037)。「やり直す」でフルーツとスコアをリセットして再開、「終了」でゲームを閉じる
 - 赤い破線がゲームオーバーライン。接触済みフルーツが猶予時間(1秒)を超えて
   ラインより上に留まるとゲームオーバー
 
@@ -28,6 +29,7 @@ dotnet run --project src/Statee.Cli -- send --command drop --arg x=300  # フル
 dotnet run --project src/Statee.Cli -- state --path game/scene          # 画面フェーズ(Title / Playing)
 dotnet run --project src/Statee.Cli -- state --path ui/tree             # UI ツリー(幾何 Rect 込み。D-036)
 dotnet run --project src/Statee.Cli -- send --command click --arg x=32,y=28  # 実入力経路の左クリック
+dotnet run --project src/Statee.Cli -- send --command key --arg key=escape   # 実入力経路のキー入力(ESC でポーズ)
 dotnet run --project src/Statee.Cli -- state --path game/board          # スコア・盤面
 dotnet run --project src/Statee.Cli -- logs                             # ゲームログ
 dotnet run --project src/Statee.Cli -- quit
