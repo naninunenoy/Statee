@@ -11,6 +11,10 @@ public static class UiTree
     public static UiDescriptor Describe(UiNode node)
     {
         var props = new Dictionary<string, string>();
+        if (node.Name is { } name)
+        {
+            props["name"] = name;
+        }
         if (!node.Visible)
         {
             props["visible"] = "false";
@@ -50,6 +54,19 @@ public static class UiTree
     /// <summary>記述子ツリーから name が一致するノードを深さ優先で探す。見つからなければ null。</summary>
     public static UiDescriptor? FindByName(UiDescriptor descriptor, string name)
     {
+        if (descriptor.Props.TryGetValue("name", out var value) && value == name)
+        {
+            return descriptor;
+        }
+
+        foreach (var child in descriptor.Children)
+        {
+            if (FindByName(child, name) is { } found)
+            {
+                return found;
+            }
+        }
+
         return null;
     }
 
