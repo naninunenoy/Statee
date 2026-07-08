@@ -167,7 +167,16 @@ public sealed class SuikaLogic : IDisposable
 
     /// <summary>盤面をやり直す。フルーツ全消去・スコア 0・ゲームオーバー解除。
     /// 乱数系列と ID 採番は継続する(決定論と追跡可能性の維持)。</summary>
-    public void Reset() { }
+    public void Reset()
+    {
+        foreach (var entity in _entities.Values)
+        {
+            _world.Destroy(entity);
+        }
+        _entities.Clear();
+        _score.Value = 0;
+        _isGameOver.Value = false;
+    }
 
     public void Dispose()
     {
