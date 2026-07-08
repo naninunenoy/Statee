@@ -28,6 +28,7 @@ Declaree.Statee  … UiStateProvider(記述子スナップショットを State 
 | `Visible`(全ノード共通) | CanvasItem.Visible | |
 | `MinWidth` / `MinHeight`(全ノード共通) | Control.CustomMinimumSize | |
 | `Explain`(全ノード共通) | —(描画に影響しない) | 人間向けヒント(D-032)。記述子の `explain` にのみ現れる |
+| `Name`(全ノード共通) | Control.Name | 安定 ID(D-038)。記述子の `name` に現れ、`UiTree.FindByName` で検索できる |
 | `UiRect`(記述子のみ) | Control.GetGlobalRect() | IR には無く UiSnapshot が実行時に採取 |
 
 ### 未対応(主なもの)

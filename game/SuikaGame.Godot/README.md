@@ -29,7 +29,8 @@ dotnet run --project src/Statee.Cli -- send --command start             # タイ
 dotnet run --project src/Statee.Cli -- send --command drop --arg x=300  # フルーツ投下(プレイ中のみ)
 dotnet run --project src/Statee.Cli -- state --path game/scene          # 画面フェーズ(Title / Playing)
 dotnet run --project src/Statee.Cli -- state --path ui/tree             # UI ツリー(幾何 Rect 込み。D-036)
-dotnet run --project src/Statee.Cli -- send --command click --arg x=32,y=28  # 実入力経路の左クリック
+dotnet run --project src/Statee.Cli -- send --command click --arg name=StartButton  # name 指定クリック(D-038)
+dotnet run --project src/Statee.Cli -- send --command click --arg x=32,y=28  # 座標指定の左クリック
 dotnet run --project src/Statee.Cli -- send --command key --arg key=escape   # 実入力経路のキー入力(ESC でポーズ)
 dotnet run --project src/Statee.Cli -- state --path game/board          # スコア・盤面
 dotnet run --project src/Statee.Cli -- logs                             # ゲームログ
@@ -51,7 +52,8 @@ UI は Declaree(D-035, D-036)で宣言され、`ui/tree` が記述子ツリー
 (Type / Props / Children / Rect)を返す。Button の `onClick` は押下時に発行される
 VitalRouter コマンド型名(D-032 の Publishes 相当)、`explain` は人間向けのヒント。
 UI の操作は `click`(InputEvent 注入。非表示・無効なボタンには正しく「効かない」)で行う。
-ボタンの座標は決め打ちせず、`ui/tree` の Rect から中心を導出してクリックする。
+各要素は安定した `name`(StartButton / ResumeButton 等。D-038)を持ち、
+`click --arg name=...` で Rect の中心を自動導出してクリックできる。座標決め打ちはしない。
 ルート要素の Rect がビューポート全体を表す(headless の 64x64 問題は
 `GetWindow().Size` の明示で回避済み)。
 

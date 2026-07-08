@@ -185,6 +185,11 @@ Statee.slnx
   RestartGameCommand → RestartRequests 購読で物理ボディ破棄 + SuikaLogic.Reset
   (乱数系列・ID 採番は継続)。実入力経路のキー注入コマンド `key` を追加。
   ロジックはユニットテスト、Godot 層は headless E2E で確認済み
+- **UI 要素の安定 Name と name 指定クリック(D-038)✅**: UiNode に `Name` を追加
+  (記述子の `name`・Godot ノード名に反映)、`UiTree.FindByName` で検索。
+  SuikaGame の `click` は `--arg name=StartButton` で Rect 中心を自動導出して
+  実入力経路でクリックする。headless E2E 確認済み(name 指定のみで
+  タイトル → プレイ → ポーズ → やり直し → 終了を完遂)
 
 ## 未決事項
 
