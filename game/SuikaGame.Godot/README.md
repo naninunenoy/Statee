@@ -31,6 +31,7 @@ dotnet run --project src/Statee.Cli -- state --path game/scene          # 画面
 dotnet run --project src/Statee.Cli -- state --path ui/tree             # UI ツリー(幾何 Rect 込み。D-036)
 dotnet run --project src/Statee.Cli -- send --command click --arg name=StartButton  # name 指定クリック(D-038)
 dotnet run --project src/Statee.Cli -- send --command click --arg x=32,y=28  # 座標指定の左クリック
+dotnet run --project src/Statee.Cli -- state --path game/input          # キーバインド一覧(D-039)
 dotnet run --project src/Statee.Cli -- send --command key --arg key=escape   # 実入力経路のキー入力(ESC でポーズ)
 dotnet run --project src/Statee.Cli -- state --path game/board          # スコア・盤面
 dotnet run --project src/Statee.Cli -- logs                             # ゲームログ

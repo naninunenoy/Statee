@@ -190,6 +190,10 @@ Statee.slnx
   SuikaGame の `click` は `--arg name=StartButton` で Rect 中心を自動導出して
   実入力経路でクリックする。headless E2E 確認済み(name 指定のみで
   タイトル → プレイ → ポーズ → やり直し → 終了を完遂)
+- **キーバインドの State 公開(D-039)✅**: キー配線表(Key / ActiveIn /
+  Publishes / Explain)を単一の情報源にして `_UnhandledInput` と `game/input` State を
+  導出。ESC は PauseGameCommand / ResumeGameCommand の発行に変更。
+  AI は game/input を読めば「ESC でポーズ」を実装を見ずに発見できる
 
 ## 未決事項
 
