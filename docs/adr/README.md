@@ -36,7 +36,7 @@
 | [D-023](D-023.md) | ゲームロジック層は外部 tick 駆動・壁時計禁止 |
 | [D-024](D-024.md) | スイカゲームロジックの設計【暫定】 |
 | [D-025](D-025.md) | Godot API を触るコマンドは MainThreadDispatcher で同期ディスパッチ |
-| [D-026](D-026.md) | pause / step は TimeControl(エンジン非依存)+ 標準コマンドで提供 |
+| [D-026](D-026.md) | pause / step は TimeControl(エンジン非依存)+ 標準コマンドで提供(D-040 で freeze / step に改名) |
 | [D-027](D-027.md) | フェーズ5: AI が MCP 経由で動作確認シナリオを完遂(初回実証) |
 | [D-028](D-028.md) | 条件待機は wait コマンド(State フィールドの条件成立まで進める) |
 | [D-029](D-029.md) | シナリオ内の例外はすべて StandardError で raise する |
@@ -45,6 +45,12 @@
 | [D-032](D-032.md) | UI の作用は VitalRouter コマンド型との対応で公開する(配線からの導出のみ) |
 | [D-033](D-033.md) | UI はコード(C#)で構築する。移行するなら「見た目だけ .tscn」 |
 | [D-034](D-034.md) | 人間向け検証レポート — expect 語彙・screenshot コマンド・記録デコレータ |
+| [D-035](D-035.md) | 宣言的 UI フレームワーク Declaree — IR 中心設計・C# DSL・Statee から独立 |
+| [D-036](D-036.md) | SuikaGame の UI を Declaree に移行し、game/ui State を ui/tree で置き換える |
+| [D-037](D-037.md) | ゲーム内ポーズ(ESC)とやり直し |
+| [D-038](D-038.md) | UI 要素の安定 Name と name 指定クリック |
+| [D-039](D-039.md) | キーバインドの State 公開(game/input) |
+| [D-040](D-040.md) | 時間制御を pause / resume から freeze / unfreeze に改名 |
 
 ## notes(書き捨てメモ)
 

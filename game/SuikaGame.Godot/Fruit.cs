@@ -46,7 +46,7 @@ public partial class Fruit : RigidBody2D
             Name = $"Fruit_{id.AsPrimitive()}",
             ContactMonitor = true,
             MaxContactsReported = 8,
-            // 親(Main)は pause 中も動く Always のため、継承すると物理が止まらない。明示的に Pausable にする
+            // 親(Main)は freeze 中も動く Always のため、継承すると物理が止まらない。明示的に Pausable にする
             ProcessMode = ProcessModeEnum.Pausable,
         };
         fruit.AddChild(

@@ -6,7 +6,7 @@
 - **物理コールバック中のノード操作に注意**。`body_entered` は物理フラッシュ中に届く。
   削除は `QueueFree`、追加は `Callable.From(...).CallDeferred()` で次フレームへ
 - 時間は `_PhysicsProcess` から `Tick(delta)` で流し込む。ここに独自タイマーを持たない
-  (pause/step 対応の前提。D-023)
+  (freeze/step 対応の前提。D-023)
 - フルーツのノード名は `Fruit_{id}` の安定 ID(GUIDELINE 3.4)。追跡可能性を壊さない
 - 境界設計で悩んだら docs/adr/notes/ に書き捨てで記録し、確定したら docs/adr/D-xxx へ昇格
 - Godot.NET.Sdk は ImplicitUsings 無効。System 系 using を明示。

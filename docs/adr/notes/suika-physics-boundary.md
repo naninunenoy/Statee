@@ -23,11 +23,11 @@
   既知の妥協: [StateeField] は member 単位で読むため、Score と Fruits が
   別スナップショット由来になる瞬間があり得る(1フレーム分のずれ。実害が出たら
   スナップショット全体を1フィールドで公開する形に変える)
-- **pause と ProcessMode の継承**: ポーズ中もコマンド処理(Pump)と State 更新を
+- **freeze(旧 pause。D-040)と ProcessMode の継承**: 凍結中もコマンド処理(Pump)と State 更新を
   動かすため Main を `ProcessMode = Always` にしたら、子のフルーツも Always を継承して
   物理が止まらなかった。フルーツ側で明示的に `Pausable` を指定して解決。
   「誰がポーズの影響を受けるか」はノードごとに宣言する設計が必要
-- **step のフレーム計数**: `IsPaused` を `SceneTree.Paused` に写すのは `_Process`、
+- **step のフレーム計数**: `IsFrozen` を `SceneTree.Paused` に写すのは `_Process`、
   実際の物理は次の `_PhysicsProcess` から止まる/動く。反映遅延の1フレームを
   数えないよう、`OnFrame()` は「ツリーが実際に非ポーズだったフレーム」だけ呼ぶ
 - **headless スモークの学び**: チェリー2個を左右 80px 離して落とすと、

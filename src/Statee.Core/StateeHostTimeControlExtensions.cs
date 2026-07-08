@@ -5,7 +5,7 @@ using System.Reflection;
 namespace Statee.Core;
 
 /// <summary>
-/// TimeControl を標準コマンド(pause / resume / step / wait)として StateeHost に登録する。
+/// TimeControl を標準コマンド(freeze / unfreeze / step / wait)として StateeHost に登録する。
 /// step / wait は指定した進行が完了してから応答を返す(AI の決定論的操作の要)。
 /// </summary>
 public static class StateeHostTimeControlExtensions
@@ -21,19 +21,19 @@ public static class StateeHostTimeControlExtensions
     )
     {
         host.RegisterCommand(
-            "pause",
+            "freeze",
             _ =>
             {
-                timeControl.Pause();
-                return new { timeControl.IsPaused };
+                timeControl.Freeze();
+                return new { timeControl.IsFrozen };
             }
         );
         host.RegisterCommand(
-            "resume",
+            "unfreeze",
             _ =>
             {
-                timeControl.Resume();
-                return new { timeControl.IsPaused };
+                timeControl.Unfreeze();
+                return new { timeControl.IsFrozen };
             }
         );
         host.RegisterCommand(
@@ -57,12 +57,12 @@ public static class StateeHostTimeControlExtensions
             );
         }
 
-        return new { timeControl.IsPaused, Frames = frames };
+        return new { timeControl.IsFrozen, Frames = frames };
     }
 
     /// <summary>
     /// State のフィールドが条件を満たすまで進めて待つ(GUIDELINE.md §7-1 の条件待機)。
-    /// ポーズ中は 1 フレームずつ step し(決定論)、実行中はフレーム進行のたびに再評価する。
+    /// 凍結中は 1 フレームずつ step し(決定論)、実行中はフレーム進行のたびに再評価する。
     /// </summary>
     private static object HandleWait(
         StateeHost host,
@@ -103,7 +103,7 @@ public static class StateeHostTimeControlExtensions
             }
 
             var observed = timeControl.FrameCount;
-            if (timeControl.IsPaused)
+            if (timeControl.IsFrozen)
             {
                 timeControl.Step(1);
                 if (!timeControl.WaitForStep(remaining))

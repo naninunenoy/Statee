@@ -38,8 +38,8 @@ dotnet run --project src/Statee.Cli -- logs                             # ゲー
 dotnet run --project src/Statee.Cli -- quit
 ```
 
-時間制御(D-026): `send --command pause` / `resume` /
-`send --command step --arg frames=30`(指定フレーム進めて再ポーズ。完了後に応答が返る)。
+時間制御(D-026、D-040): `send --command freeze` / `unfreeze` /
+`send --command step --arg frames=30`(指定フレーム進めて再凍結。完了後に応答が返る)。
 
 条件待機(D-028): State のフィールドが条件を満たすまで進めて待つ。
 複数引数はカンマ区切りで指定する。
@@ -48,7 +48,7 @@ dotnet run --project src/Statee.Cli -- quit
 dotnet run --project src/Statee.Cli -- send --command wait --arg path=game/board,field=Score,op=ge,value=1
 ```
 
-`game/board` は Score / IsGameOver / NextKind / FruitCount / Fruits(Id, Kind, X, Y)を返す。
+`game/board` は Score / IsGameOver / Frozen / NextKind / FruitCount / Fruits(Id, Kind, X, Y)を返す。
 UI は Declaree(D-035, D-036)で宣言され、`ui/tree` が記述子ツリー
 (Type / Props / Children / Rect)を返す。Button の `onClick` は押下時に発行される
 VitalRouter コマンド型名(D-032 の Publishes 相当)、`explain` は人間向けのヒント。

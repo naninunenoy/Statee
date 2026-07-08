@@ -1,10 +1,10 @@
 namespace Statee.Core;
 
 /// <summary>
-/// pause / step 実行の中核(docs/adr/D-003.md)。エンジン非依存。
-/// ゲームループが「ポーズ中でない間」毎フレーム OnFrame() を呼び、
-/// ゲーム側は IsPaused を自身のポーズ機構(Godot なら SceneTree.Paused)に写す。
-/// Pause/Resume/Step はソケットスレッドから、OnFrame はメインスレッドから呼ばれる。
+/// freeze / step 実行の中核(docs/adr/D-003.md, D-040)。エンジン非依存。
+/// ゲームループが「凍結中でない間」毎フレーム OnFrame() を呼び、
+/// ゲーム側は IsFrozen を自身のポーズ機構(Godot なら SceneTree.Paused)に写す。
+/// Freeze/Unfreeze/Step はソケットスレッドから、OnFrame はメインスレッドから呼ばれる。
 /// </summary>
 public sealed class TimeControl
 {
@@ -15,54 +15,54 @@ public sealed class TimeControl
     private readonly ManualResetEventSlim _stepIdle = new(true);
     private int _remainingFrames;
     private long _frameCount;
-    private volatile bool _isPaused;
+    private volatile bool _isFrozen;
 
-    /// <summary>ポーズ中か。ゲームループはこれをエンジンのポーズに反映する。</summary>
-    public bool IsPaused => _isPaused;
+    /// <summary>凍結中か。ゲームループはこれをエンジンのポーズに反映する。</summary>
+    public bool IsFrozen => _isFrozen;
 
     /// <summary>OnFrame が呼ばれた累計回数(= 実際に進んだシミュレーションフレーム数)。</summary>
     public long FrameCount => Interlocked.Read(ref _frameCount);
 
-    /// <summary>即時ポーズする。進行中の step は打ち切られる。</summary>
-    public void Pause()
+    /// <summary>即時凍結する。進行中の step は打ち切られる。</summary>
+    public void Freeze()
     {
         lock (_gate)
         {
             _remainingFrames = 0;
-            _isPaused = true;
+            _isFrozen = true;
             _stepIdle.Set();
         }
     }
 
-    /// <summary>ポーズを解除し、通常進行に戻す。</summary>
-    public void Resume()
+    /// <summary>凍結を解除し、通常進行に戻す。</summary>
+    public void Unfreeze()
     {
         lock (_gate)
         {
             _remainingFrames = 0;
-            _isPaused = false;
+            _isFrozen = false;
             _stepIdle.Set();
         }
     }
 
-    /// <summary>指定フレーム数だけ進めた後、自動で再ポーズする。</summary>
+    /// <summary>指定フレーム数だけ進めた後、自動で再凍結する。</summary>
     public void Step(int frames)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(frames, 1);
         lock (_gate)
         {
             _remainingFrames = frames;
-            _isPaused = false;
+            _isFrozen = false;
             _stepIdle.Reset();
         }
     }
 
-    /// <summary>ゲームループが1シミュレーションフレームごとに呼ぶ。ポーズ中の呼び出しは無視する。</summary>
+    /// <summary>ゲームループが1シミュレーションフレームごとに呼ぶ。凍結中の呼び出しは無視する。</summary>
     public void OnFrame()
     {
         lock (_gate)
         {
-            if (_isPaused)
+            if (_isFrozen)
             {
                 return;
             }
@@ -71,7 +71,7 @@ public sealed class TimeControl
             Monitor.PulseAll(_gate);
             if (_remainingFrames > 0 && --_remainingFrames == 0)
             {
-                _isPaused = true;
+                _isFrozen = true;
                 _stepIdle.Set();
             }
         }

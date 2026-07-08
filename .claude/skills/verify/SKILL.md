@@ -17,7 +17,7 @@ description: >-
   パスは CLAUDE.md「環境の知識」に記載のもの(`*_console.exe`)を使う
 - ターゲットは2つ。確認対象に応じて選ぶ:
   - `sandbox/PingTarget.Godot` … フレームワーク(`src/`)の疎通・プロトコル確認用の最小ターゲット
-  - `game/SuikaGame.Godot` … ゲーム込みのシナリオ確認用(drop / pause / step / wait / 合体 / ゲームオーバー)
+  - `game/SuikaGame.Godot` … ゲーム込みのシナリオ確認用(drop / freeze / step / wait / 合体 / ゲームオーバー)
 - 通信は TCP localhost、既定ポート **9310**(D-018)
 
 ## 1. ビルド

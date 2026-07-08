@@ -49,8 +49,8 @@ CLI クライアント(ゲーム依存の実装はここ / ConsoleAppFramework)
 
 AI による自動確認の再現性を担保する要。
 
-- 即時 pause
-- N フレーム進めて pause(step 実行)
+- 即時 freeze(時間凍結。ゲーム内ポーズと区別するための語。D-040)
+- N フレーム進めて再 freeze(step 実行)
 - 乱数シードの外部注入
 - `godot --headless` での実行を前提とする(CI / AI 検証)
 
@@ -139,8 +139,8 @@ Statee.slnx
 
 - フェーズ 0〜2 ✅ / フェーズ 3(スイカゲームロジック、D-024)✅ / フェーズ 4 ✅:
   ① メインスレッドディスパッチ(D-025)→ ② SuikaGame.Godot 最小シーン →
-  ③ Statee 組み込み(drop コマンド、盤面 State `game/board`)→ ④ pause / step(D-026)
-- スイカゲームは headless で drop / pause / resume / step / state / logs / quit が動作。
+  ③ Statee 組み込み(drop コマンド、盤面 State `game/board`)→ ④ freeze / step(D-026。当時は pause / step)
+- スイカゲームは headless で drop / freeze / unfreeze / step / state / logs / quit が動作。
   シード注入(`-- --seed=`)込みで決定論的に操作・観測できる
 - **初回シナリオ完遂 ✅(D-027)**: AI が MCP 経由で「合体スコア検証 →
   ゲームオーバー到達 → 凍結確認」を完遂。フェーズ5の完了条件を最初のシナリオで満たした
@@ -194,6 +194,10 @@ Statee.slnx
   Publishes / Explain)を単一の情報源にして `_UnhandledInput` と `game/input` State を
   導出。ESC は PauseGameCommand / ResumeGameCommand の発行に変更。
   AI は game/input を読めば「ESC でポーズ」を実装を見ずに発見できる
+- **時間制御の改名 pause → freeze(D-040)✅**: Statee の時間制御をゲーム内ポーズ
+  (D-037 の PauseGameCommand / GamePhase.Paused)と区別するため、
+  `TimeControl.Freeze/Unfreeze/IsFrozen`・コマンド `freeze` / `unfreeze` に改名。
+  `game/board` の `Paused` フィールドも `Frozen` に変更
 
 ## 未決事項
 

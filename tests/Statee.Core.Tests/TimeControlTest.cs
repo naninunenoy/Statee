@@ -8,44 +8,44 @@ public class TimeControlTest
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
 
     [Fact]
-    public void Pause_実行直後_IsPausedがtrueになる()
+    public void Freeze_実行直後_IsFrozenがtrueになる()
     {
         var timeControl = new TimeControl();
 
-        timeControl.Pause();
+        timeControl.Freeze();
 
-        timeControl.IsPaused.ShouldBeTrue();
+        timeControl.IsFrozen.ShouldBeTrue();
     }
 
     [Fact]
-    public void Resume_ポーズ中_IsPausedがfalseになる()
+    public void Unfreeze_凍結中_IsFrozenがfalseになる()
     {
         var timeControl = new TimeControl();
-        timeControl.Pause();
+        timeControl.Freeze();
 
-        timeControl.Resume();
+        timeControl.Unfreeze();
 
-        timeControl.IsPaused.ShouldBeFalse();
+        timeControl.IsFrozen.ShouldBeFalse();
     }
 
     [Fact]
-    public void Step_実行直後_ポーズが解除される()
+    public void Step_実行直後_凍結が解除される()
     {
         var timeControl = new TimeControl();
-        timeControl.Pause();
+        timeControl.Freeze();
 
         timeControl.Step(3);
 
-        timeControl.IsPaused.ShouldBeFalse();
+        timeControl.IsFrozen.ShouldBeFalse();
     }
 
     [Theory]
     [InlineData(1)]
     [InlineData(3)]
-    public void OnFrame_stepの指定フレーム数に達した_自動で再ポーズする(int frames)
+    public void OnFrame_stepの指定フレーム数に達した_自動で再凍結する(int frames)
     {
         var timeControl = new TimeControl();
-        timeControl.Pause();
+        timeControl.Freeze();
         timeControl.Step(frames);
 
         for (var i = 0; i < frames; i++)
@@ -53,31 +53,31 @@ public class TimeControlTest
             timeControl.OnFrame();
         }
 
-        timeControl.IsPaused.ShouldBeTrue();
+        timeControl.IsFrozen.ShouldBeTrue();
     }
 
     [Fact]
-    public void OnFrame_stepの残りフレームがある_ポーズ解除のまま()
+    public void OnFrame_stepの残りフレームがある_凍結解除のまま()
     {
         var timeControl = new TimeControl();
-        timeControl.Pause();
+        timeControl.Freeze();
         timeControl.Step(3);
 
         timeControl.OnFrame();
         timeControl.OnFrame();
 
-        timeControl.IsPaused.ShouldBeFalse();
+        timeControl.IsFrozen.ShouldBeFalse();
     }
 
     [Fact]
-    public void OnFrame_ポーズ中_ポーズのまま変化しない()
+    public void OnFrame_凍結中_凍結のまま変化しない()
     {
         var timeControl = new TimeControl();
-        timeControl.Pause();
+        timeControl.Freeze();
 
         timeControl.OnFrame();
 
-        timeControl.IsPaused.ShouldBeTrue();
+        timeControl.IsFrozen.ShouldBeTrue();
     }
 
     [Theory]
@@ -94,7 +94,7 @@ public class TimeControlTest
     public void WaitForStep_step完了済み_trueを返す()
     {
         var timeControl = new TimeControl();
-        timeControl.Pause();
+        timeControl.Freeze();
         timeControl.Step(1);
         timeControl.OnFrame();
 
@@ -105,49 +105,49 @@ public class TimeControlTest
     public void WaitForStep_フレームが進まない_タイムアウトしてfalseを返す()
     {
         var timeControl = new TimeControl();
-        timeControl.Pause();
+        timeControl.Freeze();
         timeControl.Step(1);
 
         timeControl.WaitForStep(TimeSpan.FromMilliseconds(50)).ShouldBeFalse();
     }
 
     [Fact]
-    public void Pause_step進行中_stepを打ち切りWaitForStepが解除される()
+    public void Freeze_step進行中_stepを打ち切りWaitForStepが解除される()
     {
         var timeControl = new TimeControl();
         timeControl.Step(5);
 
-        timeControl.Pause();
+        timeControl.Freeze();
 
         timeControl.WaitForStep(Timeout).ShouldBeTrue();
-        timeControl.IsPaused.ShouldBeTrue();
+        timeControl.IsFrozen.ShouldBeTrue();
     }
 
     [Fact]
-    public void RegisterTimeControl_pauseコマンド_ポーズして応答が返る()
+    public void RegisterTimeControl_freezeコマンド_凍結して応答が返る()
     {
         var host = new StateeHost();
         var timeControl = new TimeControl();
         host.RegisterTimeControl(timeControl);
 
-        var response = host.HandleRequest(new StateeRequest("1", "pause", null));
+        var response = host.HandleRequest(new StateeRequest("1", "freeze", null));
 
         response.Status.ShouldBe(StateeResponse.StatusOk);
-        timeControl.IsPaused.ShouldBeTrue();
+        timeControl.IsFrozen.ShouldBeTrue();
     }
 
     [Fact]
-    public void RegisterTimeControl_resumeコマンド_ポーズが解除される()
+    public void RegisterTimeControl_unfreezeコマンド_凍結が解除される()
     {
         var host = new StateeHost();
         var timeControl = new TimeControl();
         host.RegisterTimeControl(timeControl);
-        timeControl.Pause();
+        timeControl.Freeze();
 
-        var response = host.HandleRequest(new StateeRequest("1", "resume", null));
+        var response = host.HandleRequest(new StateeRequest("1", "unfreeze", null));
 
         response.Status.ShouldBe(StateeResponse.StatusOk);
-        timeControl.IsPaused.ShouldBeFalse();
+        timeControl.IsFrozen.ShouldBeFalse();
     }
 
     [Fact]
@@ -156,19 +156,19 @@ public class TimeControlTest
         var host = new StateeHost();
         var timeControl = new TimeControl();
         host.RegisterTimeControl(timeControl);
-        timeControl.Pause();
+        timeControl.Freeze();
 
         var handle = Task.Run(() =>
             host.HandleRequest(
                 new StateeRequest("1", "step", new Dictionary<string, string> { ["frames"] = "3" })
             )
         );
-        // ゲームループ役: step が終わる(=再ポーズ)までフレームを供給する
+        // ゲームループ役: step が終わる(=再凍結)までフレームを供給する
         RunFramesUntil(timeControl, () => handle.IsCompleted);
 
         var response = await handle;
         response.Status.ShouldBe(StateeResponse.StatusOk);
-        timeControl.IsPaused.ShouldBeTrue();
+        timeControl.IsFrozen.ShouldBeTrue();
     }
 
     [Fact]
@@ -177,7 +177,7 @@ public class TimeControlTest
         var host = new StateeHost();
         var timeControl = new TimeControl();
         host.RegisterTimeControl(timeControl, stepTimeout: TimeSpan.FromMilliseconds(50));
-        timeControl.Pause();
+        timeControl.Freeze();
 
         var response = host.HandleRequest(
             new StateeRequest("1", "step", new Dictionary<string, string> { ["frames"] = "1" })
@@ -197,7 +197,7 @@ public class TimeControlTest
                 throw new TimeoutException("条件が満たされないまま待機時間を超えた");
             }
 
-            if (!timeControl.IsPaused)
+            if (!timeControl.IsFrozen)
             {
                 timeControl.OnFrame();
             }

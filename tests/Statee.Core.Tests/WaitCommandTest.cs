@@ -8,7 +8,7 @@ public class WaitCommandTest
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
 
     [Fact]
-    public void OnFrame_非ポーズ中_FrameCountが増える()
+    public void OnFrame_非凍結中_FrameCountが増える()
     {
         var timeControl = new TimeControl();
 
@@ -19,10 +19,10 @@ public class WaitCommandTest
     }
 
     [Fact]
-    public void OnFrame_ポーズ中_FrameCountは増えない()
+    public void OnFrame_凍結中_FrameCountは増えない()
     {
         var timeControl = new TimeControl();
-        timeControl.Pause();
+        timeControl.Freeze();
 
         timeControl.OnFrame();
 
@@ -80,17 +80,17 @@ public class WaitCommandTest
     }
 
     [Fact]
-    public async Task Wait_ポーズ中_条件成立までstepで進み応答が返る()
+    public async Task Wait_凍結中_条件成立までstepで進み応答が返る()
     {
         var (host, timeControl) = CreateHostWithCounter(initialValue: 0);
-        timeControl.Pause();
+        timeControl.Freeze();
 
         var handle = Task.Run(() => host.HandleRequest(WaitRequest("Value", "ge", "3")));
         RunFramesUntil(timeControl, () => handle.IsCompleted);
 
         var response = await handle;
         response.Status.ShouldBe(StateeResponse.StatusOk);
-        timeControl.IsPaused.ShouldBeTrue();
+        timeControl.IsFrozen.ShouldBeTrue();
         timeControl.FrameCount.ShouldBe(3);
     }
 
@@ -104,7 +104,7 @@ public class WaitCommandTest
 
         var response = await handle;
         response.Status.ShouldBe(StateeResponse.StatusOk);
-        timeControl.IsPaused.ShouldBeFalse();
+        timeControl.IsFrozen.ShouldBeFalse();
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public class WaitCommandTest
             initialValue: 0,
             waitTimeout: TimeSpan.FromMilliseconds(50)
         );
-        timeControl.Pause();
+        timeControl.Freeze();
         // フレームを進めるゲームループが居ないため、条件は永遠に満たされない
 
         var response = host.HandleRequest(WaitRequest("Value", "ge", "1"));
@@ -203,7 +203,7 @@ public class WaitCommandTest
                 throw new TimeoutException("条件が満たされないまま待機時間を超えた");
             }
 
-            if (!timeControl.IsPaused)
+            if (!timeControl.IsFrozen)
             {
                 timeControl.OnFrame();
             }

@@ -73,7 +73,7 @@ public partial class Main : Node2D
 
     public override void _Ready()
     {
-        // pause 中も Statee のコマンド処理(Pump)と State 更新を動かし続ける。
+        // freeze 中も Statee のコマンド処理(Pump)と State 更新を動かし続ける。
         // 物理を止める役は Pausable な子(フルーツ)が担う
         ProcessMode = ProcessModeEnum.Always;
 
@@ -141,14 +141,14 @@ public partial class Main : Node2D
     public override void _Process(double delta)
     {
         _dispatcher.Pump();
-        // 物理を止める要因は2つ: Statee の時間制御(pause/step)とゲーム内ポーズ
-        GetTree().Paused = _time.IsPaused || _flow.Phase.CurrentValue == GamePhase.Paused;
+        // 物理を止める要因は2つ: Statee の時間制御(freeze/step)とゲーム内ポーズ
+        GetTree().Paused = _time.IsFrozen || _flow.Phase.CurrentValue == GamePhase.Paused;
     }
 
     public override void _PhysicsProcess(double delta)
     {
         // step のフレーム計数は「実際に物理が動いたフレーム」だけを数える
-        // (IsPaused の変更がツリーへ反映されるまでの1フレームのずれを数えない)
+        // (IsFrozen の変更がツリーへ反映されるまでの1フレームのずれを数えない)
         if (!GetTree().Paused)
         {
             // 溢れ判定は Area2D でなく毎フレームの位置走査で行う(理由は docs/adr/notes/suika-physics-boundary.md)。
@@ -517,7 +517,7 @@ public partial class Main : Node2D
         _board.Update(
             _logic.Score.CurrentValue,
             _logic.IsGameOver.CurrentValue,
-            _time.IsPaused,
+            _time.IsFrozen,
             _logic.PeekNext().ToString(),
             entries
         );
