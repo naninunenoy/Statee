@@ -116,7 +116,11 @@ public partial class Main : Node2D
             .AddTo(ref subscriptions);
         _logic
             .IsGameOver.Where(gameOver => gameOver)
-            .Subscribe(_ => _logger.ZLogInformation($"ゲームオーバー"))
+            .Subscribe(_ =>
+            {
+                _flow.EndGame();
+                _logger.ZLogInformation($"ゲームオーバー");
+            })
             .AddTo(ref subscriptions);
         _flow.Phase.Subscribe(Flow_PhaseChanged).AddTo(ref subscriptions);
         _commands.RestartRequests.Subscribe(_ => RestartBoard()).AddTo(ref subscriptions);
@@ -212,7 +216,8 @@ public partial class Main : Node2D
 
     public override void _Draw()
     {
-        if (_flow.Phase.CurrentValue != GamePhase.Playing)
+        // GameOver 中も盤面(壁・フルーツ)は残るため、壁は描き続ける
+        if (_flow.Phase.CurrentValue is not (GamePhase.Playing or GamePhase.GameOver))
         {
             return;
         }
@@ -569,6 +574,25 @@ public partial class Main : Node2D
                     }
                 )
             ),
+            GamePhase.GameOver => new Center(
+                new VBox(
+                    new Label("GameOver")
+                    {
+                        Name = "GameOverLabel",
+                        Explain = "ゲームオーバーであることの表示",
+                    },
+                    new Label($"スコア: {score}")
+                    {
+                        Name = "FinalScoreLabel",
+                        Explain = "最終スコアの表示",
+                    },
+                    new Button("タイトルへ", OnClick: nameof(GoToTitleCommand))
+                    {
+                        Name = "ToTitleButton",
+                        Explain = "盤面とスコアをリセットしてタイトルへ戻るボタン",
+                    }
+                )
+            ),
             // Margin 直下の Label は縦センターに置かれるため、VBox で包んで上寄せにする
             _ => new Margin(
                 16,
@@ -613,6 +637,9 @@ public partial class Main : Node2D
             case nameof(ExitGameCommand):
                 _ = _commands.Router.PublishAsync(new ExitGameCommand());
                 break;
+            case nameof(GoToTitleCommand):
+                _ = _commands.Router.PublishAsync(new GoToTitleCommand());
+                break;
         }
     }
 
@@ -623,8 +650,9 @@ public partial class Main : Node2D
         if (phase == GamePhase.Playing)
         {
             BuildContainer();
-            QueueRedraw();
         }
+        // タイトルへ戻ったときに壁の描画を消すため、遷移のたびに再描画する
+        QueueRedraw();
     }
 
     /// <summary>やり直し(D-037)。物理ボディを破棄し、規則エンジンをリセットする。</summary>
