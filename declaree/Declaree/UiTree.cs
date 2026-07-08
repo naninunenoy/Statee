@@ -7,7 +7,10 @@ public static class UiTree
 {
     private static readonly IReadOnlyList<UiDescriptor> NoChildren = [];
 
-    /// <summary>ツリーを <see cref="UiDescriptor"/> に変換する。Rect は実行時採取(UiSnapshot)の担当で、ここでは常に null。</summary>
+    /// <summary>
+    /// ツリーを <see cref="UiDescriptor"/> に変換する。Rect は実行時採取(UiSnapshot)の担当で、ここでは常に null。
+    /// 全要素にツリー位置由来の安定 id(<see cref="UiNodeId"/>)を付与する。
+    /// </summary>
     public static UiDescriptor Describe(UiNode node)
     {
         var props = new Dictionary<string, string>();
@@ -69,6 +72,10 @@ public static class UiTree
 
         return null;
     }
+
+    /// <summary>記述子ツリーから id が一致するノードを深さ優先で探す。見つからなければ null。</summary>
+    public static UiDescriptor? FindById(UiDescriptor descriptor, UiNodeId id) =>
+        throw new NotImplementedException();
 
     private static Dictionary<string, string> Add(
         Dictionary<string, string> props,

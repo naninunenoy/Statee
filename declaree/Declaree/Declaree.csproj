@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="UnitGenerator" Version="2.0.0" PrivateAssets="all" />
+  </ItemGroup>
+
 </Project>
