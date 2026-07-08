@@ -13,3 +13,6 @@ public readonly record struct RestartGameCommand : ICommand;
 
 /// <summary>ポーズを解除して続けよ(ポーズ → プレイ再開。盤面はそのまま)。</summary>
 public readonly record struct ResumeGameCommand : ICommand;
+
+/// <summary>ポーズせよ(プレイ → ポーズ)。ESC キー等の入力がこれを発行する。</summary>
+public readonly record struct PauseGameCommand : ICommand;
