@@ -10,3 +10,6 @@ public readonly record struct ExitGameCommand : ICommand;
 
 /// <summary>やり直せ(ポーズ → プレイ再開)。盤面・スコアのリセットは RestartRequests 購読で行う。</summary>
 public readonly record struct RestartGameCommand : ICommand;
+
+/// <summary>ポーズを解除して続けよ(ポーズ → プレイ再開。盤面はそのまま)。</summary>
+public readonly record struct ResumeGameCommand : ICommand;
