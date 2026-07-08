@@ -158,6 +158,85 @@ public class UiTreeTest
     }
 
     [Fact]
+    public void UiNodeId_Root_文字列は0()
+    {
+        UiNodeId.Root.AsPrimitive().ShouldBe("0");
+    }
+
+    [Fact]
+    public void UiNodeId_Childの導出_ドット区切りで深くなる()
+    {
+        UiNodeId.Root.Child(1).Child(0).AsPrimitive().ShouldBe("0.1.0");
+    }
+
+    [Fact]
+    public void Describe_全要素にツリー位置由来のidが付く()
+    {
+        var descriptor = UiTree.Describe(
+            new VBox(new Label("A"), new HBox(new Button("OK", OnClick: "dialog/ok")))
+        );
+
+        descriptor.Props["id"].ShouldBe("0");
+        descriptor.Children[0].Props["id"].ShouldBe("0.0");
+        descriptor.Children[1].Props["id"].ShouldBe("0.1");
+        descriptor.Children[1].Children[0].Props["id"].ShouldBe("0.1.0");
+    }
+
+    [Fact]
+    public void Describe_単一の子を持つコンテナ_子のidは0番()
+    {
+        var descriptor = UiTree.Describe(new Center(new Margin(8, new Label("inner"))));
+
+        descriptor.Children[0].Props["id"].ShouldBe("0.0");
+        descriptor.Children[0].Children[0].Props["id"].ShouldBe("0.0.0");
+    }
+
+    [Fact]
+    public void Describe_同じツリー形状_再構築してもidが変わらない()
+    {
+        static UiNode Build(string text) => new VBox(new Label(text), new HBox(new Label(text)));
+
+        var first = UiTree.Describe(Build("before"));
+        var second = UiTree.Describe(Build("after"));
+
+        second
+            .Children[1]
+            .Children[0]
+            .Props["id"]
+            .ShouldBe(first.Children[1].Children[0].Props["id"]);
+    }
+
+    [Fact]
+    public void FindById_入れ子の要素_深さを問わず見つかる()
+    {
+        var descriptor = UiTree.Describe(
+            new VBox(new Label("title"), new HBox(new Button("OK", OnClick: "dialog/ok")))
+        );
+
+        var found = UiTree.FindById(descriptor, UiNodeId.Root.Child(1).Child(0));
+
+        found.ShouldNotBeNull();
+        found.Type.ShouldBe("Button");
+        found.Props["text"].ShouldBe("OK");
+    }
+
+    [Fact]
+    public void FindById_ルート自身が一致_ルートを返す()
+    {
+        var descriptor = UiTree.Describe(new VBox());
+
+        UiTree.FindById(descriptor, UiNodeId.Root).ShouldBe(descriptor);
+    }
+
+    [Fact]
+    public void FindById_存在しないid_nullを返す()
+    {
+        var descriptor = UiTree.Describe(new VBox(new Label("A")));
+
+        UiTree.FindById(descriptor, new UiNodeId("0.9")).ShouldBeNull();
+    }
+
+    [Fact]
     public void Describe_入れ子のコンテナ_深さを保って変換される()
     {
         var descriptor = UiTree.Describe(
