@@ -18,7 +18,7 @@ description: >-
 
 - `docs/adr/`(D-xxx)— **既に決定済みの論点を再質問しない**。既存決定と矛盾する提案なら
   「D-xxx を覆すことになるが良いか」という形で質問する
-- `docs/PLAN.md` — 開発フェーズ・アーキテクチャとの整合
+- `docs/ARCHITECTURE.md` — アーキテクチャとの整合
 - `docs/GUIDELINE.md` — テスト設計・コーディング規約との整合
 - `docs/HANDOVER.md` — プロジェクトの思想・判断基準(原則を崩す提案かどうかの判定に使う)
 - 実際のコード(`src/` = フレームワーク、`game/` = サンプルゲーム、`sandbox/` = 疎通確認用)
@@ -66,7 +66,7 @@ description: >-
 
 ### 記録すべきもの
 - 新規/変更の設計判断 → docs/adr/ に D-xxx として記録(決定/背景/トレードオフ/状態)
-- 計画が変わった → docs/PLAN.md を更新
+- アーキテクチャが変わった → docs/ARCHITECTURE.md を更新
 - 規約に影響 → docs/GUIDELINE.md を更新
 ```
 
