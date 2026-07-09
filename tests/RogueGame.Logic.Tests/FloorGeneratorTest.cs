@@ -92,6 +92,22 @@ public class FloorGeneratorTest
         floor.Items.ShouldAllBe(item => item.Kind != ItemKind.Sword);
     }
 
+    [Fact]
+    public void Generate_最下層_宝が1つだけ配置される()
+    {
+        var floor = FloorGenerator.Generate(seed: 12345, floorNumber: RogueConfig.FloorCount);
+
+        floor.Items.Count(item => item.Kind == ItemKind.Gem).ShouldBe(1);
+    }
+
+    [Fact]
+    public void Generate_最下層以外_宝は配置されない()
+    {
+        var floor = FloorGenerator.Generate(seed: 12345, floorNumber: 1);
+
+        floor.Items.ShouldAllBe(item => item.Kind != ItemKind.Gem);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(12345)]
