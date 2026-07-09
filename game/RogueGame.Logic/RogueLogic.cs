@@ -47,7 +47,7 @@ public sealed class RogueLogic
     public void Move(Direction direction)
     {
         var next = Neighbor(PlayerPos, direction);
-        if (!Map.IsWalkable(next))
+        if (!Map.IsWalkable(next) || Enemies.Any(enemy => enemy.Pos == next))
         {
             return;
         }
@@ -70,7 +70,50 @@ public sealed class RogueLogic
     /// 敵のターン。プレイヤーが見えている敵は1歩近づく(直進追跡)。
     /// 見えていない敵は動かない。敵同士・プレイヤーとは重ならない。
     /// </summary>
-    private void ProcessEnemyTurn() { }
+    private void ProcessEnemyTurn()
+    {
+        foreach (var enemy in Enemies)
+        {
+            if (!LineOfSight.CanSee(Map, enemy.Pos, PlayerPos))
+            {
+                continue;
+            }
+            var step = ChaseStep(enemy);
+            if (step is { } next)
+            {
+                enemy.Pos = next;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 直進追跡の1歩。差の大きい軸を優先し、塞がっていればもう一方の軸を試す。
+    /// プレイヤー・他の敵・壁のマスへは進まない(進めなければ null)。
+    /// </summary>
+    private GridPos? ChaseStep(Enemy enemy)
+    {
+        var dx = PlayerPos.X - enemy.Pos.X;
+        var dy = PlayerPos.Y - enemy.Pos.Y;
+        var horizontal = enemy.Pos with { X = enemy.Pos.X + Math.Sign(dx) };
+        var vertical = enemy.Pos with { Y = enemy.Pos.Y + Math.Sign(dy) };
+        var candidates =
+            Math.Abs(dx) >= Math.Abs(dy)
+                ? (First: horizontal, Second: vertical)
+                : (First: vertical, Second: horizontal);
+        foreach (var next in (GridPos[])[candidates.First, candidates.Second])
+        {
+            if (
+                next != enemy.Pos
+                && next != PlayerPos
+                && Map.IsWalkable(next)
+                && !Enemies.Any(other => other.Pos == next)
+            )
+            {
+                return next;
+            }
+        }
+        return null;
+    }
 
     private static GridPos Neighbor(GridPos pos, Direction direction) =>
         direction switch
