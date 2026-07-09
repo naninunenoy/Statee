@@ -38,4 +38,7 @@ public static class RogueConfig
 
     /// <summary>剣が落ちているフロア。</summary>
     public const int SwordFloor = 2;
+
+    /// <summary>💎 取得時に各フロアへ湧く増援の数。</summary>
+    public const int ReinforcementsPerFloor = 2;
 }

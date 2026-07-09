@@ -41,6 +41,12 @@ public sealed class RogueLogic
     /// <summary>プレイヤーが倒れたら true。以降のアクションは何も起こさない。</summary>
     public bool IsGameOver => PlayerHp <= 0;
 
+    /// <summary>💎 を所持していたら true。</summary>
+    public bool HasGem => default;
+
+    /// <summary>💎 を持って地上へ帰還したら true。以降のアクションは何も起こさない。</summary>
+    public bool IsCleared => default;
+
     /// <summary>プレイヤーの攻撃力。剣を拾うと上がる。</summary>
     public int PlayerAttack { get; private set; }
 
