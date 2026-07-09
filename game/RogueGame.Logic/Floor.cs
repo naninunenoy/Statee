@@ -22,6 +22,9 @@ public sealed class Floor
     /// <summary>倒された敵を取り除く。</summary>
     internal void RemoveEnemy(Enemy enemy) => enemies.Remove(enemy);
 
+    /// <summary>増援を追加する。</summary>
+    internal void AddEnemy(Enemy enemy) => enemies.Add(enemy);
+
     /// <summary>フロア上に落ちているアイテム。</summary>
     public IReadOnlyList<Item> Items => items;
 

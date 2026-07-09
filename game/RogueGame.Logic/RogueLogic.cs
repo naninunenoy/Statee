@@ -42,10 +42,13 @@ public sealed class RogueLogic
     public bool IsGameOver => PlayerHp <= 0;
 
     /// <summary>💎 を所持していたら true。</summary>
-    public bool HasGem => default;
+    public bool HasGem { get; private set; }
 
     /// <summary>💎 を持って地上へ帰還したら true。以降のアクションは何も起こさない。</summary>
-    public bool IsCleared => default;
+    public bool IsCleared { get; private set; }
+
+    /// <summary>💎 取得後は全敵が覚醒し、視界に関係なく追跡してくる。</summary>
+    private bool Alerted => HasGem;
 
     /// <summary>プレイヤーの攻撃力。剣を拾うと上がる。</summary>
     public int PlayerAttack { get; private set; }
@@ -64,7 +67,7 @@ public sealed class RogueLogic
     /// </summary>
     public void UseItem(ItemKind kind)
     {
-        if (IsGameOver || !inventory.Remove(kind))
+        if (IsGameOver || IsCleared || !inventory.Remove(kind))
         {
             return;
         }
@@ -88,9 +91,53 @@ public sealed class RogueLogic
                 case ItemKind.Sword:
                     PlayerAttack += RogueConfig.SwordAttackBonus;
                     break;
+                case ItemKind.Gem:
+                    HasGem = true;
+                    SpawnReinforcements();
+                    break;
             }
         }
     }
+
+    /// <summary>
+    /// 💎 取得の増援。訪問済みの各フロアに湧く
+    /// (未訪問フロアは帰路で通らないため対象外)。
+    /// 位置は空いている床マスを走査順に使う(決定論のため乱数は使わない)。
+    /// </summary>
+    private void SpawnReinforcements()
+    {
+        foreach (var floor in visitedFloors.Values)
+        {
+            var nextId =
+                floor.Enemies.Count == 0
+                    ? 1
+                    : floor.Enemies.Max(enemy => enemy.Id.AsPrimitive()) + 1;
+            var spawnable = FreeFloorTiles(floor).Take(RogueConfig.ReinforcementsPerFloor);
+            foreach (var pos in spawnable)
+            {
+                floor.AddEnemy(
+                    new Enemy(
+                        new EnemyId(nextId++),
+                        pos,
+                        RogueConfig.EnemyHp,
+                        RogueConfig.EnemyAttack
+                    )
+                );
+            }
+        }
+    }
+
+    private IEnumerable<GridPos> FreeFloorTiles(Floor floor) =>
+        from y in Enumerable.Range(0, floor.Map.Height)
+        from x in Enumerable.Range(0, floor.Map.Width)
+        let pos = new GridPos(x, y)
+        where
+            floor.Map[pos] == Tile.Floor
+            // プレイヤーとの重なりは現在フロアのみ問題になる(座標は他フロアと独立)
+            && (floor != Floor || pos != PlayerPos)
+            && floor.Enemies.All(enemy => enemy.Pos != pos)
+            && floor.Items.All(item => item.Pos != pos)
+        select pos;
 
     private Floor Floor =>
         visitedFloors.TryGetValue(CurrentFloor, out var floor)
@@ -106,7 +153,7 @@ public sealed class RogueLogic
     /// </summary>
     public void Move(Direction direction)
     {
-        if (IsGameOver)
+        if (IsGameOver || IsCleared)
         {
             return;
         }
@@ -133,6 +180,9 @@ public sealed class RogueLogic
                 CurrentFloor--;
                 PlayerPos = Map.StairsDown;
                 break;
+            case Tile.StairsUp when HasGem:
+                IsCleared = true;
+                return; // 脱出。敵のターンは来ない
         }
         ProcessEnemyTurn();
     }
@@ -159,7 +209,7 @@ public sealed class RogueLogic
                 PlayerHp -= enemy.Attack;
                 continue;
             }
-            if (!LineOfSight.CanSee(Map, enemy.Pos, PlayerPos))
+            if (!Alerted && !LineOfSight.CanSee(Map, enemy.Pos, PlayerPos))
             {
                 continue;
             }

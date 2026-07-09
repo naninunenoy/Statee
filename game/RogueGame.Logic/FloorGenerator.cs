@@ -30,7 +30,11 @@ public static class FloorGenerator
         }
         if (floorNumber == RogueConfig.SwordFloor && candidates.Count > 0)
         {
-            items.Add(new Item(new ItemId(itemId), ItemKind.Sword, TakeAt(rng, candidates)));
+            items.Add(new Item(new ItemId(itemId++), ItemKind.Sword, TakeAt(rng, candidates)));
+        }
+        if (floorNumber == RogueConfig.FloorCount && candidates.Count > 0)
+        {
+            items.Add(new Item(new ItemId(itemId), ItemKind.Gem, TakeAt(rng, candidates)));
         }
         return new Floor(map, enemies, items);
     }
