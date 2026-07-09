@@ -22,7 +22,24 @@ public static class FloorGenerator
                 new Enemy(new EnemyId(i + 1), pos, RogueConfig.EnemyHp, RogueConfig.EnemyAttack)
             );
         }
-        return new Floor(map, enemies);
+        var items = new List<Item>();
+        var itemId = 1;
+        for (var i = 0; i < RogueConfig.PotionsPerFloor && candidates.Count > 0; i++)
+        {
+            items.Add(new Item(new ItemId(itemId++), ItemKind.Potion, TakeAt(rng, candidates)));
+        }
+        if (floorNumber == RogueConfig.SwordFloor && candidates.Count > 0)
+        {
+            items.Add(new Item(new ItemId(itemId), ItemKind.Sword, TakeAt(rng, candidates)));
+        }
+        return new Floor(map, enemies, items);
+    }
+
+    private static GridPos TakeAt(Random rng, List<GridPos> candidates)
+    {
+        var pos = candidates[rng.Next(candidates.Count)];
+        candidates.Remove(pos);
+        return pos;
     }
 
     private static IEnumerable<GridPos> FloorTiles(DungeonMap map) =>

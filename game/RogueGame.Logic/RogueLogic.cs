@@ -20,6 +20,7 @@ public sealed class RogueLogic
         CurrentFloor = 1;
         PlayerPos = Map.StairsUp;
         PlayerHp = RogueConfig.PlayerHp;
+        PlayerAttack = RogueConfig.PlayerAttack;
     }
 
     /// <summary>現在のフロア番号(1 起点。地上に最も近いのが 1)。</summary>
@@ -41,10 +42,12 @@ public sealed class RogueLogic
     public bool IsGameOver => PlayerHp <= 0;
 
     /// <summary>プレイヤーの攻撃力。剣を拾うと上がる。</summary>
-    public int PlayerAttack => default;
+    public int PlayerAttack { get; private set; }
+
+    private readonly List<ItemKind> inventory = [];
 
     /// <summary>所持しているアイテム。</summary>
-    public IReadOnlyList<ItemKind> Inventory => default!;
+    public IReadOnlyList<ItemKind> Inventory => inventory;
 
     /// <summary>現在フロアに落ちているアイテム。</summary>
     public IReadOnlyList<Item> Items => Floor.Items;
@@ -53,7 +56,35 @@ public sealed class RogueLogic
     /// 所持している指定種類のアイテムを1つ使う。使えたらターンを消費し敵のターンが進む。
     /// 未所持なら何も起きない(ターンも消費しない)。
     /// </summary>
-    public void UseItem(ItemKind kind) { }
+    public void UseItem(ItemKind kind)
+    {
+        if (IsGameOver || !inventory.Remove(kind))
+        {
+            return;
+        }
+        if (kind == ItemKind.Potion)
+        {
+            PlayerHp = Math.Min(PlayerHp + RogueConfig.PotionHeal, RogueConfig.PlayerHp);
+        }
+        ProcessEnemyTurn();
+    }
+
+    private void PickUpItems()
+    {
+        while (Items.FirstOrDefault(item => item.Pos == PlayerPos) is { } item)
+        {
+            Floor.RemoveItem(item);
+            switch (item.Kind)
+            {
+                case ItemKind.Potion:
+                    inventory.Add(ItemKind.Potion);
+                    break;
+                case ItemKind.Sword:
+                    PlayerAttack += RogueConfig.SwordAttackBonus;
+                    break;
+            }
+        }
+    }
 
     private Floor Floor =>
         visitedFloors.TryGetValue(CurrentFloor, out var floor)
@@ -85,6 +116,7 @@ public sealed class RogueLogic
             return;
         }
         PlayerPos = next;
+        PickUpItems();
         switch (Map[next])
         {
             case Tile.StairsDown:
@@ -101,7 +133,7 @@ public sealed class RogueLogic
 
     private void AttackEnemy(Enemy target)
     {
-        target.Hp -= RogueConfig.PlayerAttack;
+        target.Hp -= PlayerAttack;
         if (target.Hp <= 0)
         {
             Floor.RemoveEnemy(target);
