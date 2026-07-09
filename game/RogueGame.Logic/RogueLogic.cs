@@ -40,6 +40,21 @@ public sealed class RogueLogic
     /// <summary>プレイヤーが倒れたら true。以降のアクションは何も起こさない。</summary>
     public bool IsGameOver => PlayerHp <= 0;
 
+    /// <summary>プレイヤーの攻撃力。剣を拾うと上がる。</summary>
+    public int PlayerAttack => default;
+
+    /// <summary>所持しているアイテム。</summary>
+    public IReadOnlyList<ItemKind> Inventory => default!;
+
+    /// <summary>現在フロアに落ちているアイテム。</summary>
+    public IReadOnlyList<Item> Items => Floor.Items;
+
+    /// <summary>
+    /// 所持している指定種類のアイテムを1つ使う。使えたらターンを消費し敵のターンが進む。
+    /// 未所持なら何も起きない(ターンも消費しない)。
+    /// </summary>
+    public void UseItem(ItemKind kind) { }
+
     private Floor Floor =>
         visitedFloors.TryGetValue(CurrentFloor, out var floor)
             ? floor
