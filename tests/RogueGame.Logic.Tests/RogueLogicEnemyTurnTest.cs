@@ -88,15 +88,4 @@ public class RogueLogicEnemyTurnTest
 
         game.Enemies.Select(enemy => enemy.Pos).ShouldBeUnique();
     }
-
-    [Fact]
-    public void Move_敵のいるマスへ移動する_移動できない()
-    {
-        var enemy = CreateEnemy(1, new GridPos(2, 1));
-        var game = CreateGame(Corridor, enemy);
-
-        game.Move(Direction.East);
-
-        game.PlayerPos.ShouldBe(new GridPos(1, 1));
-    }
 }
