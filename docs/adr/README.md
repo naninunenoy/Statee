@@ -53,6 +53,7 @@
 | [D-040](D-040.md) | 時間制御を pause / resume から freeze / unfreeze に改名 |
 | [D-041](D-041.md) | 全 UI 要素へのツリー位置由来の安定 id(UiNodeId。GUID 不採用) |
 | [D-042](D-042.md) | GameOver 画面と[タイトルへ] |
+| [D-043](D-043.md) | エージェント向け入力 API はアクション単位(デバイス非依存) |
 
 ## notes(書き捨てメモ)
 
