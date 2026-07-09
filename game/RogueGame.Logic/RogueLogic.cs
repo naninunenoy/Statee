@@ -6,17 +6,17 @@ namespace RogueGame.Logic;
 /// </summary>
 public sealed class RogueLogic
 {
-    private readonly Func<int, DungeonMap> mapFactory;
-    private readonly Dictionary<int, DungeonMap> visitedFloors = [];
+    private readonly Func<int, Floor> floorFactory;
+    private readonly Dictionary<int, Floor> visitedFloors = [];
 
     /// <summary>本番用。シードからフロアを生成する。</summary>
     public RogueLogic(int seed)
-        : this(floorNumber => DungeonGenerator.Generate(seed, floorNumber)) { }
+        : this(floorNumber => FloorGenerator.Generate(seed, floorNumber)) { }
 
-    /// <summary>フロア地形の供給元を注入する(テストで手組みマップを使うためのシーム)。</summary>
-    public RogueLogic(Func<int, DungeonMap> mapFactory)
+    /// <summary>フロアの供給元を注入する(テストで手組みフロアを使うためのシーム)。</summary>
+    public RogueLogic(Func<int, Floor> floorFactory)
     {
-        this.mapFactory = mapFactory;
+        this.floorFactory = floorFactory;
         CurrentFloor = 1;
         PlayerPos = Map.StairsUp;
     }
@@ -25,18 +25,24 @@ public sealed class RogueLogic
     public int CurrentFloor { get; private set; }
 
     /// <summary>現在フロアの地形。</summary>
-    public DungeonMap Map =>
-        visitedFloors.TryGetValue(CurrentFloor, out var map)
-            ? map
-            : visitedFloors[CurrentFloor] = mapFactory(CurrentFloor);
+    public DungeonMap Map => Floor.Map;
+
+    /// <summary>現在フロアの生存している敵。</summary>
+    public IReadOnlyList<Enemy> Enemies => Floor.Enemies;
 
     /// <summary>プレイヤーの現在位置。</summary>
     public GridPos PlayerPos { get; private set; }
 
+    private Floor Floor =>
+        visitedFloors.TryGetValue(CurrentFloor, out var floor)
+            ? floor
+            : visitedFloors[CurrentFloor] = floorFactory(CurrentFloor);
+
     /// <summary>
-    /// 指定方向へ1マス移動する。壁方向なら何も起きない。
+    /// 指定方向へ1マス移動する。壁方向なら何も起きない(ターンも消費しない)。
     /// 下り階段に乗ると次フロアへ、上り階段に乗ると前フロアへ自動遷移する
     /// (フロア1の上り階段は現時点では何も起きない)。
+    /// 移動が成立したら敵のターンが進む。
     /// </summary>
     public void Move(Direction direction)
     {
@@ -57,7 +63,14 @@ public sealed class RogueLogic
                 PlayerPos = Map.StairsDown;
                 break;
         }
+        ProcessEnemyTurn();
     }
+
+    /// <summary>
+    /// 敵のターン。プレイヤーが見えている敵は1歩近づく(直進追跡)。
+    /// 見えていない敵は動かない。敵同士・プレイヤーとは重ならない。
+    /// </summary>
+    private void ProcessEnemyTurn() { }
 
     private static GridPos Neighbor(GridPos pos, Direction direction) =>
         direction switch
