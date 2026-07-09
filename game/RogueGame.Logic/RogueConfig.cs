@@ -20,4 +20,10 @@ public static class RogueConfig
 
     /// <summary>敵の攻撃力。</summary>
     public const int EnemyAttack = 1;
+
+    /// <summary>プレイヤーの初期 HP。</summary>
+    public const int PlayerHp = 10;
+
+    /// <summary>プレイヤーの攻撃力。敵へ与えるダメージ(乱数なし)。</summary>
+    public const int PlayerAttack = 2;
 }

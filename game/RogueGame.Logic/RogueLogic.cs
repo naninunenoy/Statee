@@ -33,6 +33,12 @@ public sealed class RogueLogic
     /// <summary>プレイヤーの現在位置。</summary>
     public GridPos PlayerPos { get; private set; }
 
+    /// <summary>プレイヤーの残り HP。0 以下でゲームオーバー。</summary>
+    public int PlayerHp => default;
+
+    /// <summary>プレイヤーが倒れたら true。以降のアクションは何も起こさない。</summary>
+    public bool IsGameOver => default;
+
     private Floor Floor =>
         visitedFloors.TryGetValue(CurrentFloor, out var floor)
             ? floor
@@ -40,9 +46,10 @@ public sealed class RogueLogic
 
     /// <summary>
     /// 指定方向へ1マス移動する。壁方向なら何も起きない(ターンも消費しない)。
+    /// 敵のいるマスへは移動でなく攻撃になる(bump-to-attack。位置は変わらずターン消費)。
     /// 下り階段に乗ると次フロアへ、上り階段に乗ると前フロアへ自動遷移する
     /// (フロア1の上り階段は現時点では何も起きない)。
-    /// 移動が成立したら敵のターンが進む。
+    /// ターンを消費すると敵のターンが進み、プレイヤーに隣接する敵は攻撃してくる。
     /// </summary>
     public void Move(Direction direction)
     {
