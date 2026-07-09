@@ -31,5 +31,5 @@ public sealed class DungeonMap
     public Tile this[GridPos pos] => tiles[pos.X, pos.Y];
 
     /// <summary>指定位置が歩行可能(壁でない)かを返す。</summary>
-    public bool IsWalkable(GridPos pos) => default;
+    public bool IsWalkable(GridPos pos) => tiles[pos.X, pos.Y] != Tile.Wall;
 }
