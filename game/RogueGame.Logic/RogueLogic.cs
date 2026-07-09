@@ -19,6 +19,7 @@ public sealed class RogueLogic
         this.floorFactory = floorFactory;
         CurrentFloor = 1;
         PlayerPos = Map.StairsUp;
+        PlayerHp = RogueConfig.PlayerHp;
     }
 
     /// <summary>現在のフロア番号(1 起点。地上に最も近いのが 1)。</summary>
@@ -34,10 +35,10 @@ public sealed class RogueLogic
     public GridPos PlayerPos { get; private set; }
 
     /// <summary>プレイヤーの残り HP。0 以下でゲームオーバー。</summary>
-    public int PlayerHp => default;
+    public int PlayerHp { get; private set; }
 
     /// <summary>プレイヤーが倒れたら true。以降のアクションは何も起こさない。</summary>
-    public bool IsGameOver => default;
+    public bool IsGameOver => PlayerHp <= 0;
 
     private Floor Floor =>
         visitedFloors.TryGetValue(CurrentFloor, out var floor)
@@ -53,9 +54,19 @@ public sealed class RogueLogic
     /// </summary>
     public void Move(Direction direction)
     {
-        var next = Neighbor(PlayerPos, direction);
-        if (!Map.IsWalkable(next) || Enemies.Any(enemy => enemy.Pos == next))
+        if (IsGameOver)
         {
+            return;
+        }
+        var next = Neighbor(PlayerPos, direction);
+        if (!Map.IsWalkable(next))
+        {
+            return;
+        }
+        if (Enemies.FirstOrDefault(enemy => enemy.Pos == next) is { } target)
+        {
+            AttackEnemy(target);
+            ProcessEnemyTurn();
             return;
         }
         PlayerPos = next;
@@ -73,14 +84,28 @@ public sealed class RogueLogic
         ProcessEnemyTurn();
     }
 
+    private void AttackEnemy(Enemy target)
+    {
+        target.Hp -= RogueConfig.PlayerAttack;
+        if (target.Hp <= 0)
+        {
+            Floor.RemoveEnemy(target);
+        }
+    }
+
     /// <summary>
-    /// 敵のターン。プレイヤーが見えている敵は1歩近づく(直進追跡)。
+    /// 敵のターン。プレイヤーに隣接する敵は攻撃し、見えている敵は1歩近づく(直進追跡)。
     /// 見えていない敵は動かない。敵同士・プレイヤーとは重ならない。
     /// </summary>
     private void ProcessEnemyTurn()
     {
         foreach (var enemy in Enemies)
         {
+            if (IsAdjacent(enemy.Pos, PlayerPos))
+            {
+                PlayerHp -= enemy.Attack;
+                continue;
+            }
             if (!LineOfSight.CanSee(Map, enemy.Pos, PlayerPos))
             {
                 continue;
@@ -92,6 +117,9 @@ public sealed class RogueLogic
             }
         }
     }
+
+    private static bool IsAdjacent(GridPos a, GridPos b) =>
+        Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) == 1;
 
     /// <summary>
     /// 直進追跡の1歩。差の大きい軸を優先し、塞がっていればもう一方の軸を試す。

@@ -16,4 +16,7 @@ public sealed class Floor
 
     /// <summary>生存している敵。</summary>
     public IReadOnlyList<Enemy> Enemies => enemies;
+
+    /// <summary>倒された敵を取り除く。</summary>
+    internal void RemoveEnemy(Enemy enemy) => enemies.Remove(enemy);
 }
