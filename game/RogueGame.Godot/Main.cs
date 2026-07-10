@@ -335,6 +335,15 @@ public partial class Main : Node2D
             new SnapshotStateProvider("game/input", () => new { Keys = keyEntries })
         );
         host.RegisterTimeControl(_time);
+        host.RegisterCommand(
+            "ping",
+            args =>
+            {
+                var message = args.GetString("message") ?? "ping";
+                _logger.ZLogInformation($"ping を受信: {message}");
+                return new { Pong = true, Message = message };
+            }
+        );
         host.RegisterMainThreadCommand(
             "move",
             args =>
