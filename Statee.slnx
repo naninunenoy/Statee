@@ -5,6 +5,9 @@
     <Project Path="declaree/Declaree/Declaree.csproj" />
   </Folder>
   <Folder Name="/game/">
+    <Project Path="game/RogueGame.Godot/RogueGame.Godot.csproj">
+      <BuildType Project="Debug" />
+    </Project>
     <Project Path="game/RogueGame.Logic/RogueGame.Logic.csproj" />
     <Project Path="game/SuikaGame.Godot/SuikaGame.Godot.csproj">
       <BuildType Project="Debug" />
