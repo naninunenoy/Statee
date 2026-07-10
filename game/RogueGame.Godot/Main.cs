@@ -6,6 +6,7 @@ using Godot;
 using Microsoft.Extensions.Logging;
 using RogueGame.Logic;
 using Statee.Core;
+using Statee.Godot;
 using Statee.Remote;
 using ZLogger;
 
@@ -41,10 +42,6 @@ public partial class Main : Node2D
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
 
-    /// <summary>キー入力 → アクションの配線1件(D-039)。この表が
-    /// _UnhandledInput の処理と game/input State の両方の情報源になる。</summary>
-    private sealed record KeyBinding(Key Key, string Publishes, string Explain, Action Publish);
-
     private KeyBinding[] _keyBindings = [];
 
     public override void _Ready()
@@ -53,12 +50,7 @@ public partial class Main : Node2D
         ProcessMode = ProcessModeEnum.Always;
 
         var buffer = new LogBuffer(1024);
-        _loggerFactory = LoggerFactory.Create(builder =>
-        {
-            builder.SetMinimumLevel(LogLevel.Debug);
-            builder.AddProvider(new BufferLoggerProvider(buffer));
-            builder.AddZLoggerConsole();
-        });
+        _loggerFactory = StateeLogging.CreateLoggerFactory(buffer);
         _logger = _loggerFactory.CreateLogger<Main>();
 
         // headless では project.godot の window サイズが反映されないため実行時に明示する
@@ -72,7 +64,7 @@ public partial class Main : Node2D
         var emoji = GD.Load<FontFile>("res://assets/fonts/NotoColorEmoji.subset.ttf");
         _font = new FontVariation { BaseFont = ThemeDB.FallbackFont, Fallbacks = [emoji] };
 
-        _logic = new RogueLogic(ParseIntArg("--seed=", DefaultSeed));
+        _logic = new RogueLogic(CmdlineArgs.ParseInt("--seed=", DefaultSeed));
         _keyBindings =
         [
             BindKey(Key.Up, "move north", "北(上)へ1マス移動・攻撃", () => Act(Direction.North)),
@@ -94,7 +86,7 @@ public partial class Main : Node2D
         RefreshView();
         StartStatee(buffer);
         _logger.ZLogInformation(
-            $"RogueGame 起動 seed={ParseIntArg("--seed=", DefaultSeed)} floor={_logic.CurrentFloor}"
+            $"RogueGame 起動 seed={CmdlineArgs.ParseInt("--seed=", DefaultSeed)} floor={_logic.CurrentFloor}"
         );
     }
 
@@ -109,18 +101,7 @@ public partial class Main : Node2D
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is not InputEventKey { Pressed: true, Echo: false } keyEvent)
-        {
-            return;
-        }
-        foreach (var binding in _keyBindings)
-        {
-            if (binding.Key == keyEvent.Keycode)
-            {
-                binding.Publish();
-                return;
-            }
-        }
+        KeyBindingTable.TryHandle(_keyBindings, @event);
     }
 
     public override void _Draw()
@@ -333,29 +314,9 @@ public partial class Main : Node2D
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
         host.RegisterStateProvider(_state);
         host.RegisterStateProvider(_actionLogState);
-        // キーバインドの State 公開(D-039)。配線表から導出するため実装と乖離しない
-        var keyEntries = Array.ConvertAll(
-            _keyBindings,
-            binding => new
-            {
-                Key = binding.Key.ToString(),
-                Publishes = binding.Publishes,
-                Explain = binding.Explain,
-            }
-        );
-        host.RegisterStateProvider(
-            new SnapshotStateProvider("game/input", () => new { Keys = keyEntries })
-        );
+        host.RegisterStateProvider(KeyBindingTable.CreateInputStateProvider(_keyBindings));
         host.RegisterTimeControl(_time);
-        host.RegisterCommand(
-            "ping",
-            args =>
-            {
-                var message = args.GetString("message") ?? "ping";
-                _logger.ZLogInformation($"ping を受信: {message}");
-                return new { Pong = true, Message = message };
-            }
-        );
+        StandardCommands.Register(host, this, _logger);
         host.RegisterMainThreadCommand(
             "move",
             args =>
@@ -384,53 +345,7 @@ public partial class Main : Node2D
                 return ActionResult();
             }
         );
-        host.RegisterMainThreadCommand(
-            "key",
-            args =>
-            {
-                var name =
-                    args.GetString("key")
-                    ?? throw new InvalidOperationException("key を指定すること(例: up)");
-                var key = Enum.Parse<Key>(name, ignoreCase: true);
-                var viewport = GetViewport();
-                viewport.PushInput(new InputEventKey { Keycode = key, Pressed = true });
-                viewport.PushInput(new InputEventKey { Keycode = key, Pressed = false });
-                _logger.ZLogInformation($"key {key}");
-                return new { Key = key.ToString() };
-            }
-        );
-        host.RegisterMainThreadCommand(
-            "screenshot",
-            args =>
-            {
-                var path =
-                    args.GetString("path")
-                    ?? throw new InvalidOperationException("path を指定すること");
-                var image =
-                    GetViewport().GetTexture()?.GetImage()
-                    ?? throw new InvalidOperationException(
-                        "描画が無いため撮影できない(headless では screenshot は使えない。D-034)"
-                    );
-                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)) ?? ".");
-                var error = image.SavePng(path);
-                if (error != Error.Ok)
-                {
-                    throw new InvalidOperationException($"スクリーンショット保存失敗: {error}");
-                }
-                _logger.ZLogInformation($"screenshot path={path}");
-                return new { Path = Path.GetFullPath(path) };
-            }
-        );
-        host.RegisterMainThreadCommand(
-            "quit",
-            _ =>
-            {
-                _logger.ZLogInformation($"quit を受信。終了する");
-                GetTree().Quit();
-                return new { Quitting = true };
-            }
-        );
-        _server = new StateeTcpServer(host, ParseIntArg("--port=", DefaultPort));
+        _server = new StateeTcpServer(host, CmdlineArgs.ParseInt("--port=", DefaultPort));
         _server.Start();
         _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
     }
@@ -448,30 +363,6 @@ public partial class Main : Node2D
             IsGameOver = _logic.IsGameOver,
         };
 
-    private KeyBinding BindKey(Key key, string publishes, string explain, Action publish) =>
+    private static KeyBinding BindKey(Key key, string publishes, string explain, Action publish) =>
         new(key, publishes, explain, publish);
-
-    /// <summary>デリゲートでスナップショットを返す State プロバイダ。ソケットスレッドから呼ばれる。</summary>
-    private sealed class SnapshotStateProvider(string path, Func<object> capture) : IStateProvider
-    {
-        public string Path => path;
-
-        public object CaptureState() => capture();
-    }
-
-    private static int ParseIntArg(string prefix, int defaultValue)
-    {
-        foreach (var arg in OS.GetCmdlineUserArgs())
-        {
-            if (
-                arg.StartsWith(prefix, StringComparison.Ordinal)
-                && int.TryParse(arg[prefix.Length..], out var value)
-            )
-            {
-                return value;
-            }
-        }
-
-        return defaultValue;
-    }
 }

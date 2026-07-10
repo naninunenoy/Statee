@@ -12,7 +12,8 @@ description: >-
 専用ソリューション `game/<Name>.slnx` を生成し(フレームワークの `Statee.slnx` には
 入れない。D-046)、ビルド・テスト・headless 起動が通ることまで確認する。
 
-生成物は**動く最小構成**(カウンタを進めるだけのプレースホルダ)。
+生成物は**動く最小構成**(カウンタを進めるだけのプレースホルダ)。Statee 配線の定型
+(標準コマンド・キーバインド表・起動引数・ログ)は `libs/Statee.Godot` が担う(D-047)。
 ここにあるテンプレートが正典であり、既存サンプル(SuikaGame / RogueGame)は
 変更されうるので写経元にしない。境界の掟・配線の背景は docs/USING.md を参照。
 
@@ -34,7 +35,7 @@ description: >-
 
 ### game/<Name>.slnx
 
-デバッグでフレームワーク側へステップインできるよう、参照している `src/` も
+デバッグでフレームワーク側へステップインできるよう、参照している `libs/` と `src/` も
 ビューとして含める。
 
 ```xml
@@ -47,6 +48,9 @@ description: >-
   </Folder>
   <Folder Name="/tests/">
     <Project Path="../tests/<Name>.Logic.Tests/<Name>.Logic.Tests.csproj" />
+  </Folder>
+  <Folder Name="/libs/">
+    <Project Path="../libs/Statee.Godot/Statee.Godot.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="../src/Statee.Core/Statee.Core.csproj" />
@@ -165,6 +169,7 @@ public class GameLogicTest
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\<Name>.Logic\<Name>.Logic.csproj" />
+    <ProjectReference Include="..\..\libs\Statee.Godot\Statee.Godot.csproj" />
     <ProjectReference Include="..\..\src\Statee.Core\Statee.Core.csproj" />
     <ProjectReference
       Include="..\..\src\Statee.Generator\Statee.Generator.csproj"
@@ -244,15 +249,17 @@ public partial class GameState
 ### game/<Name>.Godot/Main.cs
 
 using はアルファベット順(ゲーム名により正しい位置が変わる。hooks のフォーマッタが
-自動修正するので厳密でなくてよい)。
+自動修正するので厳密でなくてよい)。Statee 配線の定型は `libs/Statee.Godot` を使う:
+標準コマンド(ping/key/screenshot/quit)は `StandardCommands.Register`、
+キーバインド表は `KeyBinding` + `KeyBindingTable`、起動引数は `CmdlineArgs.ParseInt`。
 
 ```csharp
 using System;
-using System.IO;
 using <Name>.Logic;
 using Godot;
 using Microsoft.Extensions.Logging;
 using Statee.Core;
+using Statee.Godot;
 using Statee.Remote;
 using ZLogger;
 
@@ -272,15 +279,10 @@ public partial class Main : Node2D
     private readonly GameState _state = new();
 
     private GameLogic _logic = null!;
+    private KeyBinding[] _keyBindings = [];
     private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
-
-    /// <summary>キー入力 → アクションの配線1件。この表が _UnhandledInput の処理と
-    /// game/input State の両方の情報源になる(実装と公開情報を乖離させない)。</summary>
-    private sealed record KeyBinding(Key Key, string Publishes, string Explain, Action Publish);
-
-    private KeyBinding[] _keyBindings = [];
 
     public override void _Ready()
     {
@@ -288,15 +290,10 @@ public partial class Main : Node2D
         ProcessMode = ProcessModeEnum.Always;
 
         var buffer = new LogBuffer(1024);
-        _loggerFactory = LoggerFactory.Create(builder =>
-        {
-            builder.SetMinimumLevel(LogLevel.Debug);
-            builder.AddProvider(new BufferLoggerProvider(buffer));
-            builder.AddZLoggerConsole();
-        });
+        _loggerFactory = StateeLogging.CreateLoggerFactory(buffer);
         _logger = _loggerFactory.CreateLogger<Main>();
 
-        _logic = new GameLogic(ParseIntArg("--seed=", DefaultSeed));
+        _logic = new GameLogic(CmdlineArgs.ParseInt("--seed=", DefaultSeed));
         _keyBindings =
         [
             new KeyBinding(Key.Space, "step", "1ターン進める(プレースホルダ)", ActStep),
@@ -318,18 +315,7 @@ public partial class Main : Node2D
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is not InputEventKey { Pressed: true, Echo: false } keyEvent)
-        {
-            return;
-        }
-        foreach (var binding in _keyBindings)
-        {
-            if (binding.Key == keyEvent.Keycode)
-            {
-                binding.Publish();
-                return;
-            }
-        }
+        KeyBindingTable.TryHandle(_keyBindings, @event);
     }
 
     public override void _Draw()
@@ -367,30 +353,9 @@ public partial class Main : Node2D
     {
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
         host.RegisterStateProvider(_state);
-        // キーバインドの State 公開。配線表から導出するため実装と乖離しない
-        var keyEntries = Array.ConvertAll(
-            _keyBindings,
-            binding => new
-            {
-                Key = binding.Key.ToString(),
-                Publishes = binding.Publishes,
-                Explain = binding.Explain,
-            }
-        );
-        host.RegisterStateProvider(
-            new SnapshotStateProvider("game/input", () => new { Keys = keyEntries })
-        );
+        host.RegisterStateProvider(KeyBindingTable.CreateInputStateProvider(_keyBindings));
         host.RegisterTimeControl(_time);
-        // ping は組み込みではない。疎通確認の起点なので必ず登録する
-        host.RegisterCommand(
-            "ping",
-            args =>
-            {
-                var message = args.GetString("message") ?? "ping";
-                _logger.ZLogInformation($"ping を受信: {message}");
-                return new { Pong = true, Message = message };
-            }
-        );
+        StandardCommands.Register(host, this, _logger);
         // ゲーム状態を変えるコマンドはメインスレッドで実行する
         host.RegisterMainThreadCommand(
             "step",
@@ -401,79 +366,9 @@ public partial class Main : Node2D
                 return new { StepCount = _logic.StepCount };
             }
         );
-        host.RegisterMainThreadCommand(
-            "key",
-            args =>
-            {
-                var name =
-                    args.GetString("key")
-                    ?? throw new InvalidOperationException("key を指定すること(例: space)");
-                var key = Enum.Parse<Key>(name, ignoreCase: true);
-                var viewport = GetViewport();
-                viewport.PushInput(new InputEventKey { Keycode = key, Pressed = true });
-                viewport.PushInput(new InputEventKey { Keycode = key, Pressed = false });
-                _logger.ZLogInformation($"key {key}");
-                return new { Key = key.ToString() };
-            }
-        );
-        host.RegisterMainThreadCommand(
-            "screenshot",
-            args =>
-            {
-                var path =
-                    args.GetString("path")
-                    ?? throw new InvalidOperationException("path を指定すること(絶対パス)");
-                var image =
-                    GetViewport().GetTexture()?.GetImage()
-                    ?? throw new InvalidOperationException(
-                        "描画が無いため撮影できない(headless では screenshot は使えない)"
-                    );
-                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)) ?? ".");
-                var error = image.SavePng(path);
-                if (error != Error.Ok)
-                {
-                    throw new InvalidOperationException($"スクリーンショット保存失敗: {error}");
-                }
-                _logger.ZLogInformation($"screenshot path={path}");
-                return new { Path = Path.GetFullPath(path) };
-            }
-        );
-        host.RegisterMainThreadCommand(
-            "quit",
-            _ =>
-            {
-                _logger.ZLogInformation($"quit を受信。終了する");
-                GetTree().Quit();
-                return new { Quitting = true };
-            }
-        );
-        _server = new StateeTcpServer(host, ParseIntArg("--port=", DefaultPort));
+        _server = new StateeTcpServer(host, CmdlineArgs.ParseInt("--port=", DefaultPort));
         _server.Start();
         _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
-    }
-
-    /// <summary>デリゲートでスナップショットを返す State プロバイダ。ソケットスレッドから呼ばれる。</summary>
-    private sealed class SnapshotStateProvider(string path, Func<object> capture) : IStateProvider
-    {
-        public string Path => path;
-
-        public object CaptureState() => capture();
-    }
-
-    private static int ParseIntArg(string prefix, int defaultValue)
-    {
-        foreach (var arg in OS.GetCmdlineUserArgs())
-        {
-            if (
-                arg.StartsWith(prefix, StringComparison.Ordinal)
-                && int.TryParse(arg[prefix.Length..], out var value)
-            )
-            {
-                return value;
-            }
-        }
-
-        return defaultValue;
     }
 }
 ```
@@ -485,6 +380,8 @@ public partial class Main : Node2D
 
 - **ゲームルールをここに書かない**。ルール・状態遷移は <Name>.Logic の仕事。
   ここは描画・入力・Statee 配線だけ(in: ロジックのメソッド、out: プロパティ読み出し)
+- Statee 配線の定型(標準コマンド・キーバインド表・起動引数)は libs/Statee.Godot を
+  使う。自前で複製しない(D-047)
 - 検証用 State(game/<name>)には検証に必要な情報を全公開する。
   画面上の演出で隠すものも State では隠さない
 - Godot.NET.Sdk は ImplicitUsings 無効。System 系 using を明示する。

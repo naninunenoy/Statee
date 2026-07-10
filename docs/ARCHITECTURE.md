@@ -90,8 +90,11 @@ AI による自動確認の再現性を担保する要。
 
 ## ソリューション構成
 
+ソリューションは分割されている(D-046): フレームワークは `Statee.slnx`、
+各ゲームは専用の `game/<Name>.slnx`。全体の門番は `tools/build-all.ps1`。
+
 ```
-Statee.slnx
+Statee.slnx(フレームワーク)
 ├─ src/
 │  ├─ Statee.Core         … State/Command/Log の抽象定義(Godot 非依存)
 │  ├─ Statee.Remote       … 接続待ち受け・プロトコル実装
@@ -99,24 +102,25 @@ Statee.slnx
 │  ├─ Statee.Mcp          … MCP サーバー(汎用・CLI を起動するだけ)
 │  ├─ Statee.Scenario     … Ruby シナリオランナー(D-029, D-034)
 │  └─ Statee.Generator    … Attribute → IStateProvider 実装のソースジェネレータ(D-022)
+├─ libs/
+│  └─ Statee.Godot        … Godot 側の Statee 配線イディオム(標準コマンド・
+│                            キーバインド表・起動引数・ログ。D-047)
 ├─ declaree/
 │  ├─ Declaree            … 宣言的 UI の IR(UiNode)+ reconciler(Godot 非依存。D-035)
 │  └─ Declaree.Godot      … UiNode → Godot Control 変換(Godot 依存はここだけ)
 ├─ sandbox/
 │  └─ PingTarget.Godot    … フレームワーク検証用の最小ダミーターゲット(D-013)
-├─ game/
-│  ├─ SuikaGame.Logic     … スイカゲームの純C#ロジック(Arch / R3 / VitalRouter)
-│  ├─ SuikaGame.Godot     … Godot 4.7 プロジェクト(EntryPoint・描画・入力)
-│  └─ SuikaGame.Cli       … ゲーム用 CLI(汎用 CLI を包む)
-└─ tests/
-   ├─ Statee.Core.Tests
-   ├─ Statee.Remote.Tests
-   ├─ Statee.Generator.Tests
-   └─ SuikaGame.Logic.Tests
+└─ tests/(フレームワークのテスト)
+
+game/SuikaGame.slnx / game/RogueGame.slnx(サンプルゲーム。各ゲームが専用 slnx を持つ)
+├─ game/<Name>.Logic      … 純C#ロジック(規則・状態遷移のすべて)
+├─ game/<Name>.Godot      … Godot 4.7 プロジェクト(EntryPoint・描画・入力)
+└─ tests/<Name>.Logic.Tests
 ```
 
-フレームワーク(`src/`)とサンプルゲーム(`game/`)を最初から分離し、
-後の NuGet 化・別ゲームへの流用に備える(流用の検証案は docs/OTHELLO_ROADMAP.md)。
+依存方向は `game/ → libs/ → src/` の一方通行。フレームワーク(`src/`)と
+サンプルゲーム(`game/`)を分離し、後の NuGet 化・別ゲームへの流用に備える。
+ゲームを作る人の入口は docs/USING.md、雛形生成は `/new-game` skill(D-045)。
 
 ## サンプルゲーム:スイカゲーム
 
