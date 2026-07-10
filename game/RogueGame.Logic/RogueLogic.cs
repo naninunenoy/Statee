@@ -58,6 +58,24 @@ public sealed class RogueLogic
     /// <summary>所持しているアイテム。</summary>
     public IReadOnlyList<ItemKind> Inventory => inventory;
 
+    private readonly List<RogueAction> actionLog = [];
+
+    /// <summary>受け付けた全アクションの記録。リプレイ検証(D-044 の検証の柱3)に使う。</summary>
+    public IReadOnlyList<RogueAction> ActionLog => actionLog;
+
+    /// <summary>記録されたアクションを1つ適用する(Move / UseItem へのディスパッチ)。</summary>
+    public void Apply(RogueAction action)
+    {
+        // スケルトン。実装はテストの後
+    }
+
+    /// <summary>アクション列を同一シードの新しいゲームに再生する(リプレイ検証)。</summary>
+    public static RogueLogic Replay(int seed, IEnumerable<RogueAction> actions)
+    {
+        // スケルトン。実装はテストの後
+        return new RogueLogic(seed);
+    }
+
     /// <summary>現在フロアに落ちているアイテム。</summary>
     public IReadOnlyList<Item> Items => Floor.Items;
 
