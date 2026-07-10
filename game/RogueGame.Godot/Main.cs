@@ -28,6 +28,7 @@ public partial class Main : Node2D
 
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly RogueState _state = new();
+    private readonly RogueActionLogState _actionLogState = new();
     private readonly TimeControl _time = new();
 
     /// <summary>フロアごとの探索済みマス。FoW は描画層の演出(State は全公開)。</summary>
@@ -228,7 +229,17 @@ public partial class Main : Node2D
                 )),
             ]
         );
+        _actionLogState.Update([.. _logic.ActionLog.Select(FormatAction)]);
     }
+
+    /// <summary>「move west」「use potion」形式。そのまま move / use コマンドで再生できる。</summary>
+    private static string FormatAction(RogueAction action) =>
+        action.Kind switch
+        {
+            RogueActionKind.Move => $"move {action.Direction.ToString().ToLowerInvariant()}",
+            RogueActionKind.Use => $"use {action.Item.ToString().ToLowerInvariant()}",
+            _ => "?",
+        };
 
     private void DrawHud()
     {
@@ -321,6 +332,7 @@ public partial class Main : Node2D
     {
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
         host.RegisterStateProvider(_state);
+        host.RegisterStateProvider(_actionLogState);
         // キーバインドの State 公開(D-039)。配線表から導出するため実装と乖離しない
         var keyEntries = Array.ConvertAll(
             _keyBindings,
