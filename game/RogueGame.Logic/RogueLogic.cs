@@ -66,14 +66,26 @@ public sealed class RogueLogic
     /// <summary>記録されたアクションを1つ適用する(Move / UseItem へのディスパッチ)。</summary>
     public void Apply(RogueAction action)
     {
-        // スケルトン。実装はテストの後
+        switch (action.Kind)
+        {
+            case RogueActionKind.Move:
+                Move(action.Direction);
+                break;
+            case RogueActionKind.Use:
+                UseItem(action.Item);
+                break;
+        }
     }
 
     /// <summary>アクション列を同一シードの新しいゲームに再生する(リプレイ検証)。</summary>
     public static RogueLogic Replay(int seed, IEnumerable<RogueAction> actions)
     {
-        // スケルトン。実装はテストの後
-        return new RogueLogic(seed);
+        var game = new RogueLogic(seed);
+        foreach (var action in actions)
+        {
+            game.Apply(action);
+        }
+        return game;
     }
 
     /// <summary>現在フロアに落ちているアイテム。</summary>
@@ -85,6 +97,8 @@ public sealed class RogueLogic
     /// </summary>
     public void UseItem(ItemKind kind)
     {
+        // 無効入力もリプレイは「入力列の再生」なので記録する
+        actionLog.Add(RogueAction.Use(kind));
         if (IsGameOver || IsCleared || !inventory.Remove(kind))
         {
             return;
@@ -171,6 +185,8 @@ public sealed class RogueLogic
     /// </summary>
     public void Move(Direction direction)
     {
+        // 無効入力もリプレイは「入力列の再生」なので記録する
+        actionLog.Add(RogueAction.Move(direction));
         if (IsGameOver || IsCleared)
         {
             return;
