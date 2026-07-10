@@ -61,8 +61,14 @@ Godot 層(`game/RogueGame.Godot`)も完了。headless + Statee での疎通・mo
 - [x] Statee 組み込み: game/rogue State(Map/Player/Enemies/Items)、
       ping / move / use / key / screenshot / quit コマンド、--seed 起動
 
+- [x] E2E: エージェントによるフルクリア(seed=12345、画面あり、HP 7/10 残しで
+      IsCleared=true。State だけを頼りに経路計画 → move 送信 → 照合のループで達成)
+- [x] リプレイ検証(検証の柱3): RogueLogic が全入力を ActionLog に記録、
+      Apply / Replay で再生(全87テスト緑)。Godot 層は game/rogue/actions として公開し、
+      E2E で「プレイ → 記録取得 → 同一シード再起動 → 再生 → State 完全一致」を確認済み
+
 残り:
 
-- [ ] E2E シナリオ: エージェントによるフルクリア / アクション列のリプレイ検証
-- [ ] 人間がプレイして5分ゲームとして成立するかの調整(敵数・HP・フロア構成)
+- [ ] 人間がプレイして5分ゲームとして成立するかの調整(敵数・HP・フロア構成)。
+      知見: 敵は等速の直進追跡なので逃げ続ける限り被弾しない。帰路の緊張感が課題
 - [ ] 鍵と施錠扉(🗝️)は任意。コアループ成立後に検討
