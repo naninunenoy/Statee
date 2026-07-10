@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/game/">
+    <Project Path="RogueGame.Godot/RogueGame.Godot.csproj">
+      <BuildType Project="Debug" />
+    </Project>
+    <Project Path="RogueGame.Logic/RogueGame.Logic.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="../tests/RogueGame.Logic.Tests/RogueGame.Logic.Tests.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="../src/Statee.Core/Statee.Core.csproj" />
+    <Project Path="../src/Statee.Generator/Statee.Generator.csproj" />
+    <Project Path="../src/Statee.Remote/Statee.Remote.csproj" />
+  </Folder>
+</Solution>
