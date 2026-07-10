@@ -4,6 +4,9 @@
     <Project Path="declaree/Declaree.Statee/Declaree.Statee.csproj" />
     <Project Path="declaree/Declaree/Declaree.csproj" />
   </Folder>
+  <Folder Name="/libs/">
+    <Project Path="libs/Statee.Godot/Statee.Godot.csproj" />
+  </Folder>
   <Folder Name="/sandbox/">
     <Project Path="sandbox/PingTarget.Godot/PingTarget.Godot.csproj">
       <BuildType Project="Debug" />

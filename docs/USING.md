@@ -49,13 +49,22 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
 
 ## 4. Statee 配線チェックリスト(手で書く場合・生成物を改造する場合)
 
-`/new-game` の生成物には全部入っているが、壊すと分かりにくいものを列挙する:
+配線の定型は **`libs/Statee.Godot`** にある(D-047)。自前で複製しない:
 
-- **`ping` は自分で登録する**(組み込みではない)。疎通確認の起点なので必ず残す
-- **`quit` を登録する**(`GetTree().Quit()`)。動作確認は「exit 0 で終了」まで含めて検証する
+- `StandardCommands.Register(host, node, logger)` — ping / key / screenshot / quit を一括登録。
+  **ping は組み込みではない**ので、これを外すと疎通確認の起点を失う
+- `KeyBinding` + `KeyBindingTable` — キーバインド表を1箇所に持ち、
+  `TryHandle`(_UnhandledInput の処理)と `CreateInputStateProvider`(game/input State)の
+  両方を同じ表から導出する。実装と公開情報が乖離しない
+- `CmdlineArgs.ParseInt("--seed=", ...)` — シード・ポートの起動引数
+- `StateeLogging.CreateLoggerFactory(buffer)` — logs コマンド用バッファ+コンソールのロガー
+
+ゲーム側に残る注意点:
+
 - State クラスは `[StateeState("game/<path>")]` + `[StateeField]`。
   **CaptureState はソケットスレッドで走る**ので、メインスレッドが差し替える
   不変スナップショット(`volatile` フィールド)を読むだけにする
+  (デリゲートで足りる場合は `SnapshotStateProvider`(Statee.Core)を使う)
 - ゲーム状態を変えるコマンドは `RegisterMainThreadCommand`(メインスレッドで実行される)。
   読むだけ・スレッド安全なものは `RegisterCommand` でよい
 - `_Process` で `MainThreadDispatcher.Pump()` を毎フレーム呼ぶ。
@@ -66,9 +75,6 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
 - headless では project.godot のウィンドウサイズが反映されない。必要なら実行時に
   `GetWindow().Size` で設定する
 - `screenshot` コマンドの保存先は絶対パスで渡す(headless では撮影不可)
-- キー入力はバインド表(キー → 発行アクション+説明)として1箇所に持ち、
-  `_UnhandledInput` の処理と `game/input` State の**両方をその表から導出**する。
-  実装と公開情報が乖離しない
 
 ## 5. 動作確認の回し方
 

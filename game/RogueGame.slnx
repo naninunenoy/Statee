@@ -8,6 +8,9 @@
   <Folder Name="/tests/">
     <Project Path="../tests/RogueGame.Logic.Tests/RogueGame.Logic.Tests.csproj" />
   </Folder>
+  <Folder Name="/libs/">
+    <Project Path="../libs/Statee.Godot/Statee.Godot.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="../src/Statee.Core/Statee.Core.csproj" />
     <Project Path="../src/Statee.Generator/Statee.Generator.csproj" />

@@ -57,6 +57,7 @@
 | [D-044](D-044.md) | 第2サンプルゲームは emoji タイルのターン制ローグライク |
 | [D-045](D-045.md) | ゲーム開発者向け導線は USING.md + /new-game skill(サンプルは非規範) |
 | [D-046](D-046.md) | ソリューション分割(Statee.slnx はフレームワークのみ、ゲームは各自の slnx) |
+| [D-047](D-047.md) | Godot 側の Statee 配線イディオムを libs/Statee.Godot に共通化 |
 
 ## notes(書き捨てメモ)
 

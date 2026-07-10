@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\declaree\Declaree.Godot\Declaree.Godot.csproj" />
     <ProjectReference Include="..\..\declaree\Declaree.Statee\Declaree.Statee.csproj" />
     <ProjectReference Include="..\SuikaGame.Logic\SuikaGame.Logic.csproj" />
+    <ProjectReference Include="..\..\libs\Statee.Godot\Statee.Godot.csproj" />
     <ProjectReference Include="..\..\src\Statee.Core\Statee.Core.csproj" />
     <ProjectReference
       Include="..\..\src\Statee.Generator\Statee.Generator.csproj"
