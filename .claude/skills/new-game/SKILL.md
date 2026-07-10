@@ -243,12 +243,15 @@ public partial class GameState
 
 ### game/<Name>.Godot/Main.cs
 
+using はアルファベット順(ゲーム名により正しい位置が変わる。hooks のフォーマッタが
+自動修正するので厳密でなくてよい)。
+
 ```csharp
 using System;
 using System.IO;
+using <Name>.Logic;
 using Godot;
 using Microsoft.Extensions.Logging;
-using <Name>.Logic;
 using Statee.Core;
 using Statee.Remote;
 using ZLogger;
