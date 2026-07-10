@@ -15,15 +15,17 @@ description: >-
 
 - Godot は **.NET 版**の絶対パスを使う(標準版は C# を実行できない)。
   パスは CLAUDE.md「環境の知識」に記載のもの(`*_console.exe`)を使う
-- ターゲットは2つ。確認対象に応じて選ぶ:
+- ターゲットは引数(`--path <dir>`)または依頼の文脈から決める。
+  指定が無ければ確認対象に応じて選ぶ:
   - `sandbox/PingTarget.Godot` … フレームワーク(`src/`)の疎通・プロトコル確認用の最小ターゲット
-  - `game/SuikaGame.Godot` … ゲーム込みのシナリオ確認用(drop / freeze / step / wait / 合体 / ゲームオーバー)
+  - `game/*.Godot` … 各ゲームのシナリオ確認用。公開している State・コマンドは
+    ゲームごとに異なるので、`state --path game/…` と各ゲームの Main.cs の登録を情報源にする
 - 通信は TCP localhost、既定ポート **9310**(D-018)
 
 ## 1. ビルド
 
 ```powershell
-dotnet build game/SuikaGame.Godot   # または sandbox/PingTarget.Godot
+dotnet build <ターゲットのディレクトリ>   # 例: dotnet build game/SuikaGame.Godot
 ```
 
 注意: `Statee.Mcp` は MCP サーバー実行中だと exe がロックされてビルドに失敗する。
@@ -32,11 +34,11 @@ dotnet build game/SuikaGame.Godot   # または sandbox/PingTarget.Godot
 ## 2. ターゲット起動(バックグラウンド)
 
 ```powershell
-& "<godot_console.exe>" --headless --path game/SuikaGame.Godot -- --port=9310 --seed=12345
+& "<godot_console.exe>" --headless --path <ターゲットのディレクトリ> -- --port=9310 --seed=12345
 ```
 
 - **バックグラウンドで起動**する(フォアグラウンドだと待ち受けたまま返ってこない)
-- `--seed=` で乱数シードを注入すると決定論的に観測できる(SuikaGame のみ)
+- `--seed=` で乱数シードを注入すると決定論的に観測できる(対応しているターゲットのみ)
 - 初回のみアセットインポートが必要:
   `<godot> --headless --path <target> --import`
   → **完了後にクラッシュする(exit 0xC0000005)ので exit code は無視**(D-016)
@@ -53,9 +55,9 @@ dotnet build game/SuikaGame.Godot   # または sandbox/PingTarget.Godot
 | 疎通 | `ping --message hello` |
 | 不変情報 | `state --path system/platform` |
 | フレーム進行 | `state --path system/runtime`(Frame / UptimeSeconds) |
-| 盤面 | `state --path game/board`(SuikaGame) |
+| ゲーム状態 | `state --path game/…`(パス・内容はゲームごと。例: SuikaGame は game/board) |
 | 条件待機 | `send --command wait --arg path=game/board,field=Score,op=ge,value=1`(D-028) |
-| 任意コマンド | `send --command drop --arg x=300` |
+| 任意コマンド | `send --command <ゲームが登録したコマンド> --arg key=value` |
 | ログ | `logs --tail 20` |
 | 終了 | `quit`(exit 0 で正常終了することも確認対象) |
 
