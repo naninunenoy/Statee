@@ -8,8 +8,9 @@ description: >-
 
 # 新しいゲームのスキャフォールド
 
-`game/<Name>.Logic` + `tests/<Name>.Logic.Tests` + `game/<Name>.Godot` の3プロジェクトを
-生成し、slnx に登録し、ビルド・テスト・headless 起動が通ることまで確認する。
+`game/<Name>.Logic` + `tests/<Name>.Logic.Tests` + `game/<Name>.Godot` の3プロジェクトと
+専用ソリューション `game/<Name>.slnx` を生成し(フレームワークの `Statee.slnx` には
+入れない。D-046)、ビルド・テスト・headless 起動が通ることまで確認する。
 
 生成物は**動く最小構成**(カウンタを進めるだけのプレースホルダ)。
 ここにあるテンプレートが正典であり、既存サンプル(SuikaGame / RogueGame)は
@@ -21,8 +22,8 @@ description: >-
    `game/<Name>.Logic` 等が既に存在したら中断して報告する
 2. 下のテンプレートどおりにファイルを作る(`<Name>` を置換。
    `<name>` は小文字化した State パス用)
-3. `dotnet sln Statee.slnx add game/<Name>.Logic game/<Name>.Godot tests/<Name>.Logic.Tests`
-4. `dotnet build game/<Name>.Godot` と `dotnet test tests/<Name>.Logic.Tests` が緑になること
+3. 専用ソリューション `game/<Name>.slnx` を作る(テンプレート参照)
+4. `dotnet build game/<Name>.slnx` と `dotnet test game/<Name>.slnx --no-build` が緑になること
 5. `<godot> --headless --path game/<Name>.Godot --import` を実行
    (完了後にクラッシュするので exit code は無視。D-016)
 6. headless 起動(バックグラウンド)→ `ping` → `state --path game/<name>` →
@@ -30,6 +31,30 @@ description: >-
 7. 以降の進め方(GUIDELINE の4段階、プレースホルダの置き換え)を案内する
 
 ## テンプレート
+
+### game/<Name>.slnx
+
+デバッグでフレームワーク側へステップインできるよう、参照している `src/` も
+ビューとして含める。
+
+```xml
+<Solution>
+  <Folder Name="/game/">
+    <Project Path="<Name>.Godot/<Name>.Godot.csproj">
+      <BuildType Project="Debug" />
+    </Project>
+    <Project Path="<Name>.Logic/<Name>.Logic.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="../tests/<Name>.Logic.Tests/<Name>.Logic.Tests.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="../src/Statee.Core/Statee.Core.csproj" />
+    <Project Path="../src/Statee.Generator/Statee.Generator.csproj" />
+    <Project Path="../src/Statee.Remote/Statee.Remote.csproj" />
+  </Folder>
+</Solution>
+```
 
 ### game/<Name>.Logic/<Name>.Logic.csproj
 

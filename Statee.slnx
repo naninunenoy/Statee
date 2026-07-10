@@ -4,16 +4,6 @@
     <Project Path="declaree/Declaree.Statee/Declaree.Statee.csproj" />
     <Project Path="declaree/Declaree/Declaree.csproj" />
   </Folder>
-  <Folder Name="/game/">
-    <Project Path="game/RogueGame.Godot/RogueGame.Godot.csproj">
-      <BuildType Project="Debug" />
-    </Project>
-    <Project Path="game/RogueGame.Logic/RogueGame.Logic.csproj" />
-    <Project Path="game/SuikaGame.Godot/SuikaGame.Godot.csproj">
-      <BuildType Project="Debug" />
-    </Project>
-    <Project Path="game/SuikaGame.Logic/SuikaGame.Logic.csproj" />
-  </Folder>
   <Folder Name="/sandbox/">
     <Project Path="sandbox/PingTarget.Godot/PingTarget.Godot.csproj">
       <BuildType Project="Debug" />
@@ -30,11 +20,9 @@
   <Folder Name="/tests/">
     <Project Path="tests/Declaree.Statee.Tests/Declaree.Statee.Tests.csproj" />
     <Project Path="tests/Declaree.Tests/Declaree.Tests.csproj" />
-    <Project Path="tests/RogueGame.Logic.Tests/RogueGame.Logic.Tests.csproj" />
     <Project Path="tests/Statee.Core.Tests/Statee.Core.Tests.csproj" />
     <Project Path="tests/Statee.Generator.Tests/Statee.Generator.Tests.csproj" />
     <Project Path="tests/Statee.Remote.Tests/Statee.Remote.Tests.csproj" />
     <Project Path="tests/Statee.Scenario.Tests/Statee.Scenario.Tests.csproj" />
-    <Project Path="tests/SuikaGame.Logic.Tests/SuikaGame.Logic.Tests.csproj" />
   </Folder>
 </Solution>
