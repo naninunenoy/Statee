@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Reversi.Server</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ZLogger" Version="2.5.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Reversi.Logic\Reversi.Logic.csproj" />
+    <ProjectReference Include="..\..\syncee\Syncee\Syncee.csproj" />
+    <ProjectReference Include="..\..\src\Statee.Core\Statee.Core.csproj" />
+    <ProjectReference
+      Include="..\..\src\Statee.Generator\Statee.Generator.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\src\Statee.Remote\Statee.Remote.csproj" />
+  </ItemGroup>
+
+</Project>

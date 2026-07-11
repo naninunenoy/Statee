@@ -48,7 +48,7 @@ game/
 |---|---|---|
 | N-0 | syncee/ 骨格 | `Syncee`/`Syncee.Fake`/`Syncee.Statee` の型・API をスケルトンで定義、`syncee/README.md` を書く |
 | N-1 | コマンドレプリケーション(フェイク) | フェイクトランスポート上で「クライアントが送った着手をサーバが検証しログへ確定し、全クライアントに配布する」がユニットテストで緑。ドメイン(リバーシ)に依存しない汎用コアであることを確認 |
-| N-2 | Reversi 権威サーバ | `game/Reversi.Server`(純C#コンソール)が Reversi.Logic + Syncee(フェイク経由でなく実プロセスの起動骨格)+ Statee を組み込み、headless で起動・state 観測ができる |
+| N-2 | Reversi 権威サーバ ✅ | `game/Reversi.Server`(純C#コンソール)が Reversi.Logic + Syncee(フェイク経由でなく実プロセスの起動骨格)+ Statee を組み込み、headless で起動・state 観測ができる |
 | N-3 | LiteNetLib トランスポート | 実ソケットでサーバ1 + クライアント2(headless)の最小疎通(カウンタ相当ではなくリバーシの着手同期)が通る |
 | N-4 | Reversi.Godot クライアント化 | Reversi.Godot の `place` コマンドがローカル即時反映でなくサーバへの送信 + 確定ログ適用に変わる。タイトルの「ネット対戦」ボタンが有効になる |
 | N-5 | 切断検知 | クライアント切断をサーバが検知し、対局終了として State/Log に反映する。フェイクトランスポートでの切断注入テストを含む |
@@ -84,6 +84,15 @@ game/
   Syncee のバリデータに `TryPlace` を渡す(合法性判定 = ゲームロジックそのもの)
 - Statee を組み込み、`game/board` / `game/turn`(Reversi.Godot と同じ形)を State 公開
 - **完了条件**: headless 相当(GUI 無し)でプロセスを起動し、ping / state / logs / quit が通る
+
+**完了**: `game/Reversi.Server`(コンソール、net10.0)を新規作成。`AuthorityLog` に
+`start`/`place` の合法性判定(副作用なし。`place` は `Board.GetLegalMoves` の pure な判定)を
+注入し、`Committed` で `ReversiGame.Start`/`TryPlace` を適用して `game/board`・`game/turn` を
+更新する構成にした。`BoardState`/`TurnState` は Reversi.Godot と同一形式で複製
+(Rule of Three に達するまで抽出しない。D-013 の裏返し)。
+`dotnet run --project src/Statee.Cli -- ping/send(start,place)/state/quit --port <N>` で
+実プロセスの疎通・着手・状態観測・終了を確認済み。`game/Reversi.slnx` に追加、
+ソリューション全体ビルドは0警告0エラー。
 
 ### N-3: LiteNetLib トランスポート
 
