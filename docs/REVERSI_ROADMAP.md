@@ -51,7 +51,7 @@ tests/
 | R-2 | Godot 統合(最小) | headless で起動し、ping / state / logs / quit が通る。`game/board`(8x8 盤面)と `game/turn` を State 公開 |
 | R-3 | コマンド駆動 | `place <x> <y>`(非合法手はエラー)、`start` で対局開始。headless で1局を最後まで打ち切れる |
 | R-4 | UI・ビジュアル | タイトル(モード選択)→ 対局 → 結果の画面遷移、`game/ui` State、`click` での着手。窓ありでスクショが撮れる |
-| R-5 | AI 自動動作確認 | Ruby シナリオで「定石数手 → パス発生局面 → 終局・勝敗判定」を検証し、`--report-dir` で HTML レポートが出る |
+| R-5 | AI 自動動作確認 ✅ | Ruby シナリオで「定石数手 → パス発生局面 → 終局・勝敗判定」を検証し、`--report-dir` で HTML レポートが出る |
 
 ### R-0: 流用性の棚卸し(フレームワーク側の宿題を先に確定する)
 
@@ -113,6 +113,13 @@ Statee も Godot も登場しない。リバーシのルールだけを実装す
   ② パスが発生する局面を再現しパスの State を検証、③ 終局まで打ち切り勝敗を検証
 - `--report-dir` 付きで実行し、各手のスクショ + 盤面 State が並ぶ HTML レポートが出る
 - **完了条件**: AI Agent(statee-checker)が MCP 経由でシナリオを完遂し、レポートを提示できる
+
+**完了**: `game/Reversi.Godot/scenarios/` に3シナリオを実装。
+`opening.rb`(定石4手 → 盤面 State 検証)、`pass.rb`(黒がパスに追い込まれる18手 →
+MoveLog のパス記録と手番維持を検証)、`fullgame.rb`(60手完走 → 白の勝ち・黒19白45を検証)。
+いずれも headless で `dotnet run --project src/Statee.Scenario -- run --script ... --port 9320`
+で exit 0 を確認済み。`fullgame.rb` は窓あり起動 + `--report-dir` で
+スクショ付き HTML レポートの生成も確認済み。
 
 ### その先(本ロードマップのスコープ外)
 
