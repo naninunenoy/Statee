@@ -177,8 +177,8 @@ game/SuikaGame.slnx / game/RogueGame.slnx / game/ShootingGame.slnx
 
 - シナリオ拡充(連鎖合体、UI/幾何検証のシナリオ化)
 - 静止判定(IsSleeping)の State 追加(D-027)
-- ネットワーク対戦(着手中: docs/REVERSI_NETWORK_ROADMAP.md。方針は D-050 / D-051、
-  構想全体は docs/NETWORK_PLAN.md)
+- ネットワーク対戦(リバーシでの実証は完了: docs/REVERSI_NETWORK_ROADMAP.md N-0〜N-7。
+  方針は D-050 / D-051、構想全体(FPS 級への展開)は docs/NETWORK_PLAN.md)
 - 別ゲーム(リバーシ)への流用検証(ローカル2人対戦は完成。docs/REVERSI_ROADMAP.md)
 
 ### 運用メモ
