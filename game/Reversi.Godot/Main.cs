@@ -15,6 +15,7 @@ using Syncee.LiteNetLib;
 using ZLogger;
 using Button = Declaree.Button;
 using Label = Declaree.Label;
+using LineEdit = Declaree.LineEdit;
 
 namespace Reversi;
 
@@ -29,6 +30,7 @@ public partial class Main : Node2D
     private const int DefaultPort = 9310;
     private const string DefaultGameHost = "127.0.0.1";
     private const int DefaultGamePort = 9410;
+    private const string DefaultRoom = "reversi";
 
     // ボタンの OnClick ID(Declaree の Dispatch と対応)
     private const string EvStartLocal = "StartLocal";
@@ -212,10 +214,17 @@ public partial class Main : Node2D
                         Name = "StartLocalButton",
                         Explain = "1画面で2人が交互に着手する対局を開始するボタン",
                     },
+                    new LineEdit("")
+                    {
+                        Name = "RoomInput",
+                        PlaceholderText = "合言葉(未入力なら既定値)",
+                        Explain = "ネット対戦の合言葉。同じ合言葉を入力した相手とだけ対戦できる",
+                    },
                     new Button("ネット対戦", OnClick: EvStartNetwork)
                     {
                         Name = "StartNetworkButton",
-                        Explain = "ネット対戦(D-050)。Reversi.Server に接続して対局を開始する",
+                        Explain =
+                            "ネット対戦(D-050)。合言葉が一致する Reversi.Server に接続して対局を開始する",
                     },
                     new Button("おわる", OnClick: EvExit)
                     {
@@ -289,7 +298,7 @@ public partial class Main : Node2D
             case EvStartNetwork:
                 if (_game.Phase == GamePhase.Title)
                 {
-                    ConnectNetwork();
+                    ConnectNetwork(CurrentRoomInput());
                     SendNetworkCommand("start", null);
                     _logger.ZLogInformation($"ネット対戦の開始要求をサーバへ送信");
                 }
@@ -333,8 +342,19 @@ public partial class Main : Node2D
             EndReason = _game.EndReason.ToString(),
         };
 
+    /// <summary>
+    /// ui/tree の RoomInput(LineEdit)に入力された合言葉を読む。空なら既定値。
+    /// LineEdit は値を運ぶイベントを持たない(Declaree の方針)ため、Godot コントロールを
+    /// Name(D-038)で直接参照する。
+    /// </summary>
+    private string CurrentRoomInput()
+    {
+        var text = (_uiRoot?.FindChild("RoomInput", true, false) as Godot.LineEdit)?.Text;
+        return string.IsNullOrWhiteSpace(text) ? DefaultRoom : text;
+    }
+
     /// <summary>Reversi.Server へ接続する(まだ未接続の場合のみ)。以後 start/place はサーバ送信になる。</summary>
-    private void ConnectNetwork()
+    private void ConnectNetwork(string room)
     {
         if (_network is not null)
         {
@@ -350,8 +370,8 @@ public partial class Main : Node2D
         };
         var host = CmdlineArgs.ParseString("--game-host=", DefaultGameHost);
         var port = CmdlineArgs.ParseInt("--game-port=", DefaultGamePort);
-        _network.Connect(host, port);
-        _logger.ZLogInformation($"Reversi.Server へ接続 host={host} port={port}");
+        _network.Connect(host, port, room);
+        _logger.ZLogInformation($"Reversi.Server へ接続 host={host} port={port} room={room}");
     }
 
     /// <summary>サーバから確定した1コマンドを適用する(Reversi.Server の Committed ハンドラと同型)。</summary>
@@ -392,11 +412,12 @@ public partial class Main : Node2D
         // ゲーム状態を変えるコマンドはメインスレッドで実行する
         host.RegisterMainThreadCommand(
             "connect",
-            _ =>
+            args =>
             {
                 // start と違い接続だけを行う。複数クライアントを揃えてから start する
-                // シナリオ(N-6)で、全クライアントの接続完了を待ってから開始するために使う
-                ConnectNetwork();
+                // シナリオ(N-6)で、全クライアントの接続完了を待ってから開始するために使う。
+                // room 未指定なら UI(RoomInput)の入力値、それも空なら既定値を使う
+                ConnectNetwork(args.GetString("room") ?? CurrentRoomInput());
                 return new { Connected = true };
             }
         );
@@ -412,7 +433,7 @@ public partial class Main : Node2D
                 var mode = Enum.Parse<GameMode>(modeName, ignoreCase: true);
                 if (mode == GameMode.Network)
                 {
-                    ConnectNetwork();
+                    ConnectNetwork(args.GetString("room") ?? CurrentRoomInput());
                     SendNetworkCommand("start", null);
                     _logger.ZLogInformation($"ネット対戦の開始要求をサーバへ送信");
                     return TurnResult();

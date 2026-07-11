@@ -14,6 +14,7 @@ using ZLogger;
 
 var port = 9310;
 var gamePort = 9410;
+var room = "reversi";
 foreach (var arg in args)
 {
     if (arg.StartsWith("--port=", StringComparison.Ordinal) && int.TryParse(arg[7..], out var p))
@@ -27,6 +28,10 @@ foreach (var arg in args)
     {
         gamePort = gp;
     }
+    if (arg.StartsWith("--room=", StringComparison.Ordinal))
+    {
+        room = arg[7..];
+    }
 }
 
 var loggerFactory = LoggerFactory.Create(builder =>
@@ -38,7 +43,9 @@ var logger = loggerFactory.CreateLogger("Reversi.Server");
 var boardState = new BoardState();
 var turnState = new TurnState();
 
-var gameTransport = new LiteNetLibServerTransport(gamePort);
+// 合言葉(ルームパスフレーズ)。同じ --room を指定したクライアントだけが接続できる。
+// マッチメイキングではなく、知り合い同士が対戦するための最小限のゲート(D-050 の先の議論)
+var gameTransport = new LiteNetLibServerTransport(gamePort, connectionKey: room);
 var authority = new ReversiAuthority(gameTransport);
 
 void RefreshState()
@@ -140,7 +147,9 @@ host.RegisterMainThreadCommand(
 
 await using var server = new StateeTcpServer(host, port);
 server.Start();
-logger.ZLogInformation($"Reversi.Server 待ち受け開始 port={server.Port} game-port={gamePort}");
+logger.ZLogInformation(
+    $"Reversi.Server 待ち受け開始 port={server.Port} game-port={gamePort} room={room}"
+);
 
 while (running)
 {
