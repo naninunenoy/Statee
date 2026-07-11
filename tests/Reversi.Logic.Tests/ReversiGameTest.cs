@@ -189,6 +189,54 @@ public class ReversiGameTest
     }
 
     [Fact]
+    public void EndByDisconnect_対局中に相手が切断_切断した側の相手が勝ちResultへ遷移する()
+    {
+        var game = new ReversiGame();
+        game.Start(GameMode.Network);
+        game.TryPlace(2, 3);
+
+        game.EndByDisconnect(Disc.White);
+
+        game.Phase.ShouldBe(GamePhase.Result);
+        game.Winner.ShouldBe(Disc.Black);
+        game.CurrentPlayer.ShouldBe(Disc.None);
+        game.EndReason.ShouldBe(GameEndReason.Disconnected);
+    }
+
+    [Fact]
+    public void EndReason_通常の終局はComplete()
+    {
+        var game = ReversiGame.Restore(
+            BoardTest.Parse(
+                "BBBBBW..",
+                "........",
+                "........",
+                "........",
+                "........",
+                "........",
+                "........",
+                "........"
+            ),
+            currentPlayer: Disc.Black,
+            mode: GameMode.LocalTwoPlayer
+        );
+
+        game.TryPlace(6, 0);
+
+        game.EndReason.ShouldBe(GameEndReason.Complete);
+    }
+
+    [Fact]
+    public void EndByDisconnect_Playing以外では何もしない()
+    {
+        var game = new ReversiGame();
+
+        game.EndByDisconnect(Disc.White);
+
+        game.Phase.ShouldBe(GamePhase.Title);
+    }
+
+    [Fact]
     public void MoveLog_リプレイ_同じログを別インスタンスに適用すると同じ盤面になる()
     {
         var recorded = new ReversiGame();
