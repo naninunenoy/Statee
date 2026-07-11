@@ -63,17 +63,18 @@ public class ReversiGameTest
     [Fact]
     public void 相手に合法手がない_自動パスがログに残り手番が戻る()
     {
-        // 黒が (1,0) に置くと白に合法手がなくなり、白の自動パスで黒番が続く局面
+        // 黒が (1,0) に置くと白は残り1枚(白の手の終端に使える白石がない)で合法手がなくなり、
+        // 白の自動パスで黒番が続く。黒には (3,4) など合法手が残る局面
         var game = ReversiGame.Restore(
             BoardTest.Parse(
                 "..WB....",
                 "...B....",
                 "...B....",
+                "...W....",
                 "........",
                 "........",
                 "........",
-                "........",
-                "....BW.."
+                "........"
             ),
             currentPlayer: Disc.Black,
             mode: GameMode.LocalTwoPlayer

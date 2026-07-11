@@ -103,7 +103,7 @@ public class BoardTest
         board.TryPlace(3, 3, Disc.Black).ShouldBeTrue();
 
         board.Count(Disc.White).ShouldBe(0);
-        board.Count(Disc.Black).ShouldBe(6 + 8 + 1);
+        board.Count(Disc.Black).ShouldBe(8 + 8 + 1); // 元の黒8 + 反転した白8 + 置いた1
     }
 
     [Fact]
