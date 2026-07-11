@@ -47,7 +47,7 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     >();
 
     private readonly World _world = World.Create();
-    private readonly List<Entity> _toDestroy = [];
+    private readonly HashSet<Entity> _toDestroy = [];
     private Vector2 _playerPosition;
     private int _fireCooldown;
     private int _invincibleTicksLeft;
