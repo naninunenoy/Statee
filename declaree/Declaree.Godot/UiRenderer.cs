@@ -68,6 +68,14 @@ public static class UiRenderer
                 gdButton.Pressed += () => dispatch(eventId);
                 return gdButton;
             }
+            case LineEdit lineEdit:
+                // 値の読み出しはリアクティブにせず、ホスト側が Name(D-038)で
+                // このコントロールを直接参照して Text を読む(D-035)
+                return new global::Godot.LineEdit
+                {
+                    Text = lineEdit.Text,
+                    PlaceholderText = lineEdit.PlaceholderText,
+                };
             default:
                 throw new ArgumentException($"未知のノード型: {node.GetType().Name}", nameof(node));
         }

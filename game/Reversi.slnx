@@ -1,0 +1,28 @@
+<Solution>
+  <Folder Name="/game/">
+    <Project Path="Reversi.Godot/Reversi.Godot.csproj">
+      <BuildType Project="Debug" />
+    </Project>
+    <Project Path="Reversi.Logic/Reversi.Logic.csproj" />
+    <Project Path="Reversi.Server/Reversi.Server.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="../tests/Reversi.Logic.Tests/Reversi.Logic.Tests.csproj" />
+    <Project Path="../tests/Reversi.Server.Tests/Reversi.Server.Tests.csproj" />
+  </Folder>
+  <Folder Name="/libs/">
+    <Project Path="../libs/Statee.Godot/Statee.Godot.csproj" />
+    <Project Path="../declaree/Declaree/Declaree.csproj" />
+    <Project Path="../declaree/Declaree.Godot/Declaree.Godot.csproj" />
+    <Project Path="../declaree/Declaree.Statee/Declaree.Statee.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="../src/Statee.Core/Statee.Core.csproj" />
+    <Project Path="../src/Statee.Generator/Statee.Generator.csproj" />
+    <Project Path="../src/Statee.Remote/Statee.Remote.csproj" />
+  </Folder>
+  <Folder Name="/syncee/">
+    <Project Path="../syncee/Syncee/Syncee.csproj" />
+    <Project Path="../syncee/Syncee.Fake/Syncee.Fake.csproj" />
+  </Folder>
+</Solution>
