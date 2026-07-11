@@ -21,8 +21,9 @@ docs/ARCHITECTURE.md「サンプルゲーム:RaidBoss」節に集約する。
 
 ### ネット版(Syncee 配線。D-054 のロックステップを実装)
 
-- [ ] **B-5** Tick 入力バンドルの確定・配布(`AuthorityLog`/`ReplicaLog` の拡張。
-      「両クライアントの Tick X 入力が揃うまで待つ」バッチ確定パターン)
+- [x] **B-5** Tick 入力バンドルの確定・配布。`AuthorityLog`/`ReplicaLog`(D-050。即時確定)とは
+      別に `TickBundleAuthority`/`TickReplicaLog`(D-054。バッチ確定)を Syncee コアへ追加した
+      (19件全緑)
 - [ ] **B-6** `RaidBoss.Server`(純C#。ヘッドレスで同じロジックを並走させ入力検証)
 - [ ] **B-7** `RaidBoss.Godot` のネットワークモード(入力遅延バッファ、確定バンドル適用)
 - [ ] **B-8** マルチインスタンス E2E(D-051 のシナリオ語彙を使用。2クライアント+サーバで
