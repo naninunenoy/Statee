@@ -18,6 +18,16 @@ public enum GamePhase
     Result,
 }
 
+/// <summary>Result に至った理由(D-050 の切断検知)。</summary>
+public enum GameEndReason
+{
+    /// <summary>双方に合法手がなくなった通常の終局。</summary>
+    Complete,
+
+    /// <summary>ネット対戦で相手が切断したことによる不戦勝。</summary>
+    Disconnected,
+}
+
 /// <summary>
 /// 対局全体の状態機械。手番管理・自動パス・終局判定・勝敗・着手ログを担う。
 /// 着手ログは「そのまま再生可能」規約(D-049)に従い、ネット対戦(D-050)の
@@ -43,6 +53,9 @@ public sealed class ReversiGame
     /// <summary>勝者。引き分けは None。Result 以外では None。</summary>
     public Disc Winner { get; private set; } = Disc.None;
 
+    /// <summary>Result に至った理由。Result 以外では意味を持たない。</summary>
+    public GameEndReason EndReason { get; private set; } = GameEndReason.Complete;
+
     /// <summary>Title から対局を開始する。</summary>
     public void Start(GameMode mode)
     {
@@ -51,8 +64,25 @@ public sealed class ReversiGame
         CurrentPlayer = Disc.Black;
         MoveCount = 0;
         Winner = Disc.None;
+        EndReason = GameEndReason.Complete;
         _moveLog.Clear();
         Phase = GamePhase.Playing;
+    }
+
+    /// <summary>
+    /// ネット対戦で相手が切断したときに呼ぶ(D-050)。切断した側の相手を勝者として Result へ
+    /// 遷移する。Playing 以外では何もしない。
+    /// </summary>
+    public void EndByDisconnect(Disc disconnectedPlayer)
+    {
+        if (Phase != GamePhase.Playing)
+        {
+            return;
+        }
+        Winner = disconnectedPlayer.Opponent();
+        EndReason = GameEndReason.Disconnected;
+        CurrentPlayer = Disc.None;
+        Phase = GamePhase.Result;
     }
 
     /// <summary>任意の局面から Playing 状態で復元する(テスト・将来の途中復帰用)。</summary>
