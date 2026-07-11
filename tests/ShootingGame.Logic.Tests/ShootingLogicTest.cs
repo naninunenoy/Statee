@@ -5,7 +5,10 @@ namespace ShootingGame.Logic.Tests;
 
 public class ShootingLogicTest
 {
-    private static ShootingLogic CreateLogic(ShootingConfig? config = null) => new(seed: 1, config);
+    // ウェーブ自動湧きと干渉しないよう、既定はウェーブなしで生成する。
+    // ウェーブ仕様のテストは ShootingLogicWaveTest に置く
+    private static ShootingLogic CreateLogic(ShootingConfig? config = null) =>
+        new(seed: 1, config ?? new ShootingConfig { Waves = [] });
 
     private static void TickMany(ShootingLogic logic, int count, InputState input = default)
     {
@@ -250,7 +253,12 @@ public class ShootingLogicTest
     [Fact]
     public void Tick_無敵が切れた後に敵が触れる_再び被弾する()
     {
-        var config = new ShootingConfig { InvincibleTicks = 5, StraightEnemySpeed = 0f };
+        var config = new ShootingConfig
+        {
+            Waves = [],
+            InvincibleTicks = 5,
+            StraightEnemySpeed = 0f,
+        };
         var logic = CreateLogic(config);
         logic.SpawnEnemy(EnemyKind.Straight, logic.PlayerPosition);
         logic.Tick(new InputState());
@@ -263,7 +271,12 @@ public class ShootingLogicTest
     [Fact]
     public void Tick_残機1で被弾_ゲームオーバーになる()
     {
-        var config = new ShootingConfig { InitialLives = 1, StraightEnemySpeed = 0f };
+        var config = new ShootingConfig
+        {
+            Waves = [],
+            InitialLives = 1,
+            StraightEnemySpeed = 0f,
+        };
         var logic = CreateLogic(config);
         logic.SpawnEnemy(EnemyKind.Straight, logic.PlayerPosition);
 
@@ -276,7 +289,12 @@ public class ShootingLogicTest
     [Fact]
     public void Tick_ゲームオーバー後_状態が変わらない()
     {
-        var config = new ShootingConfig { InitialLives = 1, StraightEnemySpeed = 0f };
+        var config = new ShootingConfig
+        {
+            Waves = [],
+            InitialLives = 1,
+            StraightEnemySpeed = 0f,
+        };
         var logic = CreateLogic(config);
         logic.SpawnEnemy(EnemyKind.Straight, logic.PlayerPosition);
         logic.Tick(new InputState());
@@ -321,7 +339,7 @@ public class ShootingLogicTest
     [Fact]
     public void EventLog_容量を超えて記録する_古い順に捨てられ通し番号は続く()
     {
-        var config = new ShootingConfig { EventLogCapacity = 3 };
+        var config = new ShootingConfig { Waves = [], EventLogCapacity = 3 };
         var logic = CreateLogic(config);
 
         for (var i = 0; i < 5; i++)
