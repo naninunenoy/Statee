@@ -52,6 +52,22 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         public int Cooldown;
     }
 
+    /// <summary>アイテム ⭐。</summary>
+    private struct ItemComponent
+    {
+        public int Id;
+    }
+
+    /// <summary>ボス 🐙 の入場・蛇行・フェーズ・発射管理。</summary>
+    private struct BossComponent
+    {
+        public bool Anchored;
+        public float BaseY;
+        public int Age;
+        public int Cooldown;
+        public int Phase;
+    }
+
     private readonly record struct PendingSpawn(int Tick, EnemyKind Kind, float Y);
 
     private static readonly QueryDescription MovingQuery = new QueryDescription().WithAll<
@@ -78,6 +94,16 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         ShooterComponent,
         PositionComponent
     >();
+    private static readonly QueryDescription ItemQuery = new QueryDescription().WithAll<
+        ItemComponent,
+        PositionComponent
+    >();
+    private static readonly QueryDescription BossQuery = new QueryDescription().WithAll<
+        BossComponent,
+        EnemyComponent,
+        PositionComponent,
+        VelocityComponent
+    >();
 
     private readonly World _world = World.Create();
     private readonly HashSet<Entity> _toDestroy = [];
@@ -89,6 +115,7 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     private int _nextBulletId = 1;
     private int _nextEnemyBulletId = 1;
     private int _nextEnemyId = 1;
+    private int _nextItemId = 1;
     private int _waveIndex = -1;
 
     public ShootingLogic(int seed, ShootingConfig? config = null)
@@ -134,10 +161,10 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     public bool AllWavesCleared { get; private set; }
 
     /// <summary>ボスを撃破してクリアしたか。true 以降は Tick が状態を変えない(盤面凍結)。</summary>
-    public bool IsCleared => default;
+    public bool IsCleared { get; private set; }
 
     /// <summary>ショット強化の段階(1〜MaxPowerLevel)。段階ぶんの弾を同時に撃つ。被弾で1段階下がる。</summary>
-    public int PowerLevel => default;
+    public int PowerLevel { get; private set; } = 1;
 
     /// <summary>ゲーム内イベントの発行先。購読者(スコア係・演出係等)はここへ Subscribe する。</summary>
     public Router Router { get; } = new();
@@ -178,7 +205,20 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     }
 
     /// <summary>場に出ているアイテム ⭐(Id 昇順)。</summary>
-    public IReadOnlyList<ItemSnapshot> Items => [];
+    public IReadOnlyList<ItemSnapshot> Items
+    {
+        get
+        {
+            var items = new List<ItemSnapshot>();
+            _world.Query(
+                in ItemQuery,
+                (ref ItemComponent item, ref PositionComponent position) =>
+                    items.Add(new ItemSnapshot(item.Id, position.Value))
+            );
+            items.Sort((a, b) => a.Id.CompareTo(b.Id));
+            return items;
+        }
+    }
 
     /// <summary>場に出ている敵(Id 昇順)。</summary>
     public IReadOnlyList<EnemySnapshot> Enemies
@@ -202,7 +242,7 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     /// </summary>
     public void Tick(in InputState input)
     {
-        if (IsGameOver)
+        if (IsGameOver || IsCleared)
         {
             return;
         }
@@ -219,7 +259,10 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         SpawnDueWaveEnemies();
         Fire(input);
         FireShooters();
+        UpdateBoss();
         ResolveBulletHits();
+        UpdateBossPhase();
+        ResolveItemPickup();
         ResolvePlayerHit();
         CullOffscreen();
         CheckWaveClear();
@@ -261,6 +304,16 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
                     new ShooterComponent { Cooldown = Config.ShooterFireIntervalTicks }
                 );
                 break;
+            case EnemyKind.Boss:
+                var boss = Config.Boss ?? new BossConfig();
+                enemy.Hp = boss.Hp;
+                _world.Create(
+                    enemy,
+                    positionComponent,
+                    new VelocityComponent { Value = new Vector2(-boss.EntrySpeed, 0f) },
+                    new BossComponent { Cooldown = boss.FireIntervalTicks, Phase = 1 }
+                );
+                break;
             default:
                 _world.Create(enemy, positionComponent, new VelocityComponent());
                 break;
@@ -270,16 +323,28 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     }
 
     /// <summary>アイテム ⭐ を出す(ドロップ・テスト用)。</summary>
-    public int SpawnItem(Vector2 position) => default;
+    public int SpawnItem(Vector2 position)
+    {
+        var id = _nextItemId++;
+        _world.Create(
+            new ItemComponent { Id = id },
+            new PositionComponent { Value = position },
+            new VelocityComponent { Value = new Vector2(-Config.ItemDriftSpeed, 0f) }
+        );
+        return id;
+    }
 
     /// <inheritdoc/>
     public void Receive<T>(T command, PublishContext context)
         where T : ICommand
     {
         // スコア係。撃破イベントの購読でスコアを加算する(多対多配線の一端)
-        if (command is EnemyDestroyed)
+        if (command is EnemyDestroyed destroyed)
         {
-            Score += Config.EnemyScore;
+            Score +=
+                destroyed.Kind == EnemyKind.Boss
+                    ? (Config.Boss ?? new BossConfig()).Score
+                    : Config.EnemyScore;
         }
     }
 
@@ -374,6 +439,13 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         if (_waveIndex + 1 >= Config.Waves.Count)
         {
             AllWavesCleared = true;
+            if (Config.Boss is { } boss)
+            {
+                SpawnEnemy(
+                    EnemyKind.Boss,
+                    new Vector2(Config.FieldWidth + boss.Radius, Config.FieldHeight / 2f)
+                );
+            }
             return;
         }
         StartWave(_waveIndex + 1);
@@ -389,11 +461,16 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         {
             return;
         }
-        _world.Create(
-            new PlayerBulletComponent { Id = _nextBulletId++ },
-            new PositionComponent { Value = _playerPosition },
-            new VelocityComponent { Value = new Vector2(Config.PlayerBulletSpeed, 0f) }
-        );
+        // PowerLevel ぶんの弾を Y 方向に等間隔で並べて撃つ
+        for (var i = 0; i < PowerLevel; i++)
+        {
+            var offsetY = (i - (PowerLevel - 1) / 2f) * Config.PowerShotSpacing;
+            _world.Create(
+                new PlayerBulletComponent { Id = _nextBulletId++ },
+                new PositionComponent { Value = _playerPosition + new Vector2(0f, offsetY) },
+                new VelocityComponent { Value = new Vector2(Config.PlayerBulletSpeed, 0f) }
+            );
+        }
         _fireCooldown = Config.FireIntervalTicks;
     }
 
@@ -432,10 +509,122 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         }
     }
 
+    /// <summary>
+    /// ボスの入場(アンカー X で停止)・停止後の上下蛇行・フェーズ遷移・弾幕発射。
+    /// </summary>
+    private void UpdateBoss()
+    {
+        var boss = Config.Boss ?? new BossConfig();
+        List<(Vector2 Origin, int Phase)>? volleys = null;
+        _world.Query(
+            in BossQuery,
+            (
+                ref BossComponent state,
+                ref EnemyComponent enemy,
+                ref PositionComponent position,
+                ref VelocityComponent velocity
+            ) =>
+            {
+                if (!state.Anchored && position.Value.X <= boss.AnchorX)
+                {
+                    state.Anchored = true;
+                    state.BaseY = position.Value.Y;
+                    velocity.Value = Vector2.Zero;
+                    position.Value.X = boss.AnchorX;
+                }
+                if (state.Anchored && boss.SinePeriodTicks > 0)
+                {
+                    state.Age++;
+                    position.Value.Y =
+                        state.BaseY
+                        + boss.SineAmplitude
+                            * MathF.Sin(2f * MathF.PI * state.Age / boss.SinePeriodTicks);
+                }
+
+                if (--state.Cooldown > 0)
+                {
+                    return;
+                }
+                state.Cooldown = boss.FireIntervalTicks;
+                (volleys ??= []).Add((position.Value, state.Phase));
+            }
+        );
+        if (volleys is null)
+        {
+            return;
+        }
+        foreach (var (origin, phase) in volleys)
+        {
+            FireBossVolley(origin, phase);
+        }
+    }
+
+    /// <summary>被弾解決後の残 HP でフェーズを更新する。遷移した Tick に BossPhaseChanged を発行する。</summary>
+    private void UpdateBossPhase()
+    {
+        var boss = Config.Boss ?? new BossConfig();
+        var phaseChanges = new List<BossPhaseChanged>();
+        _world.Query(
+            in BossQuery,
+            (
+                ref BossComponent state,
+                ref EnemyComponent enemy,
+                ref PositionComponent _,
+                ref VelocityComponent _
+            ) =>
+            {
+                var phase = ComputeBossPhase(enemy.Hp, boss.Hp);
+                if (phase != state.Phase)
+                {
+                    state.Phase = phase;
+                    phaseChanges.Add(new BossPhaseChanged(phase));
+                }
+            }
+        );
+        foreach (var change in phaseChanges)
+        {
+            Publish(change);
+        }
+    }
+
+    /// <summary>フェーズ別の弾幕。自機狙いを中心に 1 / 3 / 5 ウェイ。</summary>
+    private void FireBossVolley(Vector2 origin, int phase)
+    {
+        var direction = _playerPosition - origin;
+        var baseAngle =
+            direction == Vector2.Zero ? MathF.PI : MathF.Atan2(direction.Y, direction.X);
+        var wayCount = phase switch
+        {
+            1 => 1,
+            2 => 3,
+            _ => 5,
+        };
+        const float SpreadRadians = 15f * MathF.PI / 180f;
+        for (var i = 0; i < wayCount; i++)
+        {
+            var angle = baseAngle + (i - (wayCount - 1) / 2f) * SpreadRadians;
+            _world.Create(
+                new EnemyBulletComponent { Id = _nextEnemyBulletId++ },
+                new PositionComponent { Value = origin },
+                new VelocityComponent
+                {
+                    Value =
+                        new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * Config.EnemyBulletSpeed,
+                }
+            );
+        }
+    }
+
+    /// <summary>残 HP 比でフェーズを決める。2/3 以下で 2、1/3 以下で 3。</summary>
+    private static int ComputeBossPhase(int hp, int maxHp) =>
+        hp * 3 <= maxHp ? 3
+        : hp * 3 <= maxHp * 2 ? 2
+        : 1;
+
     private void ResolveBulletHits()
     {
-        var hitRange = Config.PlayerBulletRadius + Config.EnemyRadius;
         var destroyed = new List<EnemyDestroyed>();
+        var dropOrigins = new List<Vector2>();
         _world.Query(
             in BulletQuery,
             (Entity bulletEntity, ref PlayerBulletComponent _, ref PositionComponent bulletPos) =>
@@ -454,7 +643,8 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
                         {
                             return;
                         }
-                        if (!Overlaps(bulletPosition, enemyPos.Value, hitRange))
+                        var range = Config.PlayerBulletRadius + EnemyRadiusOf(enemy.Kind);
+                        if (!Overlaps(bulletPosition, enemyPos.Value, range))
                         {
                             return;
                         }
@@ -464,6 +654,10 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
                         {
                             _toDestroy.Add(enemyEntity);
                             destroyed.Add(new EnemyDestroyed(enemy.Id, enemy.Kind));
+                            if (enemy.Kind != EnemyKind.Boss)
+                            {
+                                dropOrigins.Add(enemyPos.Value);
+                            }
                         }
                     }
                 );
@@ -474,11 +668,52 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
             }
         );
         FlushDestroyed();
+        foreach (var origin in dropOrigins)
+        {
+            // ドロップ抽選。乱数消費は撃破ごとに1回で、入力列が同じなら再現する
+            if (_random.NextDouble() < Config.PowerUpDropChance)
+            {
+                SpawnItem(origin);
+            }
+        }
         foreach (var evt in destroyed)
         {
             Publish(evt);
+            if (evt.Kind == EnemyKind.Boss)
+            {
+                IsCleared = true;
+                Publish(new GameCleared(Score));
+            }
         }
     }
+
+    /// <summary>アイテム ⭐ の取得。ショット強化が1段階上がる(上限あり)。</summary>
+    private void ResolveItemPickup()
+    {
+        var range = Config.PlayerRadius + Config.ItemRadius;
+        var collected = 0;
+        _world.Query(
+            in ItemQuery,
+            (Entity entity, ref ItemComponent _, ref PositionComponent position) =>
+            {
+                if (Overlaps(_playerPosition, position.Value, range))
+                {
+                    _toDestroy.Add(entity);
+                    collected++;
+                }
+            }
+        );
+        FlushDestroyed();
+        for (var i = 0; i < collected; i++)
+        {
+            PowerLevel = Math.Min(Config.MaxPowerLevel, PowerLevel + 1);
+            Publish(new PowerUpCollected(PowerLevel));
+        }
+    }
+
+    /// <summary>敵種ごとの当たり判定半径。</summary>
+    private float EnemyRadiusOf(EnemyKind kind) =>
+        kind == EnemyKind.Boss ? (Config.Boss ?? new BossConfig()).Radius : Config.EnemyRadius;
 
     private void ResolvePlayerHit()
     {
@@ -486,12 +721,15 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         {
             return;
         }
-        var enemyRange = Config.PlayerRadius + Config.EnemyRadius;
         var hit = false;
         _world.Query(
             in EnemyQuery,
-            (ref EnemyComponent _, ref PositionComponent position) =>
-                hit |= Overlaps(_playerPosition, position.Value, enemyRange)
+            (ref EnemyComponent enemy, ref PositionComponent position) =>
+                hit |= Overlaps(
+                    _playerPosition,
+                    position.Value,
+                    Config.PlayerRadius + EnemyRadiusOf(enemy.Kind)
+                )
         );
         // 敵弾は当たった弾だけ消える。無敵中はこの分岐に来ないのですり抜ける
         var bulletRange = Config.PlayerRadius + Config.EnemyBulletRadius;
@@ -513,6 +751,7 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         }
 
         Lives--;
+        PowerLevel = Math.Max(1, PowerLevel - 1);
         _invincibleTicksLeft = Config.InvincibleTicks;
         Publish(new PlayerHit(Lives));
         if (Lives <= 0)
@@ -556,6 +795,16 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
             (Entity entity, ref EnemyComponent _, ref PositionComponent position) =>
             {
                 if (position.Value.X + Config.EnemyRadius < 0f)
+                {
+                    _toDestroy.Add(entity);
+                }
+            }
+        );
+        _world.Query(
+            in ItemQuery,
+            (Entity entity, ref ItemComponent _, ref PositionComponent position) =>
+            {
+                if (position.Value.X + Config.ItemRadius < 0f)
                 {
                     _toDestroy.Add(entity);
                 }

@@ -68,9 +68,9 @@ public partial class Main : Node2D
         DrawString(
             ThemeDB.FallbackFont,
             new Vector2(16, 32),
-            $"score={_logic.Score}  lives={_logic.Lives}  wave={_logic.Wave}  tick={_logic.TickCount}"
+            $"score={_logic.Score}  lives={_logic.Lives}  power={_logic.PowerLevel}  wave={_logic.Wave}  tick={_logic.TickCount}"
                 + (_logic.IsGameOver ? "  GAME OVER" : "")
-                + (_logic.AllWavesCleared ? "  ALL WAVES CLEARED" : ""),
+                + (_logic.IsCleared ? "  GAME CLEAR!" : ""),
             fontSize: 20
         );
         DrawCircle(ToScreen(_logic.PlayerPosition), _logic.Config.PlayerRadius, Colors.Cyan);
@@ -82,9 +82,26 @@ public partial class Main : Node2D
         {
             DrawCircle(ToScreen(bullet.Position), _logic.Config.EnemyBulletRadius, Colors.Red);
         }
+        foreach (var item in _logic.Items)
+        {
+            DrawCircle(ToScreen(item.Position), _logic.Config.ItemRadius, Colors.Gold);
+        }
         foreach (var enemy in _logic.Enemies)
         {
-            DrawCircle(ToScreen(enemy.Position), _logic.Config.EnemyRadius, KindColor(enemy.Kind));
+            var radius =
+                enemy.Kind == EnemyKind.Boss
+                    ? (_logic.Config.Boss?.Radius ?? _logic.Config.EnemyRadius)
+                    : _logic.Config.EnemyRadius;
+            DrawCircle(ToScreen(enemy.Position), radius, KindColor(enemy.Kind));
+            if (enemy.Kind == EnemyKind.Boss)
+            {
+                DrawString(
+                    ThemeDB.FallbackFont,
+                    ToScreen(enemy.Position) + new Vector2(-20, -radius - 8),
+                    $"HP {enemy.Hp}",
+                    fontSize: 16
+                );
+            }
         }
     }
 

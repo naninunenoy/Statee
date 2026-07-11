@@ -17,6 +17,8 @@ public partial class GameState
 
     public sealed record EnemyEntry(int Id, string Kind, float X, float Y, int Hp);
 
+    public sealed record ItemEntry(int Id, float X, float Y);
+
     public sealed record EventEntry(int Sequence, int Tick, string Name, string Detail);
 
     private sealed record Snapshot(
@@ -30,9 +32,12 @@ public partial class GameState
         bool IsGameOver,
         int Wave,
         bool AllWavesCleared,
+        bool IsCleared,
+        int PowerLevel,
         BulletEntry[] PlayerBullets,
         BulletEntry[] EnemyBullets,
         EnemyEntry[] Enemies,
+        ItemEntry[] Items,
         int EventTotal,
         EventEntry[] Events
     );
@@ -48,6 +53,9 @@ public partial class GameState
         false,
         0,
         false,
+        false,
+        1,
+        [],
         [],
         [],
         [],
@@ -85,6 +93,14 @@ public partial class GameState
     [StateeField]
     public bool AllWavesCleared => _current.AllWavesCleared;
 
+    /// <summary>ボスを撃破してクリアしたか。</summary>
+    [StateeField]
+    public bool IsCleared => _current.IsCleared;
+
+    /// <summary>ショット強化の段階(1〜)。</summary>
+    [StateeField]
+    public int PowerLevel => _current.PowerLevel;
+
     [StateeField]
     public IReadOnlyList<BulletEntry> PlayerBullets => _current.PlayerBullets;
 
@@ -93,6 +109,9 @@ public partial class GameState
 
     [StateeField]
     public IReadOnlyList<EnemyEntry> Enemies => _current.Enemies;
+
+    [StateeField]
+    public IReadOnlyList<ItemEntry> Items => _current.Items;
 
     /// <summary>発生したイベントの総数(リングバッファから消えたぶんも数える)。wait 条件に使う。</summary>
     [StateeField]
@@ -116,6 +135,8 @@ public partial class GameState
             logic.IsGameOver,
             logic.Wave,
             logic.AllWavesCleared,
+            logic.IsCleared,
+            logic.PowerLevel,
             [.. logic.PlayerBullets.Select(b => new BulletEntry(b.Id, b.Position.X, b.Position.Y))],
             [.. logic.EnemyBullets.Select(b => new BulletEntry(b.Id, b.Position.X, b.Position.Y))],
             [
@@ -127,6 +148,7 @@ public partial class GameState
                     e.Hp
                 )),
             ],
+            [.. logic.Items.Select(i => new ItemEntry(i.Id, i.Position.X, i.Position.Y))],
             logic.EventLog.TotalCount,
             [
                 .. logic.EventLog.Entries.Select(e => new EventEntry(
