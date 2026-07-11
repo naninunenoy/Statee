@@ -9,14 +9,16 @@ namespace ShootingGame.Logic;
 /// </summary>
 public sealed class EventLog(int capacity) : ICommandInterceptor
 {
+    private readonly Queue<EventLogEntry> _entries = new(capacity);
+
     /// <summary>保持できる最大件数。超えたら古いものから捨てる。</summary>
     public int Capacity { get; } = capacity;
 
     /// <summary>記録済みイベントの総数(リングバッファから消えたぶんも数える)。</summary>
-    public int TotalCount => default;
+    public int TotalCount { get; private set; }
 
     /// <summary>現在保持しているエントリ(古い順)。</summary>
-    public IReadOnlyList<EventLogEntry> Entries => [];
+    public IReadOnlyList<EventLogEntry> Entries => [.. _entries];
 
     /// <summary>記録に使う現在 Tick。ShootingLogic が Tick ごとに設定する。</summary>
     public int CurrentTick { get; set; }
@@ -25,6 +27,14 @@ public sealed class EventLog(int capacity) : ICommandInterceptor
     public ValueTask InvokeAsync<T>(T command, PublishContext context, PublishContinuation<T> next)
         where T : ICommand
     {
+        if (_entries.Count >= Capacity)
+        {
+            _entries.Dequeue();
+        }
+        TotalCount++;
+        _entries.Enqueue(
+            new EventLogEntry(TotalCount, CurrentTick, typeof(T).Name, command.ToString() ?? "")
+        );
         return next(command, context);
     }
 }
