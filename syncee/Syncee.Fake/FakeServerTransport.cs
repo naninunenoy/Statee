@@ -7,12 +7,16 @@ namespace Syncee.Fake;
 /// </summary>
 public sealed class FakeServerTransport : IServerTransport
 {
-    public event Action<ITransport>? ClientConnected
-    {
-        add { }
-        remove { }
-    }
+    public event Action<ITransport>? ClientConnected;
 
     /// <summary>新しいクライアント接続を作る。戻り値はクライアント側が使う <see cref="ITransport"/>。</summary>
-    public ITransport Connect() => new FakeTransport();
+    public ITransport Connect()
+    {
+        var clientSide = new FakeTransport();
+        var serverSide = new FakeTransport();
+        clientSide.Pair(serverSide);
+        serverSide.Pair(clientSide);
+        ClientConnected?.Invoke(serverSide);
+        return clientSide;
+    }
 }

@@ -7,10 +7,14 @@ namespace Syncee;
 /// </summary>
 public sealed class ReplicaLog(Action<CommandEnvelope> apply)
 {
-    private readonly Action<CommandEnvelope> _apply = apply;
+    private readonly List<CommandEnvelope> _entries = [];
 
-    public IReadOnlyList<CommandEnvelope> Entries => [];
+    public IReadOnlyList<CommandEnvelope> Entries => _entries;
 
     /// <summary>サーバから確定コマンドを1件受信したときに呼ぶ。</summary>
-    public void OnReceived(CommandEnvelope envelope) { }
+    public void OnReceived(CommandEnvelope envelope)
+    {
+        _entries.Add(envelope);
+        apply(envelope);
+    }
 }

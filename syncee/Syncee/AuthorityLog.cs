@@ -11,21 +11,27 @@ public sealed class AuthorityLog(
     Func<string, string, IReadOnlyDictionary<string, string>?, bool> validate
 )
 {
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, bool> _validate =
-        validate;
+    private readonly List<CommandEnvelope> _entries = [];
 
-    public IReadOnlyList<CommandEnvelope> Entries => [];
+    public IReadOnlyList<CommandEnvelope> Entries => _entries;
 
-    public event Action<CommandEnvelope>? Committed
-    {
-        add { }
-        remove { }
-    }
+    public event Action<CommandEnvelope>? Committed;
 
     /// <summary>クライアントからのコマンドを検証し、合法なら確定してログへ積む。戻り値は成否。</summary>
     public bool TrySubmit(
         string clientId,
         string command,
         IReadOnlyDictionary<string, string>? args
-    ) => false;
+    )
+    {
+        if (!validate(clientId, command, args))
+        {
+            return false;
+        }
+
+        var envelope = new CommandEnvelope(_entries.Count, clientId, command, args);
+        _entries.Add(envelope);
+        Committed?.Invoke(envelope);
+        return true;
+    }
 }

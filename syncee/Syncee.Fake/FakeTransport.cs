@@ -7,19 +7,23 @@ namespace Syncee.Fake;
 /// </summary>
 public sealed class FakeTransport : ITransport
 {
-    public event Action<byte[]>? Received
+    private FakeTransport? _peer;
+
+    public event Action<byte[]>? Received;
+    public event Action? Disconnected;
+
+    /// <summary>もう一方の端点を結びつける。<see cref="FakeServerTransport.Connect"/> がペア生成時に呼ぶ。</summary>
+    internal void Pair(FakeTransport peer) => _peer = peer;
+
+    public void Send(byte[] payload) => _peer?.Receive(payload);
+
+    public void Disconnect()
     {
-        add { }
-        remove { }
+        Disconnected?.Invoke();
+        _peer?.ReceiveDisconnect();
     }
 
-    public event Action? Disconnected
-    {
-        add { }
-        remove { }
-    }
+    private void Receive(byte[] payload) => Received?.Invoke(payload);
 
-    public void Send(byte[] payload) { }
-
-    public void Disconnect() { }
+    private void ReceiveDisconnect() => Disconnected?.Invoke();
 }
