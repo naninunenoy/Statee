@@ -25,6 +25,7 @@ public partial class Main : Node2D
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly TimeControl _time = new();
     private readonly GameState _state = new();
+    private readonly InputLogState _inputLogState = new();
 
     private ShootingLogic _logic = null!;
     private StateeTcpServer? _server;
@@ -140,13 +141,48 @@ public partial class Main : Node2D
     private void RefreshView()
     {
         _state.Update(_logic);
+        var runs = _logic.InputRuns;
+        var formatted = new string[runs.Count];
+        for (var i = 0; i < runs.Count; i++)
+        {
+            formatted[i] = $"{runs[i].Ticks} {FormatInput(runs[i].Input)}";
+        }
+        _inputLogState.Update(formatted);
         QueueRedraw();
+    }
+
+    /// <summary>InputState を tick コマンドの入力トークン(ParseInput の逆)へ写す。</summary>
+    private static string FormatInput(InputState input)
+    {
+        var tokens = new System.Collections.Generic.List<string>(5);
+        if (input.Left)
+        {
+            tokens.Add("left");
+        }
+        if (input.Right)
+        {
+            tokens.Add("right");
+        }
+        if (input.Up)
+        {
+            tokens.Add("up");
+        }
+        if (input.Down)
+        {
+            tokens.Add("down");
+        }
+        if (input.Shoot)
+        {
+            tokens.Add("shoot");
+        }
+        return tokens.Count == 0 ? "-" : string.Join('+', tokens);
     }
 
     private void StartStatee(LogBuffer buffer)
     {
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
         host.RegisterStateProvider(_state);
+        host.RegisterStateProvider(_inputLogState);
         host.RegisterTimeControl(_time);
         StandardCommands.Register(host, this, _logger);
         // 継続入力つきで論理を進めるコマンド(エージェントのプレイ経路)。
@@ -188,6 +224,7 @@ public partial class Main : Node2D
         {
             input = token.Trim().ToLowerInvariant() switch
             {
+                "-" => input, // 無入力(入力ログ State の表記と往復できるようにする)
                 "left" => input with { Left = true },
                 "right" => input with { Right = true },
                 "up" => input with { Up = true },

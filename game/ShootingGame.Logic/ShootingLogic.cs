@@ -109,6 +109,7 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     private readonly HashSet<Entity> _toDestroy = [];
     private readonly Random _random;
     private readonly Queue<PendingSpawn> _pendingSpawns = new();
+    private readonly List<InputState> _inputLog = [];
     private Vector2 _playerPosition;
     private int _fireCooldown;
     private int _invincibleTicksLeft;
@@ -173,10 +174,28 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     public EventLog EventLog { get; }
 
     /// <summary>受け付けた全入力の記録(Tick ごと)。フレーム精度リプレイ(D-048)の源。</summary>
-    public IReadOnlyList<InputState> InputLog => [];
+    public IReadOnlyList<InputState> InputLog => _inputLog;
 
     /// <summary>入力ログのランレングス圧縮。State 公開・再生コマンドの単位。</summary>
-    public IReadOnlyList<InputRun> InputRuns => [];
+    public IReadOnlyList<InputRun> InputRuns
+    {
+        get
+        {
+            var runs = new List<InputRun>();
+            foreach (var input in _inputLog)
+            {
+                if (runs.Count > 0 && runs[^1].Input == input)
+                {
+                    runs[^1] = runs[^1] with { Ticks = runs[^1].Ticks + 1 };
+                }
+                else
+                {
+                    runs.Add(new InputRun(1, input));
+                }
+            }
+            return runs;
+        }
+    }
 
     /// <summary>場に出ている自弾(Id 昇順)。</summary>
     public IReadOnlyList<BulletSnapshot> PlayerBullets
@@ -254,6 +273,7 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         }
 
         TickCount++;
+        _inputLog.Add(input);
         EventLog.CurrentTick = TickCount;
         if (_invincibleTicksLeft > 0)
         {
@@ -333,7 +353,15 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         int seed,
         IEnumerable<InputState> inputs,
         ShootingConfig? config = null
-    ) => new(seed, config);
+    )
+    {
+        var game = new ShootingLogic(seed, config);
+        foreach (var input in inputs)
+        {
+            game.Tick(input);
+        }
+        return game;
+    }
 
     /// <summary>アイテム ⭐ を出す(ドロップ・テスト用)。</summary>
     public int SpawnItem(Vector2 position)
