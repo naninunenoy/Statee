@@ -25,7 +25,7 @@ Declaree.Statee  … UiStateProvider(記述子スナップショットを State 
 | `Center(child)` | CenterContainer | 中央寄せ。ルートに使う場合はホストが FullRect アンカーを設定する |
 | `Label(text)` | Label | |
 | `Button(text, onClick)` | Button | `Disabled` 対応。押下でイベント ID を発行 |
-| `LineEdit(text) { PlaceholderText }` | LineEdit | 値を運ぶイベントは持たない。ホスト側が `Name` で Godot コントロールを直接参照し `.Text` を読む(リバーシのネット対戦・合言葉入力で導入。docs/REVERSI_NETWORK_ROADMAP.md) |
+| `LineEdit(text) { PlaceholderText }` | LineEdit | 値を運ぶイベントは持たない。ホスト側が `Name` で Godot コントロールを直接参照し `.Text` を読む(リバーシのネット対戦・合言葉入力で導入。docs/adr/D-052.md) |
 | `Visible`(全ノード共通) | CanvasItem.Visible | |
 | `MinWidth` / `MinHeight`(全ノード共通) | Control.CustomMinimumSize | |
 | `Explain`(全ノード共通) | —(描画に影響しない) | 人間向けヒント(D-032)。記述子の `explain` にのみ現れる |

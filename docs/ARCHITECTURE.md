@@ -143,6 +143,29 @@ game/SuikaGame.slnx / game/RogueGame.slnx / game/ShootingGame.slnx
 - 検証の柱: 継続入力の注入(freeze + `tick` コマンド)、イベントログの State 公開、
   **フレーム精度リプレイ**(入力ログ RLE の State 公開 → 同一シードへ再生で完全一致。D-049)
 
+## サンプルゲーム:リバーシ(ローカル2人対戦・ネット対戦、全フェーズ完了 ✅)
+
+フレームワークの流用性(スイカゲーム以外への組み込み)とネットワーク対戦基盤の
+両方を実証する4つ目のサンプル。ターン制・完全決定論・物理/乱数なしという、
+スイカゲーム・ShootingGame とは異なる性質を意図的に選んだ。
+
+- **ローカル2人対戦**: 盤面・合法手・反転・パス・終局(`Reversi.Logic`、純C#で最厚にテスト)、
+  headless 疎通 → コマンド駆動(`start`/`place`)→ UI(盤は Node2D 直描画、タイトル/結果は
+  Declaree)、AI 自動動作確認シナリオ(定石・パス・終局)完遂。
+  フレームワーク側は `libs/Statee.Godot` の共通化(既存。D-047)以外の変更が不要だった
+- **ネットワーク対戦化**: サーバ権威(純C#コンソール `Reversi.Server`)+ コマンドレプリケーション
+  + 同期層別出し `syncee/`(`src/`・各ゲームと相互無依存)+ `ITransport` 抽象
+  (フェイク/LiteNetLib、ワイヤは MemoryPack)(D-050)。切断検知(対局中の切断は相手の
+  不戦勝。D-050)。マルチインスタンス検証語彙 `target`/`on`/`wait_all`(D-051)。
+  合言葉によるマッチングゲートと Declaree `LineEdit` の追加(D-052)
+
+### 今後の候補(リバーシ発。未着手)
+
+- 状態スナップショット配布(途中参加・観戦・再接続に必要。意図的に見送った。D-050)
+- 座席とクライアントの紐付け強制(なりすまし対策。今は接続順で座席を割り当てるのみ)
+- 本格的なマッチメイキング(ランダムマッチ・複数ルーム同時運用・EOS/Firebase 等の
+  外部バックエンド。D-052 のスコープ外。構想は docs/NETWORK_PLAN.md)
+
 ## 開発フェーズ(全フェーズ完了 ✅)
 
 | フェーズ | 内容 | 完了条件 |
@@ -177,9 +200,6 @@ game/SuikaGame.slnx / game/RogueGame.slnx / game/ShootingGame.slnx
 
 - シナリオ拡充(連鎖合体、UI/幾何検証のシナリオ化)
 - 静止判定(IsSleeping)の State 追加(D-027)
-- ネットワーク対戦(リバーシでの実証は完了: docs/REVERSI_NETWORK_ROADMAP.md N-0〜N-7。
-  方針は D-050 / D-051、構想全体(FPS 級への展開)は docs/NETWORK_PLAN.md)
-- 別ゲーム(リバーシ)への流用検証(ローカル2人対戦は完成。docs/REVERSI_ROADMAP.md)
 
 ### 運用メモ
 

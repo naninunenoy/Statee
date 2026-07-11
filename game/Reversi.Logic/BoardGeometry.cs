@@ -2,7 +2,7 @@ namespace Reversi.Logic;
 
 /// <summary>
 /// 画面座標 ⇔ 盤マスの変換。盤を Node2D 直描画にするため、
-/// クリックのヒット判定はこの純C#層でテストする(REVERSI_ROADMAP.md R-4)。
+/// クリックのヒット判定はこの純C#層でテストする。
 /// </summary>
 public readonly record struct BoardGeometry(float OriginX, float OriginY, float CellSize)
 {

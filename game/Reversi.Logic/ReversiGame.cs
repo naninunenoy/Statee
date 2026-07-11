@@ -1,6 +1,6 @@
 namespace Reversi.Logic;
 
-/// <summary>ゲームモード。CPU 対戦は作らない(REVERSI_ROADMAP.md)。</summary>
+/// <summary>ゲームモード。CPU 対戦は作らない。</summary>
 public enum GameMode
 {
     /// <summary>1画面で2人が交互に着手する。</summary>

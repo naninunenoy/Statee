@@ -23,7 +23,7 @@ namespace Reversi;
 /// Reversi の Godot 層エントリポイント。描画・入力・Statee 配線だけを担い、
 /// ゲームルールはすべて Reversi.Logic に置く(docs/USING.md「境界の掟」)。
 /// 盤は Node2D 直描画(座標→マス変換は BoardGeometry を純C#でテスト)、
-/// タイトル/結果画面は Declaree で宣言する(REVERSI_ROADMAP.md R-4 の判断)。
+/// タイトル/結果画面は Declaree で宣言する。
 /// </summary>
 public partial class Main : Node2D
 {
