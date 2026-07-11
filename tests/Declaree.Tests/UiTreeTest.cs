@@ -253,4 +253,21 @@ public class UiTreeTest
         descriptor.Children[0].Type.ShouldBe("HBox");
         descriptor.Children[0].Children[0].Type.ShouldBe("Button");
     }
+
+    [Fact]
+    public void Describe_LineEdit_TextとPlaceholderTextが変換される()
+    {
+        var descriptor = UiTree.Describe(new LineEdit("abc") { PlaceholderText = "合言葉" });
+
+        descriptor.Type.ShouldBe("LineEdit");
+        descriptor.Props.ShouldBe(
+            new Dictionary<string, string>
+            {
+                ["id"] = "0",
+                ["text"] = "abc",
+                ["placeholder"] = "合言葉",
+            }
+        );
+        descriptor.Children.ShouldBeEmpty();
+    }
 }

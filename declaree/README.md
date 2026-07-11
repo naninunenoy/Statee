@@ -25,6 +25,7 @@ Declaree.Statee  … UiStateProvider(記述子スナップショットを State 
 | `Center(child)` | CenterContainer | 中央寄せ。ルートに使う場合はホストが FullRect アンカーを設定する |
 | `Label(text)` | Label | |
 | `Button(text, onClick)` | Button | `Disabled` 対応。押下でイベント ID を発行 |
+| `LineEdit(text) { PlaceholderText }` | LineEdit | 値を運ぶイベントは持たない。ホスト側が `Name` で Godot コントロールを直接参照し `.Text` を読む(リバーシのネット対戦・合言葉入力で導入。docs/REVERSI_NETWORK_ROADMAP.md) |
 | `Visible`(全ノード共通) | CanvasItem.Visible | |
 | `MinWidth` / `MinHeight`(全ノード共通) | Control.CustomMinimumSize | |
 | `Explain`(全ノード共通) | —(描画に影響しない) | 人間向けヒント(D-032)。記述子の `explain` にのみ現れる |
@@ -38,7 +39,7 @@ Declaree.Statee  … UiStateProvider(記述子スナップショットを State 
 | コンテナ | GridContainer / ScrollContainer / PanelContainer / TabContainer / SplitContainer / FlowContainer |
 | 表示 | RichTextLabel / TextureRect / ProgressBar / ColorRect |
 | ボタン系 | CheckBox / CheckButton / OptionButton / MenuButton |
-| テキスト・値の入力 | LineEdit / TextEdit / SpinBox / Slider(値を運ぶイベントモデルが未設計) |
+| テキスト・値の入力 | TextEdit / SpinBox / Slider(値を運ぶイベントモデルが未設計。LineEdit は対応済みだが値の読み出しは非リアクティブ) |
 | 選択・一覧 | ItemList / Tree |
 | ポップアップ | Popup / Dialog 系 |
 | レイアウト制御 | アンカー(中央寄せ等)/ SizeFlags(Expand/Fill)/ テーマ |

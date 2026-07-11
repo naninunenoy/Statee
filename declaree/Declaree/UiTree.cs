@@ -53,6 +53,11 @@ public static class UiTree
             ),
             Label label => new UiDescriptor("Label", Add(props, "text", label.Text), NoChildren),
             Button button => new UiDescriptor("Button", AddButtonProps(props, button), NoChildren),
+            LineEdit lineEdit => new UiDescriptor(
+                "LineEdit",
+                AddLineEditProps(props, lineEdit),
+                NoChildren
+            ),
             _ => throw new ArgumentException(
                 $"未知のノード型: {node.GetType().Name}",
                 nameof(node)
@@ -119,6 +124,16 @@ public static class UiTree
         {
             props["disabled"] = "true";
         }
+        return props;
+    }
+
+    private static Dictionary<string, string> AddLineEditProps(
+        Dictionary<string, string> props,
+        LineEdit lineEdit
+    )
+    {
+        props["text"] = lineEdit.Text;
+        props["placeholder"] = lineEdit.PlaceholderText;
         return props;
     }
 
