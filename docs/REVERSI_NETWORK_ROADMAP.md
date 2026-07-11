@@ -50,7 +50,7 @@ game/
 | N-1 | コマンドレプリケーション(フェイク) | フェイクトランスポート上で「クライアントが送った着手をサーバが検証しログへ確定し、全クライアントに配布する」がユニットテストで緑。ドメイン(リバーシ)に依存しない汎用コアであることを確認 |
 | N-2 | Reversi 権威サーバ ✅ | `game/Reversi.Server`(純C#コンソール)が Reversi.Logic + Syncee(フェイク経由でなく実プロセスの起動骨格)+ Statee を組み込み、headless で起動・state 観測ができる |
 | N-3 | LiteNetLib トランスポート ✅ | 実ソケットでサーバ1 + クライアント2(headless)の最小疎通(カウンタ相当ではなくリバーシの着手同期)が通る |
-| N-4 | Reversi.Godot クライアント化 | Reversi.Godot の `place` コマンドがローカル即時反映でなくサーバへの送信 + 確定ログ適用に変わる。タイトルの「ネット対戦」ボタンが有効になる |
+| N-4 | Reversi.Godot クライアント化 ✅ | Reversi.Godot の `place` コマンドがローカル即時反映でなくサーバへの送信 + 確定ログ適用に変わる。タイトルの「ネット対戦」ボタンが有効になる |
 | N-5 | 切断検知 | クライアント切断をサーバが検知し、対局終了として State/Log に反映する。フェイクトランスポートでの切断注入テストを含む |
 | N-6 | マルチインスタンス検証語彙 | Statee.Scenario に `target` / `on` / クロスインスタンス wait を追加(D-051)。3プロセス(サーバ+クライアント2)を使うシナリオ・起動手順は `tools/` に置く |
 | N-7 | AI 自動動作確認 | サーバ1 + クライアント2 を実際に起動し、Ruby シナリオで「双方から交互に着手 → 全インスタンスの `game/board` が一致するまで待つ → 終局・勝敗判定」を検証、`--report-dir` でレポートが出る |
@@ -118,6 +118,24 @@ Received/Disconnected イベントへ橋渡しする。ポーリング(`PollEven
   着手コマンドの供給元を知らない設計のまま(R-1 で確定済み)なので変更不要のはず
 - **完了条件**: 窓ありでサーバ1 + クライアント2 起動し、人間2人が別ウィンドウから
   1局を最後まで打てる
+
+**完了**: `CommandEnvelope`/新規 `CommandRequest` を `[MemoryPackable]` にし、
+`Syncee.SyncWire`(素の Serialize/Deserialize ラッパー)を追加。Reversi.Server は
+LiteNetLibServerTransport で対局クライアントを受け付け、接続ごとに ClientId を採番、
+受信した `CommandRequest` を `AuthorityLog.TrySubmit` へ、確定した `CommandEnvelope` を
+全クライアントへブロードキャストする。`game/sync`(Syncee.Statee の SyncStateProvider)で
+接続数・確定数・最終コマンドを観測できるようにした。
+
+Reversi.Godot 側は「ネット対戦」ボタン/`start --arg mode=Network`/盤クリック/
+`place` コマンドのすべてで、ネットモード中は `_game` を直接変更せず
+`CommandRequest` をサーバへ送り、サーバからの確定 `CommandEnvelope` を `ReplicaLog` 経由で
+適用する形に変更(ローカル2人対戦の経路は変更なし)。`libs/Statee.Godot` の `CmdlineArgs` に
+`ParseString` を追加し `--game-host=`/`--game-port=` を読めるようにした。
+
+headless のサーバ1 + クライアント2 を実プロセスで起動し、両クライアントから交互に着手 →
+サーバ・クライアント1・クライアント2 の `game/board`・`game/turn` が完全一致することを
+`state` コマンドで確認済み(`game/sync` も ConnectedClients=2 を観測)。
+ソリューション全体ビルド0警告0エラー、Reversi.Logic.Tests 24件全緑。
 
 ### N-5: 切断検知
 

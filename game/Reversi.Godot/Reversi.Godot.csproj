@@ -11,6 +11,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Reversi.Logic\Reversi.Logic.csproj" />
+    <ProjectReference Include="..\..\syncee\Syncee\Syncee.csproj" />
+    <ProjectReference Include="..\..\syncee\Syncee.LiteNetLib\Syncee.LiteNetLib.csproj" />
     <ProjectReference Include="..\..\declaree\Declaree\Declaree.csproj" />
     <ProjectReference Include="..\..\declaree\Declaree.Godot\Declaree.Godot.csproj" />
     <ProjectReference Include="..\..\declaree\Declaree.Statee\Declaree.Statee.csproj" />

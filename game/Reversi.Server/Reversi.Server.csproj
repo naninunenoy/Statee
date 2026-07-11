@@ -15,6 +15,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Reversi.Logic\Reversi.Logic.csproj" />
     <ProjectReference Include="..\..\syncee\Syncee\Syncee.csproj" />
+    <ProjectReference Include="..\..\syncee\Syncee.LiteNetLib\Syncee.LiteNetLib.csproj" />
+    <ProjectReference Include="..\..\syncee\Syncee.Statee\Syncee.Statee.csproj" />
     <ProjectReference Include="..\..\src\Statee.Core\Statee.Core.csproj" />
     <ProjectReference
       Include="..\..\src\Statee.Generator\Statee.Generator.csproj"

@@ -21,4 +21,17 @@ public static class CmdlineArgs
 
         return defaultValue;
     }
+
+    public static string ParseString(string prefix, string defaultValue)
+    {
+        foreach (var arg in OS.GetCmdlineUserArgs())
+        {
+            if (arg.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                return arg[prefix.Length..];
+            }
+        }
+
+        return defaultValue;
+    }
 }

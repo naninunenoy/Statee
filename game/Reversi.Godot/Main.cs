@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using Declaree;
 using Declaree.Godot;
@@ -9,6 +10,8 @@ using Reversi.Logic;
 using Statee.Core;
 using Statee.Godot;
 using Statee.Remote;
+using Syncee;
+using Syncee.LiteNetLib;
 using ZLogger;
 using Button = Declaree.Button;
 using Label = Declaree.Label;
@@ -24,6 +27,8 @@ namespace Reversi;
 public partial class Main : Node2D
 {
     private const int DefaultPort = 9310;
+    private const string DefaultGameHost = "127.0.0.1";
+    private const int DefaultGamePort = 9410;
 
     // ボタンの OnClick ID(Declaree の Dispatch と対応)
     private const string EvStartLocal = "StartLocal";
@@ -47,6 +52,12 @@ public partial class Main : Node2D
     private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
+
+    // ネット対戦(N-4)。接続すると _networkMode が true になり、start/place は
+    // ローカル即時適用でなくサーバへの送信 + 確定コマンド受信での適用に切り替わる
+    private LiteNetLibClientTransport? _network;
+    private ReplicaLog? _replicaLog;
+    private bool _networkMode;
 
     public override void _Ready()
     {
@@ -72,6 +83,7 @@ public partial class Main : Node2D
     public override void _Process(double delta)
     {
         _dispatcher.Pump();
+        _network?.PollEvents();
         if (_uiRoot is not null)
         {
             _uiSnapshot = UiSnapshot.Capture(_uiTree, _uiRoot);
@@ -96,6 +108,19 @@ public partial class Main : Node2D
             && Geometry.CellAt(click.Position.X, click.Position.Y) is { } cell
         )
         {
+            if (_networkMode)
+            {
+                SendNetworkCommand(
+                    "place",
+                    new Dictionary<string, string>
+                    {
+                        ["x"] = cell.X.ToString(),
+                        ["y"] = cell.Y.ToString(),
+                    }
+                );
+                _logger.ZLogInformation($"place {cell.X} {cell.Y} をサーバへ送信");
+                return;
+            }
             var player = _game.CurrentPlayer;
             if (_game.TryPlace(cell.X, cell.Y))
             {
@@ -168,6 +193,7 @@ public partial class Main : Node2D
     public override void _ExitTree()
     {
         _server?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
+        _network?.Dispose();
         _loggerFactory?.Dispose();
     }
 
@@ -186,10 +212,10 @@ public partial class Main : Node2D
                         Name = "StartLocalButton",
                         Explain = "1画面で2人が交互に着手する対局を開始するボタン",
                     },
-                    new Button("ネット対戦(未実装)", OnClick: EvStartNetwork)
+                    new Button("ネット対戦", OnClick: EvStartNetwork)
                     {
                         Name = "StartNetworkButton",
-                        Explain = "ネット対戦(D-050)。未実装のため押しても開始しない",
+                        Explain = "ネット対戦(D-050)。Reversi.Server に接続して対局を開始する",
                     },
                     new Button("おわる", OnClick: EvExit)
                     {
@@ -258,7 +284,12 @@ public partial class Main : Node2D
                 }
                 break;
             case EvStartNetwork:
-                _logger.ZLogInformation($"ネット対戦は未実装(D-050)");
+                if (_game.Phase == GamePhase.Title)
+                {
+                    ConnectNetwork();
+                    SendNetworkCommand("start", null);
+                    _logger.ZLogInformation($"ネット対戦の開始要求をサーバへ送信");
+                }
                 break;
             case EvBackToTitle:
                 _game.BackToTitle();
@@ -298,6 +329,49 @@ public partial class Main : Node2D
             Winner = _game.Winner.ToString(),
         };
 
+    /// <summary>Reversi.Server へ接続する(まだ未接続の場合のみ)。以後 start/place はサーバ送信になる。</summary>
+    private void ConnectNetwork()
+    {
+        if (_network is not null)
+        {
+            return;
+        }
+        _networkMode = true;
+        _replicaLog = new ReplicaLog(ApplyEnvelope);
+        _network = new LiteNetLibClientTransport();
+        _network.Received += bytes =>
+        {
+            _replicaLog.OnReceived(SyncWire.DeserializeEnvelope(bytes));
+            RefreshView();
+        };
+        var host = CmdlineArgs.ParseString("--game-host=", DefaultGameHost);
+        var port = CmdlineArgs.ParseInt("--game-port=", DefaultGamePort);
+        _network.Connect(host, port);
+        _logger.ZLogInformation($"Reversi.Server へ接続 host={host} port={port}");
+    }
+
+    /// <summary>サーバから確定した1コマンドを適用する(Reversi.Server の Committed ハンドラと同型)。</summary>
+    private void ApplyEnvelope(CommandEnvelope envelope)
+    {
+        switch (envelope.Command)
+        {
+            case "start":
+                _game.Start(GameMode.Network);
+                break;
+            case "place":
+                var x = int.Parse(envelope.Args!["x"], CultureInfo.InvariantCulture);
+                var y = int.Parse(envelope.Args!["y"], CultureInfo.InvariantCulture);
+                _game.TryPlace(x, y);
+                break;
+        }
+        _logger.ZLogInformation(
+            $"確定 #{envelope.Sequence} {envelope.Command} → phase={_game.Phase} turn={_game.CurrentPlayer}"
+        );
+    }
+
+    private void SendNetworkCommand(string command, Dictionary<string, string>? args) =>
+        _network!.Send(SyncWire.Serialize(new CommandRequest(command, args)));
+
     private void StartStatee(LogBuffer buffer)
     {
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
@@ -321,9 +395,10 @@ public partial class Main : Node2D
                 var mode = Enum.Parse<GameMode>(modeName, ignoreCase: true);
                 if (mode == GameMode.Network)
                 {
-                    throw new InvalidOperationException(
-                        "ネット対戦は未実装(D-050)。LocalTwoPlayer を指定すること"
-                    );
+                    ConnectNetwork();
+                    SendNetworkCommand("start", null);
+                    _logger.ZLogInformation($"ネット対戦の開始要求をサーバへ送信");
+                    return TurnResult();
                 }
                 _game.Start(mode);
                 RefreshView();
@@ -337,6 +412,19 @@ public partial class Main : Node2D
             {
                 var x = args.GetInt("x", -1);
                 var y = args.GetInt("y", -1);
+                if (_networkMode)
+                {
+                    SendNetworkCommand(
+                        "place",
+                        new Dictionary<string, string>
+                        {
+                            ["x"] = x.ToString(),
+                            ["y"] = y.ToString(),
+                        }
+                    );
+                    _logger.ZLogInformation($"place {x} {y} をサーバへ送信");
+                    return TurnResult();
+                }
                 var player = _game.CurrentPlayer;
                 if (!_game.TryPlace(x, y))
                 {
