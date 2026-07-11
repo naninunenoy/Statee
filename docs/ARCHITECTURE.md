@@ -177,8 +177,8 @@ game/SuikaGame.slnx / game/RogueGame.slnx / game/ShootingGame.slnx
 
 - シナリオ拡充(連鎖合体、UI/幾何検証のシナリオ化)
 - 静止判定(IsSleeping)の State 追加(D-027)
-- ネットワーク対戦構想(docs/NETWORK_PLAN.md)
-- 別ゲーム(オセロ)への流用検証(docs/OTHELLO_ROADMAP.md)
+- ネットワーク対戦(方針決定済み: D-050 / D-051。構想全体は docs/NETWORK_PLAN.md)
+- 別ゲーム(リバーシ)への流用検証(docs/REVERSI_ROADMAP.md)
 
 ### 運用メモ
 
