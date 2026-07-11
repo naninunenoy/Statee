@@ -4,6 +4,9 @@
     <Project Path="Syncee.Fake/Syncee.Fake.csproj" />
     <Project Path="Syncee.Statee/Syncee.Statee.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="../tests/Syncee.Tests/Syncee.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="../src/Statee.Core/Statee.Core.csproj" />
     <Project Path="../src/Statee.Generator/Statee.Generator.csproj" />
