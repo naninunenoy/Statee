@@ -130,8 +130,14 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     /// <summary>現在のウェーブ(1 始まり)。ウェーブ進行なし(Waves が空)のときは 0。</summary>
     public int Wave => _waveIndex + 1;
 
-    /// <summary>全ウェーブをクリアしたか。</summary>
+    /// <summary>全ウェーブをクリアしたか。ボスが設定されていればこの後にボス戦が始まる。</summary>
     public bool AllWavesCleared { get; private set; }
+
+    /// <summary>ボスを撃破してクリアしたか。true 以降は Tick が状態を変えない(盤面凍結)。</summary>
+    public bool IsCleared => default;
+
+    /// <summary>ショット強化の段階(1〜MaxPowerLevel)。段階ぶんの弾を同時に撃つ。被弾で1段階下がる。</summary>
+    public int PowerLevel => default;
 
     /// <summary>ゲーム内イベントの発行先。購読者(スコア係・演出係等)はここへ Subscribe する。</summary>
     public Router Router { get; } = new();
@@ -170,6 +176,9 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
             return bullets;
         }
     }
+
+    /// <summary>場に出ているアイテム ⭐(Id 昇順)。</summary>
+    public IReadOnlyList<ItemSnapshot> Items => [];
 
     /// <summary>場に出ている敵(Id 昇順)。</summary>
     public IReadOnlyList<EnemySnapshot> Enemies
@@ -259,6 +268,9 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         Publish(new EnemySpawned(id, kind));
         return id;
     }
+
+    /// <summary>アイテム ⭐ を出す(ドロップ・テスト用)。</summary>
+    public int SpawnItem(Vector2 position) => default;
 
     /// <inheritdoc/>
     public void Receive<T>(T command, PublishContext context)

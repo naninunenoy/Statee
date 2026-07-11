@@ -23,3 +23,12 @@ public readonly record struct WaveStarted(int Wave) : ICommand;
 
 /// <summary>ウェーブの敵が全ていなくなった(撃破または画面外へ退場)。</summary>
 public readonly record struct WaveCleared(int Wave) : ICommand;
+
+/// <summary>アイテム ⭐ を取得した。Level は取得後のショット強化段階。</summary>
+public readonly record struct PowerUpCollected(int Level) : ICommand;
+
+/// <summary>ボスのフェーズが変わった(1 始まり)。</summary>
+public readonly record struct BossPhaseChanged(int Phase) : ICommand;
+
+/// <summary>ボスを撃破してゲームクリアした。</summary>
+public readonly record struct GameCleared(int Score) : ICommand;

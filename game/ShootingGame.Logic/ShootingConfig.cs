@@ -60,6 +60,24 @@ public sealed record ShootingConfig
     /// <summary>敵撃破1体のスコア。</summary>
     public int EnemyScore { get; init; } = 100;
 
+    /// <summary>敵撃破時にアイテム ⭐ が出る確率(0〜1)。</summary>
+    public double PowerUpDropChance { get; init; } = 0.2;
+
+    /// <summary>アイテム ⭐ の当たり判定半径。</summary>
+    public float ItemRadius { get; init; } = 12f;
+
+    /// <summary>アイテム ⭐ の漂流速度(px/Tick。左向き)。</summary>
+    public float ItemDriftSpeed { get; init; } = 1f;
+
+    /// <summary>ショット強化の最大段階。段階ぶんの弾を同時に撃つ。</summary>
+    public int MaxPowerLevel { get; init; } = 3;
+
+    /// <summary>強化ショットの弾同士の Y 間隔(px)。</summary>
+    public float PowerShotSpacing { get; init; } = 10f;
+
+    /// <summary>ボスの定数。null ならボスなし(全ウェーブクリアで終わり。テスト用)。</summary>
+    public BossConfig? Boss { get; init; } = new();
+
     /// <summary>初期残機。</summary>
     public int InitialLives { get; init; } = 3;
 
