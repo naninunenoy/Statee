@@ -305,7 +305,7 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
                 );
                 break;
             case EnemyKind.Boss:
-                var boss = Config.Boss ?? new BossConfig();
+                var boss = BossOrDefault;
                 enemy.Hp = boss.Hp;
                 _world.Create(
                     enemy,
@@ -341,10 +341,7 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         // スコア係。撃破イベントの購読でスコアを加算する(多対多配線の一端)
         if (command is EnemyDestroyed destroyed)
         {
-            Score +=
-                destroyed.Kind == EnemyKind.Boss
-                    ? (Config.Boss ?? new BossConfig()).Score
-                    : Config.EnemyScore;
+            Score += destroyed.Kind == EnemyKind.Boss ? (BossOrDefault).Score : Config.EnemyScore;
         }
     }
 
@@ -514,7 +511,7 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     /// </summary>
     private void UpdateBoss()
     {
-        var boss = Config.Boss ?? new BossConfig();
+        var boss = BossOrDefault;
         List<(Vector2 Origin, int Phase)>? volleys = null;
         _world.Query(
             in BossQuery,
@@ -562,7 +559,7 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     /// <summary>被弾解決後の残 HP でフェーズを更新する。遷移した Tick に BossPhaseChanged を発行する。</summary>
     private void UpdateBossPhase()
     {
-        var boss = Config.Boss ?? new BossConfig();
+        var boss = BossOrDefault;
         var phaseChanges = new List<BossPhaseChanged>();
         _world.Query(
             in BossQuery,
@@ -711,9 +708,12 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         }
     }
 
+    /// <summary>ボス定数。テストが SpawnEnemy(Boss) を直接呼ぶ場合に備え、未設定なら既定値。</summary>
+    private BossConfig BossOrDefault => Config.Boss ?? new BossConfig();
+
     /// <summary>敵種ごとの当たり判定半径。</summary>
     private float EnemyRadiusOf(EnemyKind kind) =>
-        kind == EnemyKind.Boss ? (Config.Boss ?? new BossConfig()).Radius : Config.EnemyRadius;
+        kind == EnemyKind.Boss ? (BossOrDefault).Radius : Config.EnemyRadius;
 
     private void ResolvePlayerHit()
     {
