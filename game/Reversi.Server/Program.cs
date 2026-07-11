@@ -57,9 +57,14 @@ authority.Committed += envelope =>
 };
 
 var dispatcher = new MainThreadDispatcher();
+var time = new TimeControl();
 var host = new StateeHost(logBuffer) { MainThreadDispatcher = dispatcher };
 host.RegisterStateProvider(boardState);
 host.RegisterStateProvider(turnState);
+
+// リバーシは freeze/step を使わないが、wait コマンド(D-028)はフレーム進行が前提のため登録する。
+// N-6 のクロスインスタンス wait(サーバ・クライアント双方の game/board 一致待ち)に必要
+host.RegisterTimeControl(time);
 host.RegisterStateProvider(
     new SyncStateProvider(
         "game/sync",
@@ -141,6 +146,10 @@ while (running)
 {
     dispatcher.Pump();
     gameTransport.PollEvents();
+    if (!time.IsFrozen)
+    {
+        time.OnFrame();
+    }
     await Task.Delay(10);
 }
 

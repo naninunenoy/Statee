@@ -391,6 +391,16 @@ public partial class Main : Node2D
         StandardCommands.Register(host, this, _logger);
         // ゲーム状態を変えるコマンドはメインスレッドで実行する
         host.RegisterMainThreadCommand(
+            "connect",
+            _ =>
+            {
+                // start と違い接続だけを行う。複数クライアントを揃えてから start する
+                // シナリオ(N-6)で、全クライアントの接続完了を待ってから開始するために使う
+                ConnectNetwork();
+                return new { Connected = true };
+            }
+        );
+        host.RegisterMainThreadCommand(
             "start",
             args =>
             {

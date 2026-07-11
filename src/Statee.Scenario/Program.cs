@@ -12,17 +12,19 @@ app.Add(
     (string script, int port = 9310, string? reportDir = null, string? reportState = null) =>
     {
         var source = File.ReadAllText(script);
-        IScenarioClient client = new TcpScenarioClient(new StateeClient(port));
+        // マルチインスタンス検証(D-051)の target 用。名前付きターゲットはレポートに含めない
+        IScenarioClient Connect(int p) => new TcpScenarioClient(new StateeClient(p));
+        IScenarioClient client = Connect(port);
         if (reportDir is null)
         {
-            return new ScenarioRunner(client, Console.Out).Run(source);
+            return new ScenarioRunner(client, Console.Out, connect: Connect).Run(source);
         }
 
         var recorder = new StepRecorder();
         client = new RecordingScenarioClient(client, recorder, reportDir, reportState);
         try
         {
-            return new ScenarioRunner(client, Console.Out, recorder).Run(source);
+            return new ScenarioRunner(client, Console.Out, recorder, Connect).Run(source);
         }
         finally
         {
