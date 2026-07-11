@@ -8,6 +8,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="../tests/Reversi.Logic.Tests/Reversi.Logic.Tests.csproj" />
+    <Project Path="../tests/Reversi.Server.Tests/Reversi.Server.Tests.csproj" />
   </Folder>
   <Folder Name="/libs/">
     <Project Path="../libs/Statee.Godot/Statee.Godot.csproj" />
@@ -22,5 +23,6 @@
   </Folder>
   <Folder Name="/syncee/">
     <Project Path="../syncee/Syncee/Syncee.csproj" />
+    <Project Path="../syncee/Syncee.Fake/Syncee.Fake.csproj" />
   </Folder>
 </Solution>

@@ -16,10 +16,11 @@ public partial class TurnState
         string CurrentPlayer,
         int MoveCount,
         string Winner,
+        string EndReason,
         string[] MoveLog
     );
 
-    private volatile Snapshot _current = new("Title", "Network", "None", 0, "None", []);
+    private volatile Snapshot _current = new("Title", "Network", "None", 0, "None", "Complete", []);
 
     [StateeField]
     public string Phase => _current.Phase;
@@ -37,6 +38,9 @@ public partial class TurnState
     public string Winner => _current.Winner;
 
     [StateeField]
+    public string EndReason => _current.EndReason;
+
+    [StateeField]
     public string[] MoveLog => _current.MoveLog;
 
     /// <summary>メインスレッドから呼ぶ。スナップショットを不可分に差し替える。</summary>
@@ -48,6 +52,7 @@ public partial class TurnState
             game.CurrentPlayer.ToString(),
             game.MoveCount,
             game.Winner.ToString(),
+            game.EndReason.ToString(),
             [.. game.MoveLog]
         );
     }

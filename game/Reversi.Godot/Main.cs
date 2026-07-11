@@ -262,13 +262,16 @@ public partial class Main : Node2D
             ),
         };
 
-    private static string WinnerText(ReversiGame game) =>
-        game.Winner switch
+    private static string WinnerText(ReversiGame game)
+    {
+        var suffix = game.EndReason == GameEndReason.Disconnected ? "(相手の切断による不戦勝)" : "";
+        return game.Winner switch
         {
-            Disc.Black => "黒の勝ち",
-            Disc.White => "白の勝ち",
+            Disc.Black => $"黒の勝ち{suffix}",
+            Disc.White => $"白の勝ち{suffix}",
             _ => "引き分け",
         };
+    }
 
     /// <summary>UI イベント(OnClick の ID)をゲーム操作へ変換する。</summary>
     private void Dispatch(string eventId)
@@ -327,6 +330,7 @@ public partial class Main : Node2D
             CurrentPlayer = _game.CurrentPlayer.ToString(),
             MoveCount = _game.MoveCount,
             Winner = _game.Winner.ToString(),
+            EndReason = _game.EndReason.ToString(),
         };
 
     /// <summary>Reversi.Server へ接続する(まだ未接続の場合のみ)。以後 start/place はサーバ送信になる。</summary>
@@ -362,6 +366,9 @@ public partial class Main : Node2D
                 var x = int.Parse(envelope.Args!["x"], CultureInfo.InvariantCulture);
                 var y = int.Parse(envelope.Args!["y"], CultureInfo.InvariantCulture);
                 _game.TryPlace(x, y);
+                break;
+            case "disconnect":
+                _game.EndByDisconnect(Enum.Parse<Disc>(envelope.Args!["seat"]));
                 break;
         }
         _logger.ZLogInformation(

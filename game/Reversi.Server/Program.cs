@@ -1,17 +1,16 @@
 using Microsoft.Extensions.Logging;
-using Reversi.Logic;
 using Reversi.Server;
 using Statee.Core;
 using Statee.Remote;
-using Syncee;
 using Syncee.LiteNetLib;
 using Syncee.Statee;
 using ZLogger;
 
 // リバーシの権威サーバ(D-050)。純C#コンソールプロセスとして Reversi.Logic をそのまま権威状態にし、
 // Statee を組み込んで権威 State(game/board・game/turn)を直接観測できるようにする。
-// 対局クライアント(Reversi.Godot)は LiteNetLib で接続し着手を送る(N-4)。
-// Statee 側の place/start コマンドは運用・検証用の別経路として残す(N-2 から継続)。
+// 対局クライアント(Reversi.Godot)は LiteNetLib で接続し着手を送る(N-4)。切断は対局中なら
+// 相手の不戦勝として扱う(N-5)。Statee 側の place/start コマンドは運用・検証用の別経路として残す。
+// 権威判定・座席割当・切断検知の中核は ReversiAuthority(テスト可能な形に切り出し済み)。
 
 var port = 9310;
 var gamePort = 9410;
@@ -36,92 +35,26 @@ var loggerFactory = LoggerFactory.Create(builder =>
 var logBuffer = new LogBuffer(1024);
 var logger = loggerFactory.CreateLogger("Reversi.Server");
 
-var game = new ReversiGame();
 var boardState = new BoardState();
 var turnState = new TurnState();
 
+var gameTransport = new LiteNetLibServerTransport(gamePort);
+var authority = new ReversiAuthority(gameTransport);
+
 void RefreshState()
 {
-    boardState.Update(game.Board);
-    turnState.Update(game);
+    boardState.Update(authority.Game.Board);
+    turnState.Update(authority.Game);
 }
 
 RefreshState();
-
-// サーバの合法性判定(D-050「サーバが合法性を検証」)。副作用は持たず、判定のみ行う。
-bool Validate(string clientId, string command, IReadOnlyDictionary<string, string>? cmdArgs) =>
-    command switch
-    {
-        "start" => game.Phase == GamePhase.Title,
-        "place" => game.Phase == GamePhase.Playing
-            && TryParseCell(cmdArgs, out var x, out var y)
-            && game.Board.GetLegalMoves(game.CurrentPlayer).Contains((x, y)),
-        _ => false,
-    };
-
-var authorityLog = new AuthorityLog(Validate);
-
-// 接続中の対局クライアント(N-4)。ClientId は接続順に割り当てる。切断検知(N-5)はまだ行わず、
-// 一覧から外すだけ
-var clients = new Dictionary<ITransport, string>();
-var nextClientNumber = 0;
-
-authorityLog.Committed += envelope =>
+authority.Committed += envelope =>
 {
-    switch (envelope.Command)
-    {
-        case "start":
-            game.Start(GameMode.Network);
-            break;
-        case "place":
-            TryParseCell(envelope.Args, out var x, out var y);
-            game.TryPlace(x, y);
-            break;
-    }
     RefreshState();
     logger.ZLogInformation(
-        $"確定 #{envelope.Sequence} {envelope.ClientId} {envelope.Command} → phase={game.Phase} turn={game.CurrentPlayer}"
+        $"確定 #{envelope.Sequence} {envelope.ClientId} {envelope.Command} → phase={authority.Game.Phase} turn={authority.Game.CurrentPlayer}"
     );
-    var payload = SyncWire.Serialize(envelope);
-    foreach (var client in clients.Keys)
-    {
-        client.Send(payload);
-    }
 };
-
-var gameTransport = new LiteNetLibServerTransport(gamePort);
-gameTransport.ClientConnected += transport =>
-{
-    var clientId = $"client-{++nextClientNumber}";
-    clients[transport] = clientId;
-    transport.Received += bytes =>
-    {
-        var request = SyncWire.DeserializeRequest(bytes);
-        if (!authorityLog.TrySubmit(clientId, request.Command, request.Args))
-        {
-            logger.ZLogWarning(
-                $"{clientId} からの {request.Command} は拒否された(phase={game.Phase})"
-            );
-        }
-    };
-    transport.Disconnected += () =>
-    {
-        clients.Remove(transport);
-        logger.ZLogInformation($"{clientId} が切断した");
-    };
-    logger.ZLogInformation($"{clientId} が接続した");
-};
-
-static bool TryParseCell(IReadOnlyDictionary<string, string>? args, out int x, out int y)
-{
-    x = 0;
-    y = 0;
-    return args is not null
-        && args.TryGetValue("x", out var xs)
-        && args.TryGetValue("y", out var ys)
-        && int.TryParse(xs, out x)
-        && int.TryParse(ys, out y);
-}
 
 var dispatcher = new MainThreadDispatcher();
 var host = new StateeHost(logBuffer) { MainThreadDispatcher = dispatcher };
@@ -132,9 +65,9 @@ host.RegisterStateProvider(
         "game/sync",
         () =>
             new SyncSnapshot(
-                clients.Count,
-                authorityLog.Entries.Count,
-                authorityLog.Entries.Count > 0 ? authorityLog.Entries[^1].Command : null
+                authority.ConnectedClientCount,
+                authority.CommittedCount,
+                authority.LastCommand
             )
     )
 );
@@ -151,10 +84,11 @@ host.RegisterCommand(
 object TurnResult() =>
     new
     {
-        Phase = game.Phase.ToString(),
-        CurrentPlayer = game.CurrentPlayer.ToString(),
-        MoveCount = game.MoveCount,
-        Winner = game.Winner.ToString(),
+        Phase = authority.Game.Phase.ToString(),
+        CurrentPlayer = authority.Game.CurrentPlayer.ToString(),
+        MoveCount = authority.Game.MoveCount,
+        Winner = authority.Game.Winner.ToString(),
+        EndReason = authority.Game.EndReason.ToString(),
     };
 
 var running = true;
@@ -169,9 +103,9 @@ host.RegisterMainThreadCommand(
 );
 host.RegisterMainThreadCommand(
     "start",
-    cmdArgs =>
+    _ =>
     {
-        if (!authorityLog.TrySubmit("local", "start", null))
+        if (!authority.TrySubmitLocal("start", null))
         {
             throw new InvalidOperationException("タイトル画面ではないので開始できない");
         }
@@ -184,17 +118,15 @@ host.RegisterMainThreadCommand(
     {
         var x = cmdArgs.GetInt("x", -1);
         var y = cmdArgs.GetInt("y", -1);
-        var clientId = cmdArgs.GetString("client") ?? "local";
         if (
-            !authorityLog.TrySubmit(
-                clientId,
+            !authority.TrySubmitLocal(
                 "place",
                 new Dictionary<string, string> { ["x"] = x.ToString(), ["y"] = y.ToString() }
             )
         )
         {
             throw new InvalidOperationException(
-                $"({x},{y}) は {game.CurrentPlayer} の合法手ではない(phase={game.Phase})"
+                $"({x},{y}) は {authority.Game.CurrentPlayer} の合法手ではない(phase={authority.Game.Phase})"
             );
         }
         return TurnResult();
