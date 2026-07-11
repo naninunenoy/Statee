@@ -172,6 +172,12 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     /// <summary>全イベントの記録。State 公開・wait 条件の源。</summary>
     public EventLog EventLog { get; }
 
+    /// <summary>受け付けた全入力の記録(Tick ごと)。フレーム精度リプレイ(D-048)の源。</summary>
+    public IReadOnlyList<InputState> InputLog => [];
+
+    /// <summary>入力ログのランレングス圧縮。State 公開・再生コマンドの単位。</summary>
+    public IReadOnlyList<InputRun> InputRuns => [];
+
     /// <summary>場に出ている自弾(Id 昇順)。</summary>
     public IReadOnlyList<BulletSnapshot> PlayerBullets
     {
@@ -321,6 +327,13 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         Publish(new EnemySpawned(id, kind));
         return id;
     }
+
+    /// <summary>入力列を同一シードの新しいゲームに再生する(フレーム精度リプレイ検証)。</summary>
+    public static ShootingLogic Replay(
+        int seed,
+        IEnumerable<InputState> inputs,
+        ShootingConfig? config = null
+    ) => new(seed, config);
 
     /// <summary>アイテム ⭐ を出す(ドロップ・テスト用)。</summary>
     public int SpawnItem(Vector2 position)
