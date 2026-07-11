@@ -40,7 +40,24 @@ public partial class Main : Node2D
         _logic = new GameLogic(CmdlineArgs.ParseInt("--seed=", DefaultSeed));
         _keyBindings =
         [
-            new KeyBinding(Key.Space, "step", "1ターン進める(プレースホルダ)", ActStep),
+            new KeyBinding(
+                Key.Q,
+                "attack1",
+                "プレイヤー1がボスを攻撃",
+                () => ActStep(PlayerAction.Attack, PlayerAction.Idle)
+            ),
+            new KeyBinding(
+                Key.W,
+                "attack2",
+                "プレイヤー2がボスを攻撃",
+                () => ActStep(PlayerAction.Idle, PlayerAction.Attack)
+            ),
+            new KeyBinding(
+                Key.Space,
+                "wait",
+                "何もせず1Tick進める",
+                () => ActStep(PlayerAction.Idle, PlayerAction.Idle)
+            ),
         ];
 
         RefreshView();
@@ -68,7 +85,7 @@ public partial class Main : Node2D
         DrawString(
             ThemeDB.FallbackFont,
             new Vector2(16, 32),
-            $"RaidBoss  seed={_logic.Seed}  step={_logic.StepCount}",
+            $"RaidBoss  boss={_logic.BossHp}  p1={_logic.Player1Hp}  p2={_logic.Player2Hp}  tick={_logic.TickCount}  {_logic.Phase}",
             fontSize: 20
         );
     }
@@ -79,17 +96,24 @@ public partial class Main : Node2D
         _loggerFactory?.Dispose();
     }
 
-    /// <summary>プレイヤーのアクション(プレースホルダ)。</summary>
-    private void ActStep()
+    /// <summary>両プレイヤーの行動を1Tick分同時に適用する。</summary>
+    private void ActStep(PlayerAction player1Action, PlayerAction player2Action)
     {
-        _logic.Step();
+        _logic.Step(player1Action, player2Action);
         RefreshView();
     }
 
     /// <summary>アクション後の状態を State と描画へ反映する。</summary>
     private void RefreshView()
     {
-        _state.Update(_logic.Seed, _logic.StepCount);
+        _state.Update(
+            _logic.Seed,
+            _logic.TickCount,
+            _logic.BossHp,
+            _logic.Player1Hp,
+            _logic.Player2Hp,
+            _logic.Phase
+        );
         QueueRedraw();
     }
 
@@ -103,15 +127,31 @@ public partial class Main : Node2D
         // ゲーム状態を変えるコマンドはメインスレッドで実行する
         host.RegisterMainThreadCommand(
             "step",
-            _ =>
+            args =>
             {
-                ActStep();
-                _logger.ZLogInformation($"step → {_logic.StepCount}");
-                return new { StepCount = _logic.StepCount };
+                var player1Action = ParseAction(args.GetString("player1"));
+                var player2Action = ParseAction(args.GetString("player2"));
+                ActStep(player1Action, player2Action);
+                _logger.ZLogInformation(
+                    $"step({player1Action}, {player2Action}) → tick={_logic.TickCount}"
+                );
+                return new
+                {
+                    _logic.TickCount,
+                    _logic.BossHp,
+                    _logic.Player1Hp,
+                    _logic.Player2Hp,
+                    Phase = _logic.Phase.ToString(),
+                };
             }
         );
         _server = new StateeTcpServer(host, CmdlineArgs.ParseInt("--port=", DefaultPort));
         _server.Start();
         _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
     }
+
+    private static PlayerAction ParseAction(string? name) =>
+        name?.Equals("attack", StringComparison.OrdinalIgnoreCase) == true
+            ? PlayerAction.Attack
+            : PlayerAction.Idle;
 }
