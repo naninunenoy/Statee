@@ -64,10 +64,12 @@ public class ShootingLogicWaveTest
     [Fact]
     public void Tick_最終ウェーブの敵が全て退場_AllWavesClearedになり以後湧かない()
     {
+        // ボスなし設定。ボスありの場合の続きは ShootingLogicBossTest
         var config = new ShootingConfig
         {
             Waves = [new(1, [EnemyKind.Straight])],
             StraightEnemySpeed = 50f,
+            Boss = null,
         };
         var logic = new ShootingLogic(seed: 1, config);
 
