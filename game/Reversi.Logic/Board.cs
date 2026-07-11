@@ -11,6 +11,9 @@ public sealed class Board
     /// <summary>初期配置(中央4マスに黒白2枚ずつ)の盤を作る。</summary>
     public static Board CreateInitial() => throw new NotImplementedException();
 
+    /// <summary>任意の盤面から復元する(テスト・将来の途中復帰用)。配列はコピーされる。</summary>
+    public static Board Restore(Disc[,] cells) => throw new NotImplementedException();
+
     /// <summary>マスの状態。範囲外は例外。</summary>
     public Disc this[int x, int y] => throw new NotImplementedException();
 

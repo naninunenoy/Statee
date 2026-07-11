@@ -44,6 +44,10 @@ public sealed class ReversiGame
     /// <summary>Title から対局を開始する。</summary>
     public void Start(GameMode mode) => throw new NotImplementedException();
 
+    /// <summary>任意の局面から Playing 状態で復元する(テスト・将来の途中復帰用)。</summary>
+    public static ReversiGame Restore(Board board, Disc currentPlayer, GameMode mode) =>
+        throw new NotImplementedException();
+
     /// <summary>
     /// 現在の手番で着手する。非合法手・Playing 以外では盤を変えず false。
     /// 着手後、相手に合法手がなければ自動パス(ログに記録)、
