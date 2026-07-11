@@ -8,6 +8,7 @@ namespace ShootingGame.Logic;
 /// 横スクロール STG の規則エンジン(D-048)。固定タイムステップ(60Hz)の
 /// Tick(InputState) でだけ状態が進む完全決定論。運動・衝突は自前の数式で、
 /// Godot 物理を使わない。弾・敵は Arch の Entity、イベントは VitalRouter で流す。
+/// 乱数はコンストラクタのシード由来の1系統のみ(ウェーブの出現タイミング・位置・種類)。
 /// </summary>
 public sealed class ShootingLogic : IDisposable, ICommandSubscriber
 {
@@ -26,12 +27,32 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         public int Id;
     }
 
+    private struct EnemyBulletComponent
+    {
+        public int Id;
+    }
+
     private struct EnemyComponent
     {
         public int Id;
         public EnemyKind Kind;
         public int Hp;
     }
+
+    /// <summary>サイン波敵 🛸 の蛇行。X は Velocity、Y はこの成分が毎 Tick 上書きする。</summary>
+    private struct SineMotionComponent
+    {
+        public float BaseY;
+        public int Age;
+    }
+
+    /// <summary>シューター敵 🦑 の発射管理。</summary>
+    private struct ShooterComponent
+    {
+        public int Cooldown;
+    }
+
+    private readonly record struct PendingSpawn(int Tick, EnemyKind Kind, float Y);
 
     private static readonly QueryDescription MovingQuery = new QueryDescription().WithAll<
         PositionComponent,
@@ -41,23 +62,40 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         PlayerBulletComponent,
         PositionComponent
     >();
+    private static readonly QueryDescription EnemyBulletQuery = new QueryDescription().WithAll<
+        EnemyBulletComponent,
+        PositionComponent
+    >();
     private static readonly QueryDescription EnemyQuery = new QueryDescription().WithAll<
         EnemyComponent,
+        PositionComponent
+    >();
+    private static readonly QueryDescription SineQuery = new QueryDescription().WithAll<
+        SineMotionComponent,
+        PositionComponent
+    >();
+    private static readonly QueryDescription ShooterQuery = new QueryDescription().WithAll<
+        ShooterComponent,
         PositionComponent
     >();
 
     private readonly World _world = World.Create();
     private readonly HashSet<Entity> _toDestroy = [];
+    private readonly Random _random;
+    private readonly Queue<PendingSpawn> _pendingSpawns = new();
     private Vector2 _playerPosition;
     private int _fireCooldown;
     private int _invincibleTicksLeft;
     private int _nextBulletId = 1;
+    private int _nextEnemyBulletId = 1;
     private int _nextEnemyId = 1;
+    private int _waveIndex = -1;
 
     public ShootingLogic(int seed, ShootingConfig? config = null)
     {
         Seed = seed;
         Config = config ?? new ShootingConfig();
+        _random = new Random(seed);
         EventLog = new EventLog(Config.EventLogCapacity);
         Router.AddFilter(EventLog);
         Router.Subscribe(this);
@@ -90,10 +128,10 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     public bool IsGameOver { get; private set; }
 
     /// <summary>現在のウェーブ(1 始まり)。ウェーブ進行なし(Waves が空)のときは 0。</summary>
-    public int Wave => default;
+    public int Wave => _waveIndex + 1;
 
     /// <summary>全ウェーブをクリアしたか。</summary>
-    public bool AllWavesCleared => default;
+    public bool AllWavesCleared { get; private set; }
 
     /// <summary>ゲーム内イベントの発行先。購読者(スコア係・演出係等)はここへ Subscribe する。</summary>
     public Router Router { get; } = new();
@@ -118,7 +156,20 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     }
 
     /// <summary>場に出ている敵弾(Id 昇順)。</summary>
-    public IReadOnlyList<BulletSnapshot> EnemyBullets => [];
+    public IReadOnlyList<BulletSnapshot> EnemyBullets
+    {
+        get
+        {
+            var bullets = new List<BulletSnapshot>();
+            _world.Query(
+                in EnemyBulletQuery,
+                (ref EnemyBulletComponent bullet, ref PositionComponent position) =>
+                    bullets.Add(new BulletSnapshot(bullet.Id, position.Value))
+            );
+            bullets.Sort((a, b) => a.Id.CompareTo(b.Id));
+            return bullets;
+        }
+    }
 
     /// <summary>場に出ている敵(Id 昇順)。</summary>
     public IReadOnlyList<EnemySnapshot> Enemies
@@ -136,7 +187,10 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         }
     }
 
-    /// <summary>1 Tick(1/60 秒)進める。自機移動 → 運動 → 発射 → 衝突 → 画面外掃除の順で解決する。</summary>
+    /// <summary>
+    /// 1 Tick(1/60 秒)進める。自機移動 → 運動 → ウェーブ出現 → 発射 → 衝突 →
+    /// 画面外掃除 → ウェーブクリア判定の順で解決する。
+    /// </summary>
     public void Tick(in InputState input)
     {
         if (IsGameOver)
@@ -153,31 +207,55 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
 
         MovePlayer(input);
         MoveEntities();
+        SpawnDueWaveEnemies();
         Fire(input);
+        FireShooters();
         ResolveBulletHits();
         ResolvePlayerHit();
         CullOffscreen();
+        CheckWaveClear();
     }
 
     /// <summary>敵を出現させる(ウェーブ生成・テスト用)。EnemySpawned を発行する。</summary>
     public int SpawnEnemy(EnemyKind kind, Vector2 position)
     {
         var id = _nextEnemyId++;
-        var velocity = kind switch
+        var enemy = new EnemyComponent
         {
-            EnemyKind.Straight => new Vector2(-Config.StraightEnemySpeed, 0f),
-            _ => Vector2.Zero,
+            Id = id,
+            Kind = kind,
+            Hp = 1,
         };
-        _world.Create(
-            new EnemyComponent
-            {
-                Id = id,
-                Kind = kind,
-                Hp = 1,
-            },
-            new PositionComponent { Value = position },
-            new VelocityComponent { Value = velocity }
-        );
+        var positionComponent = new PositionComponent { Value = position };
+        switch (kind)
+        {
+            case EnemyKind.Straight:
+                _world.Create(
+                    enemy,
+                    positionComponent,
+                    new VelocityComponent { Value = new Vector2(-Config.StraightEnemySpeed, 0f) }
+                );
+                break;
+            case EnemyKind.Sine:
+                _world.Create(
+                    enemy,
+                    positionComponent,
+                    new VelocityComponent { Value = new Vector2(-Config.SineEnemySpeed, 0f) },
+                    new SineMotionComponent { BaseY = position.Y, Age = 0 }
+                );
+                break;
+            case EnemyKind.Shooter:
+                _world.Create(
+                    enemy,
+                    positionComponent,
+                    new VelocityComponent { Value = new Vector2(-Config.ShooterEnemySpeed, 0f) },
+                    new ShooterComponent { Cooldown = Config.ShooterFireIntervalTicks }
+                );
+                break;
+            default:
+                _world.Create(enemy, positionComponent, new VelocityComponent());
+                break;
+        }
         Publish(new EnemySpawned(id, kind));
         return id;
     }
@@ -219,6 +297,74 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
             (ref PositionComponent position, ref VelocityComponent velocity) =>
                 position.Value += velocity.Value
         );
+        // サイン波の Y は等速移動の後に基準線からの数式で上書きする(決定論)
+        var amplitude = Config.SineAmplitude;
+        var period = Config.SinePeriodTicks;
+        _world.Query(
+            in SineQuery,
+            (ref SineMotionComponent sine, ref PositionComponent position) =>
+            {
+                sine.Age++;
+                position.Value.Y =
+                    sine.BaseY + amplitude * MathF.Sin(2f * MathF.PI * sine.Age / period);
+            }
+        );
+    }
+
+    /// <summary>ウェーブのスケジュール(シード由来)に達した敵を湧かせる。</summary>
+    private void SpawnDueWaveEnemies()
+    {
+        if (Config.Waves.Count == 0 || AllWavesCleared)
+        {
+            return;
+        }
+        if (_waveIndex < 0)
+        {
+            StartWave(0);
+        }
+        while (_pendingSpawns.Count > 0 && _pendingSpawns.Peek().Tick <= TickCount)
+        {
+            var spawn = _pendingSpawns.Dequeue();
+            SpawnEnemy(spawn.Kind, new Vector2(Config.FieldWidth + Config.EnemyRadius, spawn.Y));
+        }
+    }
+
+    /// <summary>ウェーブを開始し、出現スケジュールを乱数から確定させる。WaveStarted を発行する。</summary>
+    private void StartWave(int index)
+    {
+        _waveIndex = index;
+        var wave = Config.Waves[index];
+        var tick = TickCount; // 先頭の敵は即時に湧く
+        for (var i = 0; i < wave.EnemyCount; i++)
+        {
+            var kind = wave.Kinds[_random.Next(wave.Kinds.Length)];
+            var y =
+                Config.SpawnMarginY
+                + (float)_random.NextDouble() * (Config.FieldHeight - 2f * Config.SpawnMarginY);
+            _pendingSpawns.Enqueue(new PendingSpawn(tick, kind, y));
+            tick += Config.SpawnIntervalTicks + _random.Next(Config.SpawnJitterTicks);
+        }
+        Publish(new WaveStarted(index + 1));
+    }
+
+    /// <summary>出現予定も場の敵も尽きたらウェーブクリア。最終ウェーブなら全クリア。</summary>
+    private void CheckWaveClear()
+    {
+        if (Config.Waves.Count == 0 || AllWavesCleared || _waveIndex < 0)
+        {
+            return;
+        }
+        if (_pendingSpawns.Count > 0 || _world.CountEntities(in EnemyQuery) > 0)
+        {
+            return;
+        }
+        Publish(new WaveCleared(_waveIndex + 1));
+        if (_waveIndex + 1 >= Config.Waves.Count)
+        {
+            AllWavesCleared = true;
+            return;
+        }
+        StartWave(_waveIndex + 1);
     }
 
     private void Fire(in InputState input)
@@ -237,6 +383,41 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
             new VelocityComponent { Value = new Vector2(Config.PlayerBulletSpeed, 0f) }
         );
         _fireCooldown = Config.FireIntervalTicks;
+    }
+
+    /// <summary>シューター敵の発射。弾は発射時の自機方向へ等速直進(ホーミングしない)。</summary>
+    private void FireShooters()
+    {
+        List<Vector2>? origins = null;
+        _world.Query(
+            in ShooterQuery,
+            (ref ShooterComponent shooter, ref PositionComponent position) =>
+            {
+                if (--shooter.Cooldown > 0)
+                {
+                    return;
+                }
+                shooter.Cooldown = Config.ShooterFireIntervalTicks;
+                (origins ??= []).Add(position.Value);
+            }
+        );
+        if (origins is null)
+        {
+            return;
+        }
+        foreach (var origin in origins)
+        {
+            var direction = _playerPosition - origin;
+            var velocity =
+                direction == Vector2.Zero
+                    ? new Vector2(-Config.EnemyBulletSpeed, 0f)
+                    : Vector2.Normalize(direction) * Config.EnemyBulletSpeed;
+            _world.Create(
+                new EnemyBulletComponent { Id = _nextEnemyBulletId++ },
+                new PositionComponent { Value = origin },
+                new VelocityComponent { Value = velocity }
+            );
+        }
     }
 
     private void ResolveBulletHits()
@@ -293,13 +474,27 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
         {
             return;
         }
-        var hitRange = Config.PlayerRadius + Config.EnemyRadius;
+        var enemyRange = Config.PlayerRadius + Config.EnemyRadius;
         var hit = false;
         _world.Query(
             in EnemyQuery,
             (ref EnemyComponent _, ref PositionComponent position) =>
-                hit |= Overlaps(_playerPosition, position.Value, hitRange)
+                hit |= Overlaps(_playerPosition, position.Value, enemyRange)
         );
+        // 敵弾は当たった弾だけ消える。無敵中はこの分岐に来ないのですり抜ける
+        var bulletRange = Config.PlayerRadius + Config.EnemyBulletRadius;
+        _world.Query(
+            in EnemyBulletQuery,
+            (Entity entity, ref EnemyBulletComponent _, ref PositionComponent position) =>
+            {
+                if (Overlaps(_playerPosition, position.Value, bulletRange))
+                {
+                    hit = true;
+                    _toDestroy.Add(entity);
+                }
+            }
+        );
+        FlushDestroyed();
         if (!hit)
         {
             return;
@@ -322,6 +517,23 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
             (Entity entity, ref PlayerBulletComponent _, ref PositionComponent position) =>
             {
                 if (position.Value.X - Config.PlayerBulletRadius > Config.FieldWidth)
+                {
+                    _toDestroy.Add(entity);
+                }
+            }
+        );
+        var enemyBulletRadius = Config.EnemyBulletRadius;
+        _world.Query(
+            in EnemyBulletQuery,
+            (Entity entity, ref EnemyBulletComponent _, ref PositionComponent position) =>
+            {
+                var p = position.Value;
+                if (
+                    p.X + enemyBulletRadius < 0f
+                    || p.X - enemyBulletRadius > Config.FieldWidth
+                    || p.Y + enemyBulletRadius < 0f
+                    || p.Y - enemyBulletRadius > Config.FieldHeight
+                )
                 {
                     _toDestroy.Add(entity);
                 }

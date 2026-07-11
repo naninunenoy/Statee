@@ -68,8 +68,9 @@ public partial class Main : Node2D
         DrawString(
             ThemeDB.FallbackFont,
             new Vector2(16, 32),
-            $"score={_logic.Score}  lives={_logic.Lives}  tick={_logic.TickCount}"
-                + (_logic.IsGameOver ? "  GAME OVER" : ""),
+            $"score={_logic.Score}  lives={_logic.Lives}  wave={_logic.Wave}  tick={_logic.TickCount}"
+                + (_logic.IsGameOver ? "  GAME OVER" : "")
+                + (_logic.AllWavesCleared ? "  ALL WAVES CLEARED" : ""),
             fontSize: 20
         );
         DrawCircle(ToScreen(_logic.PlayerPosition), _logic.Config.PlayerRadius, Colors.Cyan);
@@ -77,9 +78,13 @@ public partial class Main : Node2D
         {
             DrawCircle(ToScreen(bullet.Position), _logic.Config.PlayerBulletRadius, Colors.White);
         }
+        foreach (var bullet in _logic.EnemyBullets)
+        {
+            DrawCircle(ToScreen(bullet.Position), _logic.Config.EnemyBulletRadius, Colors.Red);
+        }
         foreach (var enemy in _logic.Enemies)
         {
-            DrawCircle(ToScreen(enemy.Position), _logic.Config.EnemyRadius, Colors.Orange);
+            DrawCircle(ToScreen(enemy.Position), _logic.Config.EnemyRadius, KindColor(enemy.Kind));
         }
     }
 
@@ -99,6 +104,16 @@ public partial class Main : Node2D
             Down: Input.IsPhysicalKeyPressed(Key.Down),
             Shoot: Input.IsPhysicalKeyPressed(Key.Z) || Input.IsPhysicalKeyPressed(Key.Space)
         );
+
+    /// <summary>敵種の見分け色(emoji 描画までのプレースホルダ)。</summary>
+    private static Color KindColor(EnemyKind kind) =>
+        kind switch
+        {
+            EnemyKind.Straight => Colors.Orange,
+            EnemyKind.Sine => Colors.MediumPurple,
+            EnemyKind.Shooter => Colors.GreenYellow,
+            _ => Colors.Firebrick,
+        };
 
     /// <summary>論理座標(960x540・左上原点)を描画座標へ写す。現状は等倍。</summary>
     private static Vector2 ToScreen(System.Numerics.Vector2 position) =>

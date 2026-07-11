@@ -28,13 +28,32 @@ public partial class GameState
         int Score,
         bool IsInvincible,
         bool IsGameOver,
+        int Wave,
+        bool AllWavesCleared,
         BulletEntry[] PlayerBullets,
+        BulletEntry[] EnemyBullets,
         EnemyEntry[] Enemies,
         int EventTotal,
         EventEntry[] Events
     );
 
-    private volatile Snapshot _current = new(0, 0, 0, 0, 0, 0, false, false, [], [], 0, []);
+    private volatile Snapshot _current = new(
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        false,
+        false,
+        0,
+        false,
+        [],
+        [],
+        [],
+        0,
+        []
+    );
 
     [StateeField]
     public int Seed => _current.Seed;
@@ -61,7 +80,16 @@ public partial class GameState
     public bool IsGameOver => _current.IsGameOver;
 
     [StateeField]
+    public int Wave => _current.Wave;
+
+    [StateeField]
+    public bool AllWavesCleared => _current.AllWavesCleared;
+
+    [StateeField]
     public IReadOnlyList<BulletEntry> PlayerBullets => _current.PlayerBullets;
+
+    [StateeField]
+    public IReadOnlyList<BulletEntry> EnemyBullets => _current.EnemyBullets;
 
     [StateeField]
     public IReadOnlyList<EnemyEntry> Enemies => _current.Enemies;
@@ -86,7 +114,10 @@ public partial class GameState
             logic.Score,
             logic.IsInvincible,
             logic.IsGameOver,
+            logic.Wave,
+            logic.AllWavesCleared,
             [.. logic.PlayerBullets.Select(b => new BulletEntry(b.Id, b.Position.X, b.Position.Y))],
+            [.. logic.EnemyBullets.Select(b => new BulletEntry(b.Id, b.Position.X, b.Position.Y))],
             [
                 .. logic.Enemies.Select(e => new EnemyEntry(
                     e.Id,
