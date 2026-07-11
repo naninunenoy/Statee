@@ -17,3 +17,9 @@ public readonly record struct PlayerHit(int LivesRemaining) : ICommand;
 
 /// <summary>残機が尽きてゲームオーバーになった。</summary>
 public readonly record struct GameEnded(int Score) : ICommand;
+
+/// <summary>ウェーブが始まった(1 始まり)。</summary>
+public readonly record struct WaveStarted(int Wave) : ICommand;
+
+/// <summary>ウェーブの敵が全ていなくなった(撃破または画面外へ退場)。</summary>
+public readonly record struct WaveCleared(int Wave) : ICommand;

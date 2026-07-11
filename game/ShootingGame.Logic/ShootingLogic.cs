@@ -89,6 +89,12 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
     /// <summary>残機が尽きたか。true 以降は Tick が状態を変えない(盤面凍結)。</summary>
     public bool IsGameOver { get; private set; }
 
+    /// <summary>現在のウェーブ(1 始まり)。ウェーブ進行なし(Waves が空)のときは 0。</summary>
+    public int Wave => default;
+
+    /// <summary>全ウェーブをクリアしたか。</summary>
+    public bool AllWavesCleared => default;
+
     /// <summary>ゲーム内イベントの発行先。購読者(スコア係・演出係等)はここへ Subscribe する。</summary>
     public Router Router { get; } = new();
 
@@ -110,6 +116,9 @@ public sealed class ShootingLogic : IDisposable, ICommandSubscriber
             return bullets;
         }
     }
+
+    /// <summary>場に出ている敵弾(Id 昇順)。</summary>
+    public IReadOnlyList<BulletSnapshot> EnemyBullets => [];
 
     /// <summary>場に出ている敵(Id 昇順)。</summary>
     public IReadOnlyList<EnemySnapshot> Enemies
