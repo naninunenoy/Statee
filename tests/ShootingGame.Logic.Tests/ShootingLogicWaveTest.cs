@@ -5,38 +5,12 @@ namespace ShootingGame.Logic.Tests;
 /// <summary>ウェーブ進行(シード由来の出現スケジュール)の仕様。</summary>
 public class ShootingLogicWaveTest
 {
-    private static void TickMany(ShootingLogic logic, int count)
-    {
-        for (var i = 0; i < count; i++)
-        {
-            logic.Tick(new InputState());
-        }
-    }
-
-    /// <summary>条件成立まで Tick を進める(上限つき。固定 Tick 数への依存を避ける)。</summary>
-    private static void TickUntil(
-        ShootingLogic logic,
-        Func<ShootingLogic, bool> condition,
-        int maxTicks = 2000
-    )
-    {
-        for (var i = 0; i < maxTicks; i++)
-        {
-            if (condition(logic))
-            {
-                return;
-            }
-            logic.Tick(new InputState());
-        }
-        condition(logic).ShouldBeTrue($"{maxTicks} Tick 以内に条件が成立しなかった");
-    }
-
     [Fact]
     public void Tick_ウェーブなし設定_Waveは0のまま敵も湧かない()
     {
         var logic = new ShootingLogic(seed: 1, new ShootingConfig { Waves = [] });
 
-        TickMany(logic, 200);
+        logic.TickMany(200);
 
         logic.Wave.ShouldBe(0);
         logic.Enemies.ShouldBeEmpty();
@@ -82,7 +56,7 @@ public class ShootingLogicWaveTest
         };
         var logic = new ShootingLogic(seed: 1, config);
 
-        TickUntil(logic, l => l.Wave == 2);
+        logic.TickUntil(l => l.Wave == 2);
 
         logic.EventLog.Entries.ShouldContain(e => e.Name == nameof(WaveCleared));
     }
@@ -97,8 +71,8 @@ public class ShootingLogicWaveTest
         };
         var logic = new ShootingLogic(seed: 1, config);
 
-        TickUntil(logic, l => l.AllWavesCleared);
-        TickMany(logic, 200);
+        logic.TickUntil(l => l.AllWavesCleared);
+        logic.TickMany(200);
 
         logic.Enemies.ShouldBeEmpty();
         logic.Wave.ShouldBe(1);
@@ -110,7 +84,7 @@ public class ShootingLogicWaveTest
         var config = new ShootingConfig { Waves = [new(3, [EnemyKind.Sine])] };
         var logic = new ShootingLogic(seed: 1, config);
 
-        TickUntil(logic, l => l.Enemies.Count >= 2);
+        logic.TickUntil(l => l.Enemies.Count >= 2);
 
         logic.Enemies.ShouldAllBe(e => e.Kind == EnemyKind.Sine);
     }
@@ -121,8 +95,8 @@ public class ShootingLogicWaveTest
         var a = new ShootingLogic(seed: 42);
         var b = new ShootingLogic(seed: 42);
 
-        TickMany(a, 300);
-        TickMany(b, 300);
+        a.TickMany(300);
+        b.TickMany(300);
 
         a.Enemies.ShouldBe(b.Enemies);
         a.EventLog.TotalCount.ShouldBe(b.EventLog.TotalCount);
@@ -134,8 +108,8 @@ public class ShootingLogicWaveTest
         var a = new ShootingLogic(seed: 1);
         var b = new ShootingLogic(seed: 2);
 
-        TickMany(a, 300);
-        TickMany(b, 300);
+        a.TickMany(300);
+        b.TickMany(300);
 
         a.Enemies.ShouldNotBe(b.Enemies);
     }

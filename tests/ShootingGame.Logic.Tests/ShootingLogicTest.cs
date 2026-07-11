@@ -10,33 +10,6 @@ public class ShootingLogicTest
     private static ShootingLogic CreateLogic(ShootingConfig? config = null) =>
         new(seed: 1, config ?? new ShootingConfig { Waves = [] });
 
-    private static void TickMany(ShootingLogic logic, int count, InputState input = default)
-    {
-        for (var i = 0; i < count; i++)
-        {
-            logic.Tick(input);
-        }
-    }
-
-    /// <summary>条件成立まで Tick を進める(上限つき。固定 Tick 数への依存を避ける)。</summary>
-    private static void TickUntil(
-        ShootingLogic logic,
-        Func<ShootingLogic, bool> condition,
-        InputState input = default,
-        int maxTicks = 600
-    )
-    {
-        for (var i = 0; i < maxTicks; i++)
-        {
-            if (condition(logic))
-            {
-                return;
-            }
-            logic.Tick(input);
-        }
-        condition(logic).ShouldBeTrue($"{maxTicks} Tick 以内に条件が成立しなかった");
-    }
-
     [Fact]
     public void Tick_1回進める_TickCountが1になる()
     {
@@ -96,7 +69,7 @@ public class ShootingLogicTest
     {
         var logic = CreateLogic();
 
-        TickMany(logic, 200, new InputState(Left: true));
+        logic.TickMany(200, new InputState(Left: true));
 
         logic.PlayerPosition.X.ShouldBe(logic.Config.PlayerRadius);
     }
@@ -106,7 +79,7 @@ public class ShootingLogicTest
     {
         var logic = CreateLogic();
 
-        TickMany(logic, 200, new InputState(Down: true));
+        logic.TickMany(200, new InputState(Down: true));
 
         logic.PlayerPosition.Y.ShouldBe(logic.Config.FieldHeight - logic.Config.PlayerRadius);
     }
@@ -127,7 +100,7 @@ public class ShootingLogicTest
     {
         var logic = CreateLogic();
 
-        TickMany(logic, logic.Config.FireIntervalTicks + 1, new InputState(Shoot: true));
+        logic.TickMany(logic.Config.FireIntervalTicks + 1, new InputState(Shoot: true));
 
         logic.PlayerBullets.Count.ShouldBe(2);
     }
@@ -152,7 +125,7 @@ public class ShootingLogicTest
         var logic = CreateLogic();
         logic.Tick(new InputState(Shoot: true));
 
-        TickUntil(logic, l => l.PlayerBullets.Count == 0);
+        logic.TickUntil(l => l.PlayerBullets.Count == 0);
 
         logic.PlayerBullets.ShouldBeEmpty();
     }
@@ -197,7 +170,7 @@ public class ShootingLogicTest
         var logic = CreateLogic();
         logic.SpawnEnemy(EnemyKind.Straight, new Vector2(10, 400));
 
-        TickUntil(logic, l => l.Enemies.Count == 0);
+        logic.TickUntil(l => l.Enemies.Count == 0);
 
         logic.Enemies.ShouldBeEmpty();
     }
@@ -210,7 +183,7 @@ public class ShootingLogicTest
         logic.SpawnEnemy(EnemyKind.Straight, logic.PlayerPosition with { X = 800 });
         logic.Tick(new InputState(Shoot: true));
 
-        TickUntil(logic, l => l.Enemies.Count == 0);
+        logic.TickUntil(l => l.Enemies.Count == 0);
 
         logic.PlayerBullets.ShouldBeEmpty();
         logic.Score.ShouldBe(logic.Config.EnemyScore);
@@ -245,7 +218,7 @@ public class ShootingLogicTest
         var livesAfterFirstHit = logic.Config.InitialLives - 1;
 
         // 無敵時間内(敵はまだ自機に重なり続けている)
-        TickMany(logic, logic.Config.InvincibleTicks - 1);
+        logic.TickMany(logic.Config.InvincibleTicks - 1);
 
         logic.Lives.ShouldBe(livesAfterFirstHit);
     }
@@ -263,7 +236,7 @@ public class ShootingLogicTest
         logic.SpawnEnemy(EnemyKind.Straight, logic.PlayerPosition);
         logic.Tick(new InputState());
 
-        TickMany(logic, config.InvincibleTicks + 1);
+        logic.TickMany(config.InvincibleTicks + 1);
 
         logic.Lives.ShouldBe(config.InitialLives - 2);
     }

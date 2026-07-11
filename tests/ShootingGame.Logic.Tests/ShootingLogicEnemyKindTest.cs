@@ -9,32 +9,6 @@ public class ShootingLogicEnemyKindTest
     private static ShootingLogic CreateLogic(ShootingConfig? config = null) =>
         new(seed: 1, config ?? new ShootingConfig { Waves = [] });
 
-    private static void TickMany(ShootingLogic logic, int count, InputState input = default)
-    {
-        for (var i = 0; i < count; i++)
-        {
-            logic.Tick(input);
-        }
-    }
-
-    /// <summary>条件成立まで Tick を進める(上限つき。固定 Tick 数への依存を避ける)。</summary>
-    private static void TickUntil(
-        ShootingLogic logic,
-        Func<ShootingLogic, bool> condition,
-        int maxTicks = 600
-    )
-    {
-        for (var i = 0; i < maxTicks; i++)
-        {
-            if (condition(logic))
-            {
-                return;
-            }
-            logic.Tick(new InputState());
-        }
-        condition(logic).ShouldBeTrue($"{maxTicks} Tick 以内に条件が成立しなかった");
-    }
-
     [Fact]
     public void Tick_サイン波敵_4分の1周期でXは等速左進Yは振幅ぶん下がる()
     {
@@ -42,7 +16,7 @@ public class ShootingLogicEnemyKindTest
         logic.SpawnEnemy(EnemyKind.Sine, new Vector2(600, 300));
         var quarter = logic.Config.SinePeriodTicks / 4;
 
-        TickMany(logic, quarter);
+        logic.TickMany(quarter);
 
         logic.Enemies[0].Position.X.ShouldBe(600 - logic.Config.SineEnemySpeed * quarter, 0.001f);
         logic.Enemies[0].Position.Y.ShouldBe(300 + logic.Config.SineAmplitude, 0.001f);
@@ -54,7 +28,7 @@ public class ShootingLogicEnemyKindTest
         var logic = CreateLogic();
         logic.SpawnEnemy(EnemyKind.Sine, new Vector2(600, 300));
 
-        TickMany(logic, logic.Config.SinePeriodTicks);
+        logic.TickMany(logic.Config.SinePeriodTicks);
 
         logic.Enemies[0].Position.Y.ShouldBe(300, 0.01f);
     }
@@ -66,7 +40,7 @@ public class ShootingLogicEnemyKindTest
         var logic = CreateLogic(config);
         logic.SpawnEnemy(EnemyKind.Shooter, new Vector2(800, 400));
 
-        TickMany(logic, config.ShooterFireIntervalTicks);
+        logic.TickMany(config.ShooterFireIntervalTicks);
 
         logic.EnemyBullets.Count.ShouldBe(1);
     }
@@ -83,7 +57,7 @@ public class ShootingLogicEnemyKindTest
         var logic = CreateLogic(config);
         // 自機と同じ Y に置く → 発射方向は真左
         logic.SpawnEnemy(EnemyKind.Shooter, logic.PlayerPosition with { X = 620 });
-        TickUntil(logic, l => l.EnemyBullets.Count == 1);
+        logic.TickUntil(l => l.EnemyBullets.Count == 1);
         var before = logic.EnemyBullets[0].Position;
 
         // 自機を動かしても既発射の弾の進路は変わらない
@@ -106,7 +80,7 @@ public class ShootingLogicEnemyKindTest
         var logic = CreateLogic(config);
         logic.SpawnEnemy(EnemyKind.Shooter, logic.PlayerPosition with { X = 400 });
 
-        TickUntil(logic, l => l.Lives < config.InitialLives);
+        logic.TickUntil(l => l.Lives < config.InitialLives);
 
         var hitRange = config.PlayerRadius + config.EnemyBulletRadius;
         logic.EventLog.Entries.ShouldContain(e => e.Name == nameof(PlayerHit));
@@ -130,11 +104,11 @@ public class ShootingLogicEnemyKindTest
         // 接触被弾で無敵化してから、敵弾を自機へ通す
         logic.SpawnEnemy(EnemyKind.Straight, logic.PlayerPosition);
         logic.SpawnEnemy(EnemyKind.Shooter, logic.PlayerPosition with { X = 300 });
-        TickUntil(logic, l => l.EnemyBullets.Count >= 1);
+        logic.TickUntil(l => l.EnemyBullets.Count >= 1);
         var firstBulletId = logic.EnemyBullets[0].Id;
 
         // 先頭の弾が自機を通過して画面外で消えるまで進める
-        TickUntil(logic, l => l.EnemyBullets.All(b => b.Id != firstBulletId));
+        logic.TickUntil(l => l.EnemyBullets.All(b => b.Id != firstBulletId));
 
         logic.Lives.ShouldBe(config.InitialLives - 1);
     }
@@ -153,10 +127,10 @@ public class ShootingLogicEnemyKindTest
         var logic = CreateLogic(config);
         logic.SpawnEnemy(EnemyKind.Straight, logic.PlayerPosition); // 無敵化(すり抜け用)
         logic.SpawnEnemy(EnemyKind.Shooter, logic.PlayerPosition with { X = 300 });
-        TickUntil(logic, l => l.EnemyBullets.Count >= 1);
+        logic.TickUntil(l => l.EnemyBullets.Count >= 1);
         var firstBulletId = logic.EnemyBullets[0].Id;
 
-        TickUntil(logic, l => l.EnemyBullets.All(b => b.Id != firstBulletId));
+        logic.TickUntil(l => l.EnemyBullets.All(b => b.Id != firstBulletId));
 
         logic.EnemyBullets.ShouldAllBe(b => b.Position.X >= -config.EnemyBulletRadius);
     }
