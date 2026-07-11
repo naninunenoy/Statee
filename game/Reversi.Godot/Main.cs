@@ -1,4 +1,8 @@
 using System;
+using System.Globalization;
+using Declaree;
+using Declaree.Godot;
+using Declaree.Statee;
 using Godot;
 using Microsoft.Extensions.Logging;
 using Reversi.Logic;
@@ -6,17 +10,28 @@ using Statee.Core;
 using Statee.Godot;
 using Statee.Remote;
 using ZLogger;
+using Button = Declaree.Button;
+using Label = Declaree.Label;
 
 namespace Reversi;
 
 /// <summary>
 /// Reversi の Godot 層エントリポイント。描画・入力・Statee 配線だけを担い、
 /// ゲームルールはすべて Reversi.Logic に置く(docs/USING.md「境界の掟」)。
-/// R-3 段階: コマンド駆動(start / place / back)のみ。描画・クリック入力は R-4 で作る。
+/// 盤は Node2D 直描画(座標→マス変換は BoardGeometry を純C#でテスト)、
+/// タイトル/結果画面は Declaree で宣言する(REVERSI_ROADMAP.md R-4 の判断)。
 /// </summary>
 public partial class Main : Node2D
 {
     private const int DefaultPort = 9310;
+
+    // ボタンの OnClick ID(Declaree の Dispatch と対応)
+    private const string EvStartLocal = "StartLocal";
+    private const string EvStartNetwork = "StartNetwork";
+    private const string EvBackToTitle = "BackToTitle";
+    private const string EvExit = "Exit";
+
+    private static readonly BoardGeometry Geometry = new(OriginX: 40f, OriginY: 60f, CellSize: 52f);
 
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly TimeControl _time = new();
@@ -25,6 +40,10 @@ public partial class Main : Node2D
     private readonly TurnState _turnState = new();
 
     private KeyBinding[] _keyBindings = [];
+    private CanvasLayer _uiLayer = null!;
+    private UiNode _uiTree = null!;
+    private Control? _uiRoot;
+    private volatile UiDescriptor _uiSnapshot = null!;
     private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
@@ -38,6 +57,13 @@ public partial class Main : Node2D
         _loggerFactory = StateeLogging.CreateLoggerFactory(buffer);
         _logger = _loggerFactory.CreateLogger<Main>();
 
+        // headless では project.godot の window サイズが反映されず 64x64 になり、
+        // UI が画面外に出るとクリックのヒットテストが外れる。実行時に明示する
+        GetWindow().Size = new Vector2I(960, 540);
+
+        _uiLayer = new CanvasLayer { Name = "Ui" };
+        AddChild(_uiLayer);
+
         RefreshView();
         StartStatee(buffer);
         _logger.ZLogInformation($"Reversi 起動");
@@ -46,6 +72,10 @@ public partial class Main : Node2D
     public override void _Process(double delta)
     {
         _dispatcher.Pump();
+        if (_uiRoot is not null)
+        {
+            _uiSnapshot = UiSnapshot.Capture(_uiTree, _uiRoot);
+        }
         if (!_time.IsFrozen)
         {
             _time.OnFrame();
@@ -54,34 +84,83 @@ public partial class Main : Node2D
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        KeyBindingTable.TryHandle(_keyBindings, @event);
+        if (KeyBindingTable.TryHandle(_keyBindings, @event))
+        {
+            return;
+        }
+        // 盤クリック。ローカル2人対戦は同じ入力経路で黒番と白番が交互に着手する
+        if (
+            _game.Phase == GamePhase.Playing
+            && @event
+                is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click
+            && Geometry.CellAt(click.Position.X, click.Position.Y) is { } cell
+        )
+        {
+            var player = _game.CurrentPlayer;
+            if (_game.TryPlace(cell.X, cell.Y))
+            {
+                _logger.ZLogInformation(
+                    $"place {cell.X} {cell.Y} {player} → turn={_game.CurrentPlayer}"
+                );
+                RefreshView();
+            }
+        }
     }
 
     public override void _Draw()
     {
-        // R-4 までのプレースホルダ描画: 盤面をテキストで出す
-        var font = ThemeDB.FallbackFont;
-        DrawString(
-            font,
-            new Vector2(16, 32),
-            $"Reversi  phase={_game.Phase}  turn={_game.CurrentPlayer}  move={_game.MoveCount}",
-            fontSize: 20
-        );
-        if (_game.Phase != GamePhase.Title)
+        if (_game.Phase == GamePhase.Title)
         {
-            for (var y = 0; y < Board.Size; y++)
+            return;
+        }
+
+        // 盤(結果画面でも終局盤面を見せる)
+        var boardColor = new Color(0.1f, 0.45f, 0.2f);
+        var lineColor = new Color(0.05f, 0.2f, 0.1f);
+        var length = Geometry.BoardLength;
+        DrawRect(new Rect2(Geometry.OriginX, Geometry.OriginY, length, length), boardColor);
+        for (var i = 0; i <= Board.Size; i++)
+        {
+            var offset = i * Geometry.CellSize;
+            DrawLine(
+                new Vector2(Geometry.OriginX + offset, Geometry.OriginY),
+                new Vector2(Geometry.OriginX + offset, Geometry.OriginY + length),
+                lineColor,
+                2f
+            );
+            DrawLine(
+                new Vector2(Geometry.OriginX, Geometry.OriginY + offset),
+                new Vector2(Geometry.OriginX + length, Geometry.OriginY + offset),
+                lineColor,
+                2f
+            );
+        }
+
+        // 石と、現在手番の合法手ヒント
+        var radius = Geometry.CellSize * 0.4f;
+        for (var y = 0; y < Board.Size; y++)
+        {
+            for (var x = 0; x < Board.Size; x++)
             {
-                var line = "";
-                for (var x = 0; x < Board.Size; x++)
+                var disc = _game.Board[x, y];
+                if (disc == Disc.None)
                 {
-                    line += _game.Board[x, y] switch
-                    {
-                        Disc.Black => "B ",
-                        Disc.White => "W ",
-                        _ => ". ",
-                    };
+                    continue;
                 }
-                DrawString(font, new Vector2(16, 72 + y * 24), line, fontSize: 20);
+                var (cx, cy) = Geometry.CenterOf(x, y);
+                DrawCircle(
+                    new Vector2(cx, cy),
+                    radius,
+                    disc == Disc.Black ? Colors.Black : Colors.White
+                );
+            }
+        }
+        if (_game.Phase == GamePhase.Playing)
+        {
+            foreach (var (x, y) in _game.Board.GetLegalMoves(_game.CurrentPlayer))
+            {
+                var (cx, cy) = Geometry.CenterOf(x, y);
+                DrawCircle(new Vector2(cx, cy), 5f, new Color(1f, 1f, 0.3f, 0.8f));
             }
         }
     }
@@ -92,11 +171,121 @@ public partial class Main : Node2D
         _loggerFactory?.Dispose();
     }
 
-    /// <summary>状態変更後に State と描画へ反映する。</summary>
+    /// <summary>
+    /// 状態(フェーズ・手番・石数)から UI ツリーを導出する純関数(D-035)。
+    /// 盤そのものは Node2D 直描画のため UI ツリーには含めない。
+    /// </summary>
+    private static UiNode BuildUi(ReversiGame game) =>
+        game.Phase switch
+        {
+            GamePhase.Title => new Center(
+                new VBox(
+                    new Label("リバーシ") { Name = "TitleLabel", Explain = "タイトルロゴ" },
+                    new Button("ローカル2人対戦", OnClick: EvStartLocal)
+                    {
+                        Name = "StartLocalButton",
+                        Explain = "1画面で2人が交互に着手する対局を開始するボタン",
+                    },
+                    new Button("ネット対戦(未実装)", OnClick: EvStartNetwork)
+                    {
+                        Name = "StartNetworkButton",
+                        Explain = "ネット対戦(D-050)。未実装のため押しても開始しない",
+                    },
+                    new Button("おわる", OnClick: EvExit)
+                    {
+                        Name = "ExitButton",
+                        Explain = "ゲームを終了するボタン",
+                    }
+                )
+            ),
+            GamePhase.Result => new Margin(
+                16,
+                new VBox(
+                    new Label(WinnerText(game))
+                    {
+                        Name = "WinnerLabel",
+                        Explain = "勝敗の表示(黒/白の勝ち・引き分け)",
+                    },
+                    new Label(
+                        $"黒 {game.Board.Count(Disc.Black)} - 白 {game.Board.Count(Disc.White)}"
+                    )
+                    {
+                        Name = "ScoreLabel",
+                        Explain = "終局時の石数",
+                    },
+                    new Button("タイトルへ", OnClick: EvBackToTitle)
+                    {
+                        Name = "BackToTitleButton",
+                        Explain = "タイトルへ戻るボタン",
+                    }
+                )
+            ),
+            // Playing: 手番と石数の表示のみ(着手は盤クリック)
+            _ => new Margin(
+                8,
+                new VBox(
+                    new Label(
+                        $"手番: {(game.CurrentPlayer == Disc.Black ? "黒" : "白")}  "
+                            + $"黒 {game.Board.Count(Disc.Black)} - 白 {game.Board.Count(Disc.White)}"
+                    )
+                    {
+                        Name = "TurnLabel",
+                        Explain = "現在の手番と石数の表示",
+                    }
+                )
+            ),
+        };
+
+    private static string WinnerText(ReversiGame game) =>
+        game.Winner switch
+        {
+            Disc.Black => "黒の勝ち",
+            Disc.White => "白の勝ち",
+            _ => "引き分け",
+        };
+
+    /// <summary>UI イベント(OnClick の ID)をゲーム操作へ変換する。</summary>
+    private void Dispatch(string eventId)
+    {
+        switch (eventId)
+        {
+            case EvStartLocal:
+                if (_game.Phase == GamePhase.Title)
+                {
+                    _game.Start(GameMode.LocalTwoPlayer);
+                    _logger.ZLogInformation($"対局開始 mode={_game.Mode}");
+                    RefreshView();
+                }
+                break;
+            case EvStartNetwork:
+                _logger.ZLogInformation($"ネット対戦は未実装(D-050)");
+                break;
+            case EvBackToTitle:
+                _game.BackToTitle();
+                _logger.ZLogInformation($"タイトルへ戻る");
+                RefreshView();
+                break;
+            case EvExit:
+                _logger.ZLogInformation($"終了要求を受信。終了する");
+                GetTree().Quit();
+                break;
+        }
+    }
+
+    /// <summary>状態変更後に State・UI・描画へ反映する。UI は全破棄・全再構築(D-035)。</summary>
     private void RefreshView()
     {
         _boardState.Update(_game.Board);
         _turnState.Update(_game);
+        _uiTree = BuildUi(_game);
+        _uiRoot?.QueueFree();
+        _uiRoot = UiRenderer.Render(_uiTree, Dispatch);
+        _uiLayer.AddChild(_uiRoot);
+        // アンカーはツリーに入って親サイズが確定してから設定する
+        _uiRoot.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        // 全面に広がるルートが盤クリック(_UnhandledInput)を飲み込まないようにする
+        _uiRoot.MouseFilter = Control.MouseFilterEnum.Pass;
+        _uiSnapshot = UiTree.Describe(_uiTree);
         QueueRedraw();
     }
 
@@ -114,6 +303,8 @@ public partial class Main : Node2D
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
         host.RegisterStateProvider(_boardState);
         host.RegisterStateProvider(_turnState);
+        // Declaree の UI(幾何 Rect 込みスナップショット)を State として公開する(D-035)
+        host.RegisterStateProvider(new UiStateProvider("ui/tree", () => _uiSnapshot));
         host.RegisterStateProvider(KeyBindingTable.CreateInputStateProvider(_keyBindings));
         host.RegisterTimeControl(_time);
         StandardCommands.Register(host, this, _logger);
@@ -172,8 +363,89 @@ public partial class Main : Node2D
                 return TurnResult();
             }
         );
+        host.RegisterMainThreadCommand(
+            "click",
+            args =>
+            {
+                // name 指定なら ui/tree の Rect から中心を、cell 指定なら盤マスの中心を導出する(D-038)。
+                // どちらも実際の入力経路(PushInput)を通るため、非表示・無効な UI には正しく「効かない」
+                Vector2 position;
+                if (args.GetString("name") is { } name)
+                {
+                    position = CenterOf(name);
+                }
+                else if (args.GetString("cell") is { } cellText)
+                {
+                    // 例: cell=2-3(x-y)
+                    var parts = cellText.Split('-');
+                    var (cx, cy) = Geometry.CenterOf(int.Parse(parts[0]), int.Parse(parts[1]));
+                    position = new Vector2(cx, cy);
+                }
+                else
+                {
+                    position = new Vector2(
+                        float.Parse(
+                            args.GetString("x")
+                                ?? throw new InvalidOperationException(
+                                    "name か cell か x/y を指定すること"
+                                ),
+                            CultureInfo.InvariantCulture
+                        ),
+                        float.Parse(
+                            args.GetString("y")
+                                ?? throw new InvalidOperationException("y を指定すること"),
+                            CultureInfo.InvariantCulture
+                        )
+                    );
+                }
+                PushClick(position);
+                _logger.ZLogInformation($"click x={position.X} y={position.Y}");
+                return new { X = position.X, Y = position.Y };
+            }
+        );
         _server = new StateeTcpServer(host, CmdlineArgs.ParseInt("--port=", DefaultPort));
         _server.Start();
         _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
+    }
+
+    /// <summary>ui/tree のスナップショットから name の要素を探し、Rect の中心を返す。</summary>
+    private Vector2 CenterOf(string name)
+    {
+        var found =
+            UiTree.FindByName(_uiSnapshot, name)
+            ?? throw new InvalidOperationException($"UI 要素が見つからない: {name}");
+        var rect =
+            found.Rect ?? throw new InvalidOperationException($"UI 要素の Rect が未確定: {name}");
+        return new Vector2(rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f);
+    }
+
+    /// <summary>
+    /// 実際の入力経路で左クリックを再現する(GUIDELINE 3.2)。
+    /// UI のヒットテストと _UnhandledInput の両方を通る。
+    /// </summary>
+    private void PushClick(Vector2 position)
+    {
+        var viewport = GetViewport();
+        viewport.PushInput(
+            new InputEventMouseMotion { Position = position, GlobalPosition = position }
+        );
+        viewport.PushInput(
+            new InputEventMouseButton
+            {
+                Position = position,
+                GlobalPosition = position,
+                ButtonIndex = MouseButton.Left,
+                Pressed = true,
+            }
+        );
+        viewport.PushInput(
+            new InputEventMouseButton
+            {
+                Position = position,
+                GlobalPosition = position,
+                ButtonIndex = MouseButton.Left,
+                Pressed = false,
+            }
+        );
     }
 }

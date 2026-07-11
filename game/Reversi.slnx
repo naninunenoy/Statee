@@ -10,6 +10,9 @@
   </Folder>
   <Folder Name="/libs/">
     <Project Path="../libs/Statee.Godot/Statee.Godot.csproj" />
+    <Project Path="../declaree/Declaree/Declaree.csproj" />
+    <Project Path="../declaree/Declaree.Godot/Declaree.Godot.csproj" />
+    <Project Path="../declaree/Declaree.Statee/Declaree.Statee.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="../src/Statee.Core/Statee.Core.csproj" />
