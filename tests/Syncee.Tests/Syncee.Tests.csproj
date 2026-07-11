@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\syncee\Syncee\Syncee.csproj" />
     <ProjectReference Include="..\..\syncee\Syncee.Fake\Syncee.Fake.csproj" />
+    <ProjectReference Include="..\..\syncee\Syncee.LiteNetLib\Syncee.LiteNetLib.csproj" />
   </ItemGroup>
 
 </Project>

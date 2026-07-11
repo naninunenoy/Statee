@@ -3,6 +3,7 @@
     <Project Path="Syncee/Syncee.csproj" />
     <Project Path="Syncee.Fake/Syncee.Fake.csproj" />
     <Project Path="Syncee.Statee/Syncee.Statee.csproj" />
+    <Project Path="Syncee.LiteNetLib/Syncee.LiteNetLib.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="../tests/Syncee.Tests/Syncee.Tests.csproj" />

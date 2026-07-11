@@ -49,7 +49,7 @@ game/
 | N-0 | syncee/ 骨格 | `Syncee`/`Syncee.Fake`/`Syncee.Statee` の型・API をスケルトンで定義、`syncee/README.md` を書く |
 | N-1 | コマンドレプリケーション(フェイク) | フェイクトランスポート上で「クライアントが送った着手をサーバが検証しログへ確定し、全クライアントに配布する」がユニットテストで緑。ドメイン(リバーシ)に依存しない汎用コアであることを確認 |
 | N-2 | Reversi 権威サーバ ✅ | `game/Reversi.Server`(純C#コンソール)が Reversi.Logic + Syncee(フェイク経由でなく実プロセスの起動骨格)+ Statee を組み込み、headless で起動・state 観測ができる |
-| N-3 | LiteNetLib トランスポート | 実ソケットでサーバ1 + クライアント2(headless)の最小疎通(カウンタ相当ではなくリバーシの着手同期)が通る |
+| N-3 | LiteNetLib トランスポート ✅ | 実ソケットでサーバ1 + クライアント2(headless)の最小疎通(カウンタ相当ではなくリバーシの着手同期)が通る |
 | N-4 | Reversi.Godot クライアント化 | Reversi.Godot の `place` コマンドがローカル即時反映でなくサーバへの送信 + 確定ログ適用に変わる。タイトルの「ネット対戦」ボタンが有効になる |
 | N-5 | 切断検知 | クライアント切断をサーバが検知し、対局終了として State/Log に反映する。フェイクトランスポートでの切断注入テストを含む |
 | N-6 | マルチインスタンス検証語彙 | Statee.Scenario に `target` / `on` / クロスインスタンス wait を追加(D-051)。3プロセス(サーバ+クライアント2)を使うシナリオ・起動手順は `tools/` に置く |
@@ -100,6 +100,15 @@ game/
 - サーバ1 + クライアント2(共に headless の最小疎通確認用ハーネス。まだ Reversi.Godot ではない)
 - **完了条件**: 実プロセス間でコマンドが一往復し、フェイクと同じテストシナリオ(N-1 相当)が
   実ソケットでも成立する(薄い E2E のみ。厚いテストはフェイク側に残す)
+
+**完了**: `syncee/Syncee.LiteNetLib` を新規作成。`LiteNetLibServerTransport`/
+`LiteNetLibClientTransport` が `ITransport`/`IServerTransport` を実装し、`NetPeer.Tag` に
+ラッパー自身を持たせることで LiteNetLib のコールバック(`INetEventListener`)を
+Received/Disconnected イベントへ橋渡しする。ポーリング(`PollEvents`)はメインループから
+明示的に呼ぶ形にし、フェイクトランスポートと同じ「呼び出し側が時間を進める」流儀を保った。
+`Syncee.Tests` にループバックでの接続・双方向送受信・切断を確認する薄い実ソケットテストを
+1本追加(固定待機でなく `PollUntil` で条件成立まで能動的にポーリングする)。10件全緑。
+ワイヤの MemoryPack 化・`CommandEnvelope` の実配布は N-4 で着手する。
 
 ### N-4: Reversi.Godot クライアント化
 
