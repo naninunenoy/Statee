@@ -28,6 +28,7 @@ public partial class Main : Node2D
     private readonly InputLogState _inputLogState = new();
 
     private ShootingLogic _logic = null!;
+    private FontVariation _font = null!;
     private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
@@ -40,6 +41,11 @@ public partial class Main : Node2D
         var buffer = new LogBuffer(1024);
         _loggerFactory = StateeLogging.CreateLoggerFactory(buffer);
         _logger = _loggerFactory.CreateLogger<Main>();
+
+        // 同梱の Noto Color Emoji(サブセット)を既定フォントのフォールバックに重ねる。
+        // HUD 文字は既定フォント、絵文字だけがフォールバックで描かれる
+        var emoji = GD.Load<FontFile>("res://assets/fonts/NotoColorEmoji.subset.ttf");
+        _font = new FontVariation { BaseFont = ThemeDB.FallbackFont, Fallbacks = [emoji] };
 
         _logic = new ShootingLogic(CmdlineArgs.ParseInt("--seed=", DefaultSeed));
 
@@ -67,25 +73,26 @@ public partial class Main : Node2D
     public override void _Draw()
     {
         DrawString(
-            ThemeDB.FallbackFont,
+            _font,
             new Vector2(16, 32),
-            $"score={_logic.Score}  lives={_logic.Lives}  power={_logic.PowerLevel}  wave={_logic.Wave}  tick={_logic.TickCount}"
+            $"score={_logic.Score}  {new string('❤', Math.Max(0, _logic.Lives))}  power={_logic.PowerLevel}  wave={_logic.Wave}  tick={_logic.TickCount}"
                 + (_logic.IsGameOver ? "  GAME OVER" : "")
                 + (_logic.IsCleared ? "  GAME CLEAR!" : ""),
             fontSize: 20
         );
-        DrawCircle(ToScreen(_logic.PlayerPosition), _logic.Config.PlayerRadius, Colors.Cyan);
+        // 当たり判定は見た目より小さめ(D-048)なので、見た目は半径の約3倍で描く
+        DrawEmoji("🚀", _logic.PlayerPosition, _logic.Config.PlayerRadius * 3f);
         foreach (var bullet in _logic.PlayerBullets)
         {
-            DrawCircle(ToScreen(bullet.Position), _logic.Config.PlayerBulletRadius, Colors.White);
+            DrawEmoji("🔹", bullet.Position, _logic.Config.PlayerBulletRadius * 5f);
         }
         foreach (var bullet in _logic.EnemyBullets)
         {
-            DrawCircle(ToScreen(bullet.Position), _logic.Config.EnemyBulletRadius, Colors.Red);
+            DrawEmoji("🔴", bullet.Position, _logic.Config.EnemyBulletRadius * 3f);
         }
         foreach (var item in _logic.Items)
         {
-            DrawCircle(ToScreen(item.Position), _logic.Config.ItemRadius, Colors.Gold);
+            DrawEmoji("⭐", item.Position, _logic.Config.ItemRadius * 2f);
         }
         foreach (var enemy in _logic.Enemies)
         {
@@ -93,17 +100,26 @@ public partial class Main : Node2D
                 enemy.Kind == EnemyKind.Boss
                     ? (_logic.Config.Boss?.Radius ?? _logic.Config.EnemyRadius)
                     : _logic.Config.EnemyRadius;
-            DrawCircle(ToScreen(enemy.Position), radius, KindColor(enemy.Kind));
+            DrawEmoji(KindEmoji(enemy.Kind), enemy.Position, radius * 2f);
             if (enemy.Kind == EnemyKind.Boss)
             {
                 DrawString(
-                    ThemeDB.FallbackFont,
+                    _font,
                     ToScreen(enemy.Position) + new Vector2(-20, -radius - 8),
                     $"HP {enemy.Hp}",
                     fontSize: 16
                 );
             }
         }
+    }
+
+    /// <summary>論理座標を中心に emoji を1文字描く。size は見た目の直径(px)。</summary>
+    private void DrawEmoji(string emoji, System.Numerics.Vector2 center, float size)
+    {
+        var fontSize = (int)size;
+        // DrawString の座標はベースライン左端なので中心へ寄せる
+        var position = ToScreen(center) + new Vector2(-size / 2f, size * 0.35f);
+        DrawString(_font, position, emoji, fontSize: fontSize);
     }
 
     public override void _ExitTree()
@@ -123,14 +139,14 @@ public partial class Main : Node2D
             Shoot: Input.IsPhysicalKeyPressed(Key.Z) || Input.IsPhysicalKeyPressed(Key.Space)
         );
 
-    /// <summary>敵種の見分け色(emoji 描画までのプレースホルダ)。</summary>
-    private static Color KindColor(EnemyKind kind) =>
+    /// <summary>敵種の emoji(D-048 の字種)。</summary>
+    private static string KindEmoji(EnemyKind kind) =>
         kind switch
         {
-            EnemyKind.Straight => Colors.Orange,
-            EnemyKind.Sine => Colors.MediumPurple,
-            EnemyKind.Shooter => Colors.GreenYellow,
-            _ => Colors.Firebrick,
+            EnemyKind.Straight => "👾",
+            EnemyKind.Sine => "🛸",
+            EnemyKind.Shooter => "🦑",
+            _ => "🐙",
         };
 
     /// <summary>論理座標(960x540・左上原点)を描画座標へ写す。現状は等倍。</summary>
