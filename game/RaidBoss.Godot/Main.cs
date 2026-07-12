@@ -201,7 +201,14 @@ public partial class Main : Node2D
     /// <summary>アクション後の状態を State と描画へ反映する。</summary>
     private void RefreshView()
     {
-        _state.Update(_logic.Seed, _logic.TickCount, _logic.BossHp, _logic.PlayerHps, _logic.Phase);
+        _state.Update(
+            _logic.Seed,
+            _logic.TickCount,
+            _logic.BossHp,
+            _logic.PlayerHps,
+            _logic.IncapacitatedTicks,
+            _logic.Phase
+        );
         QueueRedraw();
     }
 

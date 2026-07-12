@@ -113,24 +113,65 @@ public class GameLogicTest
     }
 
     [Fact]
-    public void 全プレイヤーのHPが0以下になるとDefeatへ遷移する()
+    public void Start_1人でも開始できる()
+    {
+        var game = new GameLogic(seed: 1);
+
+        game.Start(playerCount: GameLogic.MinPlayerCount);
+
+        game.Phase.ShouldBe(GamePhase.Playing);
+        game.PlayerCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void ソロプレイでHPが0以下になると即Defeatへ遷移する()
+    {
+        var game = new GameLogic(seed: 1);
+        game.Start(playerCount: 1);
+        var hitsNeeded =
+            (GameLogic.PlayerMaxHp + GameLogic.BossAttackDamage - 1) / GameLogic.BossAttackDamage;
+        var ticksNeeded = hitsNeeded * GameLogic.BossAttackInterval;
+
+        for (var i = 0; i < ticksNeeded && game.Phase == GamePhase.Playing; i++)
+        {
+            game.Step([PlayerAction.Idle]);
+        }
+
+        game.Phase.ShouldBe(GamePhase.Defeat);
+    }
+
+    [Fact]
+    public void HPが0以下になると一定時間操作不能になり明けると回復する()
     {
         var game = new GameLogic(seed: 1);
         game.Start(playerCount: 2);
-        var ticksNeeded =
-            GameLogic.BossAttackInterval
-            * (
-                (GameLogic.PlayerMaxHp + GameLogic.BossAttackDamage - 1)
-                / GameLogic.BossAttackDamage
-            )
-            * 2;
+        var hitsNeeded =
+            (GameLogic.PlayerMaxHp + GameLogic.BossAttackDamage - 1) / GameLogic.BossAttackDamage;
+        // 2人交互ターゲットなので、プレイヤー0(奇数attackNumber)が hitsNeeded 回目に倒れるTickを求める
+        var attackNumberToDownPlayer0 = hitsNeeded * 2 - 1;
+        var ticksToDown = attackNumberToDownPlayer0 * GameLogic.BossAttackInterval;
 
-        for (var i = 0; i < ticksNeeded && game.Phase == GamePhase.Playing; i++)
+        for (var i = 0; i < ticksToDown; i++)
         {
             game.Step([PlayerAction.Idle, PlayerAction.Idle]);
         }
 
-        game.Phase.ShouldBe(GamePhase.Defeat);
+        game.PlayerHps[0].ShouldBeLessThanOrEqualTo(0);
+        game.IncapacitatedTicks[0].ShouldBe(GameLogic.IncapacitationDuration);
+        game.Phase.ShouldBe(GamePhase.Playing);
+
+        var bossHpBeforeIgnoredAttack = game.BossHp;
+        game.Step([PlayerAction.Attack, PlayerAction.Idle]); // 操作不能中はAttackが無視される
+        game.BossHp.ShouldBe(bossHpBeforeIgnoredAttack);
+        game.IncapacitatedTicks[0].ShouldBe(GameLogic.IncapacitationDuration - 1);
+
+        for (var i = 0; i < GameLogic.IncapacitationDuration - 1; i++)
+        {
+            game.Step([PlayerAction.Idle, PlayerAction.Idle]);
+        }
+
+        game.IncapacitatedTicks[0].ShouldBe(0);
+        game.PlayerHps[0].ShouldBe(GameLogic.ReviveHp);
     }
 
     [Fact]

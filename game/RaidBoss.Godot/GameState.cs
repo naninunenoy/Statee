@@ -17,10 +17,11 @@ public partial class GameState
         int TickCount,
         int BossHp,
         IReadOnlyList<int> PlayerHps,
+        IReadOnlyList<int> IncapacitatedTicks,
         GamePhase Phase
     );
 
-    private volatile Snapshot _current = new(0, 0, GameLogic.BossMaxHp, [], GamePhase.Waiting);
+    private volatile Snapshot _current = new(0, 0, GameLogic.BossMaxHp, [], [], GamePhase.Waiting);
 
     [StateeField]
     public int Seed => _current.Seed;
@@ -35,6 +36,9 @@ public partial class GameState
     public string PlayerHps => string.Join(",", _current.PlayerHps);
 
     [StateeField]
+    public string IncapacitatedTicks => string.Join(",", _current.IncapacitatedTicks);
+
+    [StateeField]
     public string Phase => _current.Phase.ToString();
 
     /// <summary>メインスレッドから呼ぶ。スナップショットを不可分に差し替える。</summary>
@@ -43,9 +47,10 @@ public partial class GameState
         int tickCount,
         int bossHp,
         IReadOnlyList<int> playerHps,
+        IReadOnlyList<int> incapacitatedTicks,
         GamePhase phase
     )
     {
-        _current = new Snapshot(seed, tickCount, bossHp, playerHps, phase);
+        _current = new Snapshot(seed, tickCount, bossHp, playerHps, incapacitatedTicks, phase);
     }
 }

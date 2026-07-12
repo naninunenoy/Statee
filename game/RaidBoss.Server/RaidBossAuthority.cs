@@ -53,8 +53,8 @@ public sealed class RaidBossAuthority
     }
 
     /// <summary>
-    /// ロビー待機中(Waiting)に接続中の人数(2〜4)で開始する。部屋作成者からの
-    /// start コマンドで呼ばれる(誰が押しても同じ結果になる冪等な操作)。
+    /// ロビー待機中(Waiting)に接続中の人数(1〜4。1人でも開始できる。D-057)で開始する。
+    /// 部屋作成者からの start コマンドで呼ばれる(誰が押しても同じ結果になる冪等な操作)。
     /// </summary>
     private void TryStart()
     {

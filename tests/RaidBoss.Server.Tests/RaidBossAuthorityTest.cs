@@ -66,7 +66,7 @@ public class RaidBossAuthorityTest
     }
 
     [Fact]
-    public void 接続が2人未満ではstartしても始まらない()
+    public void 接続が1人でもstartすればPlayingになる()
     {
         var serverTransport = new FakeServerTransport();
         var authority = new RaidBossAuthority(serverTransport);
@@ -74,7 +74,8 @@ public class RaidBossAuthorityTest
 
         SendStart(client1);
 
-        authority.Game.Phase.ShouldBe(GamePhase.Waiting);
+        authority.Game.Phase.ShouldBe(GamePhase.Playing);
+        authority.Game.PlayerCount.ShouldBe(1);
     }
 
     [Fact]
