@@ -7,24 +7,31 @@ namespace Reversi.Server;
 /// 権威サーバの中核(Statee 非依存。テスト可能な形にするため Program.cs から切り出した)。
 /// 接続順に座席(黒/白)を割り当て、着手要求の検証・確定・配布、および切断検知(D-050。
 /// 対局中の切断は相手の不戦勝として Result へ遷移)を担う。
+/// 接続管理・ブロードキャストは <see cref="ClientRegistry"/>(D-055)へ委譲する。
 /// </summary>
 public sealed class ReversiAuthority
 {
     private readonly AuthorityLog _authorityLog;
-    private readonly Dictionary<ITransport, string> _clients = [];
+    private readonly ClientRegistry _registry;
     private readonly Dictionary<string, Disc> _seats = [];
-    private int _nextClientNumber;
 
     public ReversiAuthority(IServerTransport transport)
     {
         _authorityLog = new AuthorityLog(Validate);
+        _registry = new ClientRegistry(transport);
         _authorityLog.Committed += envelope =>
         {
             Apply(envelope);
             Committed?.Invoke(envelope);
-            Broadcast(envelope);
+            _registry.Broadcast(SyncWire.Serialize(envelope));
         };
-        transport.ClientConnected += OnClientConnected;
+        _registry.ClientConnected += OnClientConnected;
+        _registry.ClientDisconnected += OnClientDisconnected;
+        _registry.Received += (clientId, bytes) =>
+        {
+            var request = SyncWire.DeserializeRequest(bytes);
+            _authorityLog.TrySubmit(clientId, request.Command, request.Args);
+        };
     }
 
     public ReversiGame Game { get; } = new();
@@ -32,7 +39,7 @@ public sealed class ReversiAuthority
     /// <summary>確定コマンドが1件配布されるたびに発火する(Program.cs の State 更新・ログ用)。</summary>
     public event Action<CommandEnvelope>? Committed;
 
-    public int ConnectedClientCount => _clients.Count;
+    public int ConnectedClientCount => _registry.ConnectedClientCount;
     public long CommittedCount => _authorityLog.Entries.Count;
     public string? LastCommand =>
         _authorityLog.Entries.Count > 0 ? _authorityLog.Entries[^1].Command : null;
@@ -41,36 +48,28 @@ public sealed class ReversiAuthority
     public bool TrySubmitLocal(string command, IReadOnlyDictionary<string, string>? args) =>
         _authorityLog.TrySubmit("local", command, args);
 
-    private void OnClientConnected(ITransport clientTransport)
+    private void OnClientConnected(string clientId, ITransport clientTransport)
     {
-        var clientId = $"client-{++_nextClientNumber}";
-        _clients[clientTransport] = clientId;
-        if (_nextClientNumber == 1)
+        if (_seats.Count == 0)
         {
             _seats[clientId] = Disc.Black;
         }
-        else if (_nextClientNumber == 2)
+        else if (_seats.Count == 1)
         {
             _seats[clientId] = Disc.White;
         }
+    }
 
-        clientTransport.Received += bytes =>
+    private void OnClientDisconnected(string clientId, ITransport clientTransport)
+    {
+        if (Game.Phase == GamePhase.Playing && _seats.TryGetValue(clientId, out var seat))
         {
-            var request = SyncWire.DeserializeRequest(bytes);
-            _authorityLog.TrySubmit(clientId, request.Command, request.Args);
-        };
-        clientTransport.Disconnected += () =>
-        {
-            _clients.Remove(clientTransport);
-            if (Game.Phase == GamePhase.Playing && _seats.TryGetValue(clientId, out var seat))
-            {
-                _authorityLog.TrySubmit(
-                    "server",
-                    "disconnect",
-                    new Dictionary<string, string> { ["seat"] = seat.ToString() }
-                );
-            }
-        };
+            _authorityLog.TrySubmit(
+                "server",
+                "disconnect",
+                new Dictionary<string, string> { ["seat"] = seat.ToString() }
+            );
+        }
     }
 
     private bool Validate(
@@ -102,15 +101,6 @@ public sealed class ReversiAuthority
             case "disconnect":
                 Game.EndByDisconnect(Enum.Parse<Disc>(envelope.Args!["seat"]));
                 break;
-        }
-    }
-
-    private void Broadcast(CommandEnvelope envelope)
-    {
-        var payload = SyncWire.Serialize(envelope);
-        foreach (var client in _clients.Keys)
-        {
-            client.Send(payload);
         }
     }
 

@@ -22,4 +22,10 @@ public static class SyncWire
     public static CommandEnvelope DeserializeEnvelope(byte[] data) =>
         MemoryPackSerializer.Deserialize<CommandEnvelope>(data)
         ?? throw new InvalidOperationException("CommandEnvelope のデシリアライズに失敗した");
+
+    public static byte[] Serialize(TickBundle bundle) => MemoryPackSerializer.Serialize(bundle);
+
+    public static TickBundle DeserializeTickBundle(byte[] data) =>
+        MemoryPackSerializer.Deserialize<TickBundle>(data)
+        ?? throw new InvalidOperationException("TickBundle のデシリアライズに失敗した");
 }
