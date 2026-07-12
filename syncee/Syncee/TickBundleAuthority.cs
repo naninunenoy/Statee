@@ -13,10 +13,16 @@ public sealed class TickBundleAuthority(int expectedClientCount)
         Dictionary<string, IReadOnlyDictionary<string, string>?>
     > _pending = [];
     private readonly List<TickBundle> _entries = [];
+    private int _expectedClientCount = expectedClientCount;
 
     public IReadOnlyList<TickBundle> Entries => _entries;
 
     public event Action<TickBundle>? Committed;
+
+    /// <summary>
+    /// 期待クライアント数を後から確定する(D-056。部屋の参加人数がロビー中に変わるため)。
+    /// </summary>
+    public void SetExpectedClientCount(int count) => _expectedClientCount = count;
 
     /// <summary>クライアントからTick番号付きの入力を受け取る。確定済みTickへの再送は無視する。</summary>
     public void Submit(int tick, string clientId, IReadOnlyDictionary<string, string>? input)
@@ -33,7 +39,7 @@ public sealed class TickBundleAuthority(int expectedClientCount)
         }
         slot[clientId] = input;
 
-        if (slot.Count < expectedClientCount)
+        if (slot.Count < _expectedClientCount)
         {
             return;
         }

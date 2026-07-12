@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using Microsoft.Extensions.Logging;
 using RaidBoss.Logic;
@@ -43,6 +44,11 @@ public partial class Main : Node2D
     private bool _networkMode;
     private int _nextSendTick;
 
+    // ロビーUI(D-056)。参加/部屋を立てるの選択→合言葉入力→待機、を画面上のボタンで操作できるようにする。
+    // ゲームが始まる(_logic.Phase が Waiting でなくなる)と自動的に隠れる
+    private Control? _lobbyRoot;
+    private Label? _lobbyStatusLabel;
+
     public override void _Ready()
     {
         // freeze 中も Statee のコマンド処理(Pump)を動かし続ける
@@ -75,6 +81,7 @@ public partial class Main : Node2D
             ),
         ];
 
+        BuildLobbyUi();
         RefreshView();
         StartStatee(buffer);
         _logger.ZLogInformation($"RaidBoss 起動 seed={_logic.Seed}");
@@ -88,6 +95,55 @@ public partial class Main : Node2D
         {
             _time.OnFrame();
         }
+        if (_lobbyRoot is not null)
+        {
+            _lobbyRoot.Visible = _logic.Phase == GamePhase.Waiting;
+            if (_lobbyStatusLabel is not null && _networkMode)
+            {
+                _lobbyStatusLabel.Text = "部屋で待機中...(参加人数が揃ったら開始を押してください)";
+            }
+        }
+    }
+
+    /// <summary>
+    /// 参加/部屋を立てるの選択・合言葉入力・開始ボタンを持つロビーUI(D-056)。
+    /// UI はコード(C#)で構築する(D-033)。ゲームが始まると自動的に隠れる。
+    /// </summary>
+    private void BuildLobbyUi()
+    {
+        var root = new VBoxContainer { Name = "LobbyRoot" };
+        root.SetAnchorsPreset(Control.LayoutPreset.Center);
+        _lobbyRoot = root;
+
+        var roomInput = new LineEdit
+        {
+            Name = "RoomKeywordInput",
+            Text = DefaultRoom,
+            PlaceholderText = "合言葉",
+        };
+
+        var statusLabel = new Label
+        {
+            Name = "LobbyStatusLabel",
+            Text = "参加するか、部屋を立ててください",
+        };
+        _lobbyStatusLabel = statusLabel;
+
+        var createButton = new Button { Name = "CreateRoomButton", Text = "部屋を立てる" };
+        createButton.Pressed += () => ConnectAndEnterRoom("create", roomInput.Text);
+
+        var joinButton = new Button { Name = "JoinRoomButton", Text = "参加する" };
+        joinButton.Pressed += () => ConnectAndEnterRoom("join", roomInput.Text);
+
+        var startButton = new Button { Name = "StartRoomButton", Text = "開始" };
+        startButton.Pressed += StartRoom;
+
+        root.AddChild(statusLabel);
+        root.AddChild(roomInput);
+        root.AddChild(createButton);
+        root.AddChild(joinButton);
+        root.AddChild(startButton);
+        AddChild(root);
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -101,7 +157,7 @@ public partial class Main : Node2D
         DrawString(
             ThemeDB.FallbackFont,
             new Vector2(16, 32),
-            $"RaidBoss  boss={_logic.BossHp}  p1={_logic.Player1Hp}  p2={_logic.Player2Hp}  tick={_logic.TickCount}  {_logic.Phase}",
+            $"RaidBoss  boss={_logic.BossHp}  players={string.Join(",", _logic.PlayerHps)}  tick={_logic.TickCount}  {_logic.Phase}",
             fontSize: 20
         );
     }
@@ -134,26 +190,27 @@ public partial class Main : Node2D
     /// <summary>両プレイヤーの行動を1Tick分同時に適用する(ローカル対戦専用)。</summary>
     private void ActStep(PlayerAction player1Action, PlayerAction player2Action)
     {
-        _logic.Step(player1Action, player2Action);
+        if (_logic.Phase == GamePhase.Waiting)
+        {
+            _logic.Start(playerCount: 2);
+        }
+        _logic.Step([player1Action, player2Action]);
         RefreshView();
     }
 
     /// <summary>アクション後の状態を State と描画へ反映する。</summary>
     private void RefreshView()
     {
-        _state.Update(
-            _logic.Seed,
-            _logic.TickCount,
-            _logic.BossHp,
-            _logic.Player1Hp,
-            _logic.Player2Hp,
-            _logic.Phase
-        );
+        _state.Update(_logic.Seed, _logic.TickCount, _logic.BossHp, _logic.PlayerHps, _logic.Phase);
         QueueRedraw();
     }
 
-    /// <summary>RaidBoss.Server へ接続する(まだ未接続の場合のみ)。以後の入力はサーバ送信になる。</summary>
-    private void ConnectNetwork(string room)
+    /// <summary>
+    /// RaidBoss.Server へ接続し、最初の1通で部屋を作る/参加する(まだ未接続の場合のみ)。
+    /// 以後の入力はサーバ送信になる(D-056。接続ゲートは持たず、この最初のコマンドで
+    /// 合言葉ごとの部屋へ振り分けられる)。
+    /// </summary>
+    private void ConnectAndEnterRoom(string command, string room)
     {
         if (_network is not null)
         {
@@ -164,27 +221,51 @@ public partial class Main : Node2D
         _network = new LiteNetLibClientTransport();
         _network.Received += bytes =>
         {
-            _replicaLog.OnReceived(SyncWire.DeserializeTickBundle(bytes));
+            _replicaLog!.OnReceived(SyncWire.DeserializeTickBundle(bytes));
+        };
+        _network.Connected += () =>
+        {
+            _network!.Send(
+                SyncWire.Serialize(
+                    new CommandRequest(command, new Dictionary<string, string> { ["room"] = room })
+                )
+            );
+            _logger.ZLogInformation($"{command}(room={room}) をサーバへ送信");
         };
         var host = CmdlineArgs.ParseString("--game-host=", DefaultGameHost);
         var port = CmdlineArgs.ParseInt("--game-port=", DefaultGamePort);
-        _network.Connect(host, port, room);
-        _logger.ZLogInformation($"RaidBoss.Server へ接続 host={host} port={port} room={room}");
+        _network.Connect(host, port);
+        _logger.ZLogInformation($"RaidBoss.Server へ接続 host={host} port={port}");
+    }
+
+    /// <summary>部屋作成者が参加人数の確定・開始を要求する(ロビーで人数が揃ったあと)。</summary>
+    private void StartRoom()
+    {
+        _network!.Send(SyncWire.Serialize(new CommandRequest("start", null)));
+        _logger.ZLogInformation($"start をサーバへ送信");
     }
 
     /// <summary>サーバから確定した1Tick分の入力バンドルを適用する(RaidBoss.Server の Committed ハンドラと同型)。</summary>
     private void ApplyBundle(TickBundle bundle)
     {
-        var player1Action = ParseAction(
-            bundle.InputsByClient.GetValueOrDefault("client-1")?.GetValueOrDefault("action")
-        );
-        var player2Action = ParseAction(
-            bundle.InputsByClient.GetValueOrDefault("client-2")?.GetValueOrDefault("action")
-        );
-        _logic.Step(player1Action, player2Action);
+        if (_logic.Phase == GamePhase.Waiting)
+        {
+            _logic.Start(bundle.InputsByClient.Count);
+        }
+        var actions = Enumerable
+            .Range(1, _logic.PlayerCount)
+            .Select(n =>
+                ParseAction(
+                    bundle
+                        .InputsByClient.GetValueOrDefault($"client-{n}")
+                        ?.GetValueOrDefault("action")
+                )
+            )
+            .ToArray();
+        _logic.Step(actions);
         RefreshView();
         _logger.ZLogInformation(
-            $"確定 tick={bundle.Tick} → boss={_logic.BossHp} p1={_logic.Player1Hp} p2={_logic.Player2Hp} phase={_logic.Phase}"
+            $"確定 tick={bundle.Tick} → boss={_logic.BossHp} players={string.Join(",", _logic.PlayerHps)} phase={_logic.Phase}"
         );
     }
 
@@ -219,11 +300,27 @@ public partial class Main : Node2D
         StandardCommands.Register(host, this, _logger);
         // ゲーム状態を変えるコマンドはメインスレッドで実行する
         host.RegisterMainThreadCommand(
-            "connect",
+            "create",
             args =>
             {
-                ConnectNetwork(args.GetString("room") ?? DefaultRoom);
-                return new { Connected = true };
+                ConnectAndEnterRoom("create", args.GetString("room") ?? DefaultRoom);
+                return new { Created = true };
+            }
+        );
+        host.RegisterMainThreadCommand(
+            "join",
+            args =>
+            {
+                ConnectAndEnterRoom("join", args.GetString("room") ?? DefaultRoom);
+                return new { Joined = true };
+            }
+        );
+        host.RegisterMainThreadCommand(
+            "start",
+            _ =>
+            {
+                StartRoom();
+                return new { Started = true };
             }
         );
         host.RegisterMainThreadCommand(
@@ -246,8 +343,7 @@ public partial class Main : Node2D
                 {
                     _logic.TickCount,
                     _logic.BossHp,
-                    _logic.Player1Hp,
-                    _logic.Player2Hp,
+                    PlayerHps = string.Join(",", _logic.PlayerHps),
                     Phase = _logic.Phase.ToString(),
                 };
             }

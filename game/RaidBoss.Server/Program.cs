@@ -6,13 +6,14 @@ using Syncee.LiteNetLib;
 using Syncee.Statee;
 using ZLogger;
 
-// RaidBoss の権威サーバ(D-053/D-054)。決定論ロックステップの確定係(TickBundleAuthority)を
+// RaidBoss の権威サーバ(D-053/D-054/D-056)。決定論ロックステップの確定係(TickBundleAuthority)を
 // 純C#コンソールプロセスとして動かし、Statee を組み込んで権威 State(game/raidboss)を
 // 直接観測できるようにする。物理・当たり判定は持たず、Tick 入力の確定・配布に徹する。
+// 複数部屋(合言葉違い)を1プロセスで同時に扱う(RoomManager。D-056)。接続直後の
+// ゲートは持たず、最初の1通(create/join + room引数)で部屋へ振り分ける。
 
 var port = 9312;
 var gamePort = 9412;
-var room = "raidboss";
 foreach (var arg in args)
 {
     if (arg.StartsWith("--port=", StringComparison.Ordinal) && int.TryParse(arg[7..], out var p))
@@ -26,10 +27,6 @@ foreach (var arg in args)
     {
         gamePort = gp;
     }
-    if (arg.StartsWith("--room=", StringComparison.Ordinal))
-    {
-        room = arg[7..];
-    }
 }
 
 var loggerFactory = LoggerFactory.Create(builder =>
@@ -40,20 +37,16 @@ var logger = loggerFactory.CreateLogger("RaidBoss.Server");
 
 var raidBossState = new RaidBossState();
 
-// 合言葉(ルームパスフレーズ)。D-052 と同じ最小ゲート
-var gameTransport = new LiteNetLibServerTransport(gamePort, connectionKey: room);
-var authority = new RaidBossAuthority(gameTransport);
+var gameTransport = new LiteNetLibServerTransport(gamePort);
+var rooms = new RoomManager(gameTransport);
 
-void RefreshState() => raidBossState.Update(authority.Game);
-
-RefreshState();
-authority.Committed += bundle =>
+void RefreshState()
 {
-    RefreshState();
-    logger.ZLogInformation(
-        $"確定 tick={bundle.Tick} → boss={authority.Game.BossHp} p1={authority.Game.Player1Hp} p2={authority.Game.Player2Hp} phase={authority.Game.Phase}"
-    );
-};
+    if (rooms.LastTouchedRoom is { } room)
+    {
+        raidBossState.Update(room.Authority.Game);
+    }
+}
 
 var dispatcher = new MainThreadDispatcher();
 var time = new TimeControl();
@@ -65,7 +58,14 @@ host.RegisterTimeControl(time);
 host.RegisterStateProvider(
     new SyncStateProvider(
         "game/sync",
-        () => new SyncSnapshot(authority.ConnectedClientCount, authority.ConfirmedTickCount, null)
+        () =>
+            rooms.LastTouchedRoom is { } room
+                ? new SyncSnapshot(
+                    room.Authority.ConnectedClientCount,
+                    room.Authority.ConfirmedTickCount,
+                    null
+                )
+                : new SyncSnapshot(0, 0, null)
     )
 );
 host.RegisterCommand(
@@ -91,14 +91,13 @@ host.RegisterMainThreadCommand(
 
 await using var server = new StateeTcpServer(host, port);
 server.Start();
-logger.ZLogInformation(
-    $"RaidBoss.Server 待ち受け開始 port={server.Port} game-port={gamePort} room={room}"
-);
+logger.ZLogInformation($"RaidBoss.Server 待ち受け開始 port={server.Port} game-port={gamePort}");
 
 while (running)
 {
     dispatcher.Pump();
     gameTransport.PollEvents();
+    RefreshState();
     if (!time.IsFrozen)
     {
         time.OnFrame();

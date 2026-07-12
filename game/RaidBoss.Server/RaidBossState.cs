@@ -11,19 +11,11 @@ public partial class RaidBossState
         int Seed,
         int TickCount,
         int BossHp,
-        int Player1Hp,
-        int Player2Hp,
+        IReadOnlyList<int> PlayerHps,
         GamePhase Phase
     );
 
-    private volatile Snapshot _current = new(
-        0,
-        0,
-        GameLogic.BossMaxHp,
-        GameLogic.PlayerMaxHp,
-        GameLogic.PlayerMaxHp,
-        GamePhase.Playing
-    );
+    private volatile Snapshot _current = new(0, 0, GameLogic.BossMaxHp, [], GamePhase.Waiting);
 
     [StateeField]
     public int Seed => _current.Seed;
@@ -35,21 +27,11 @@ public partial class RaidBossState
     public int BossHp => _current.BossHp;
 
     [StateeField]
-    public int Player1Hp => _current.Player1Hp;
-
-    [StateeField]
-    public int Player2Hp => _current.Player2Hp;
+    public string PlayerHps => string.Join(",", _current.PlayerHps);
 
     [StateeField]
     public string Phase => _current.Phase.ToString();
 
     public void Update(GameLogic game) =>
-        _current = new Snapshot(
-            game.Seed,
-            game.TickCount,
-            game.BossHp,
-            game.Player1Hp,
-            game.Player2Hp,
-            game.Phase
-        );
+        _current = new Snapshot(game.Seed, game.TickCount, game.BossHp, game.PlayerHps, game.Phase);
 }

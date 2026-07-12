@@ -13,7 +13,8 @@ namespace RaidBoss.Server;
 /// </summary>
 public sealed class RaidBossAuthority
 {
-    private readonly TickBundleAuthority _authority = new(expectedClientCount: 2);
+    // 開始前は人数未確定のため、誤って確定しないよう到達不能な値にしておく
+    private readonly TickBundleAuthority _authority = new(expectedClientCount: int.MaxValue);
     private readonly ClientRegistry _registry;
 
     public RaidBossAuthority(IServerTransport transport, int seed = 12345)
@@ -40,26 +41,51 @@ public sealed class RaidBossAuthority
     private void OnReceived(string clientId, byte[] bytes)
     {
         var request = SyncWire.DeserializeRequest(bytes);
-        if (request.Command != "input")
+        switch (request.Command)
+        {
+            case "start":
+                TryStart();
+                return;
+            case "input":
+                OnInput(clientId, request.Args);
+                return;
+        }
+    }
+
+    /// <summary>
+    /// ロビー待機中(Waiting)に接続中の人数(2〜4)で開始する。部屋作成者からの
+    /// start コマンドで呼ばれる(誰が押しても同じ結果になる冪等な操作)。
+    /// </summary>
+    private void TryStart()
+    {
+        if (Game.Phase != GamePhase.Waiting || ConnectedClientCount < GameLogic.MinPlayerCount)
         {
             return;
         }
+        Game.Start(ConnectedClientCount);
+        _authority.SetExpectedClientCount(ConnectedClientCount);
+    }
+
+    private void OnInput(string clientId, IReadOnlyDictionary<string, string>? args)
+    {
         if (
-            request.Args is null
-            || !request.Args.TryGetValue("tick", out var tickText)
+            args is null
+            || !args.TryGetValue("tick", out var tickText)
             || !int.TryParse(tickText, out var tick)
         )
         {
             return;
         }
-        _authority.Submit(tick, clientId, request.Args);
+        _authority.Submit(tick, clientId, args);
     }
 
     private void Apply(TickBundle bundle)
     {
-        var player1Action = ParseAction(bundle.InputsByClient.GetValueOrDefault("client-1"));
-        var player2Action = ParseAction(bundle.InputsByClient.GetValueOrDefault("client-2"));
-        Game.Step(player1Action, player2Action);
+        var actions = Enumerable
+            .Range(1, Game.PlayerCount)
+            .Select(n => ParseAction(bundle.InputsByClient.GetValueOrDefault($"client-{n}")))
+            .ToArray();
+        Game.Step(actions);
     }
 
     private static PlayerAction ParseAction(IReadOnlyDictionary<string, string>? args) =>

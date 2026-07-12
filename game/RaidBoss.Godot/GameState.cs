@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using RaidBoss.Logic;
 using Statee.Core;
 
@@ -15,19 +16,11 @@ public partial class GameState
         int Seed,
         int TickCount,
         int BossHp,
-        int Player1Hp,
-        int Player2Hp,
+        IReadOnlyList<int> PlayerHps,
         GamePhase Phase
     );
 
-    private volatile Snapshot _current = new(
-        0,
-        0,
-        GameLogic.BossMaxHp,
-        GameLogic.PlayerMaxHp,
-        GameLogic.PlayerMaxHp,
-        GamePhase.Playing
-    );
+    private volatile Snapshot _current = new(0, 0, GameLogic.BossMaxHp, [], GamePhase.Waiting);
 
     [StateeField]
     public int Seed => _current.Seed;
@@ -39,10 +32,7 @@ public partial class GameState
     public int BossHp => _current.BossHp;
 
     [StateeField]
-    public int Player1Hp => _current.Player1Hp;
-
-    [StateeField]
-    public int Player2Hp => _current.Player2Hp;
+    public string PlayerHps => string.Join(",", _current.PlayerHps);
 
     [StateeField]
     public string Phase => _current.Phase.ToString();
@@ -52,11 +42,10 @@ public partial class GameState
         int seed,
         int tickCount,
         int bossHp,
-        int player1Hp,
-        int player2Hp,
+        IReadOnlyList<int> playerHps,
         GamePhase phase
     )
     {
-        _current = new Snapshot(seed, tickCount, bossHp, player1Hp, player2Hp, phase);
+        _current = new Snapshot(seed, tickCount, bossHp, playerHps, phase);
     }
 }

@@ -21,6 +21,9 @@ public class RaidBossAuthorityTest
             )
         );
 
+    private static void SendStart(ITransport transport) =>
+        transport.Send(SyncWire.Serialize(new CommandRequest("start", null)));
+
     [Fact]
     public void 接続する_ConnectedClientCountが増える()
     {
@@ -34,12 +37,54 @@ public class RaidBossAuthorityTest
     }
 
     [Fact]
-    public void 片方だけ入力する_確定せず両クライアントへ配布されない()
+    public void start前は入力してもPlayingへ遷移しない()
     {
         var serverTransport = new FakeServerTransport();
         var authority = new RaidBossAuthority(serverTransport);
         var client1 = serverTransport.Connect();
         serverTransport.Connect();
+
+        SendInput(client1, 0, "attack");
+
+        authority.Game.Phase.ShouldBe(GamePhase.Waiting);
+        authority.ConfirmedTickCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public void start人数分の接続後startするとPlayingになり参加人数が確定する()
+    {
+        var serverTransport = new FakeServerTransport();
+        var authority = new RaidBossAuthority(serverTransport);
+        var client1 = serverTransport.Connect();
+        serverTransport.Connect();
+        serverTransport.Connect();
+
+        SendStart(client1);
+
+        authority.Game.Phase.ShouldBe(GamePhase.Playing);
+        authority.Game.PlayerCount.ShouldBe(3);
+    }
+
+    [Fact]
+    public void 接続が2人未満ではstartしても始まらない()
+    {
+        var serverTransport = new FakeServerTransport();
+        var authority = new RaidBossAuthority(serverTransport);
+        var client1 = serverTransport.Connect();
+
+        SendStart(client1);
+
+        authority.Game.Phase.ShouldBe(GamePhase.Waiting);
+    }
+
+    [Fact]
+    public void 片方だけ入力する_確定せず両クライアントへ配布されない()
+    {
+        var serverTransport = new FakeServerTransport();
+        var authority = new RaidBossAuthority(serverTransport);
+        var client1 = serverTransport.Connect();
+        var client2 = serverTransport.Connect();
+        SendStart(client1);
 
         SendInput(client1, 0, "attack");
 
@@ -54,6 +99,7 @@ public class RaidBossAuthorityTest
         var authority = new RaidBossAuthority(serverTransport);
         var client1 = serverTransport.Connect();
         var client2 = serverTransport.Connect();
+        SendStart(client1);
         TickBundle? received1 = null;
         TickBundle? received2 = null;
         client1.Received += bytes => received1 = SyncWire.DeserializeTickBundle(bytes);
@@ -75,6 +121,7 @@ public class RaidBossAuthorityTest
         var authority = new RaidBossAuthority(serverTransport);
         var client1 = serverTransport.Connect();
         var client2 = serverTransport.Connect();
+        SendStart(client1);
 
         SendInput(client1, 0, "attack");
         SendInput(client2, 0, "idle");
