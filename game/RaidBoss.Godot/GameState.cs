@@ -19,7 +19,10 @@ public partial class GameState
         int BossHp,
         IReadOnlyList<int> PlayerHps,
         IReadOnlyList<int> IncapacitatedTicks,
+        IReadOnlyList<int> PlayerLanes,
         IReadOnlyList<Projectile> Projectiles,
+        int PendingBossAttackLane,
+        int PendingBossAttackTicks,
         GamePhase Phase
     );
 
@@ -30,6 +33,9 @@ public partial class GameState
         [],
         [],
         [],
+        [],
+        -1,
+        0,
         GamePhase.Waiting
     );
 
@@ -49,31 +55,34 @@ public partial class GameState
     public string IncapacitatedTicks => string.Join(",", _current.IncapacitatedTicks);
 
     [StateeField]
+    public string PlayerLanes => string.Join(",", _current.PlayerLanes);
+
+    [StateeField]
     public string Projectiles =>
         string.Join(";", _current.Projectiles.Select(p => $"{p.OwnerIndex}:{p.TicksRemaining}"));
+
+    /// <summary>予告中のボス攻撃(D-059)。「レーン:残りTick」。予告がなければ空文字。</summary>
+    [StateeField]
+    public string PendingBossAttack =>
+        _current.PendingBossAttackLane >= 0
+            ? $"{_current.PendingBossAttackLane}:{_current.PendingBossAttackTicks}"
+            : "";
 
     [StateeField]
     public string Phase => _current.Phase.ToString();
 
-    /// <summary>メインスレッドから呼ぶ。スナップショットを不可分に差し替える。</summary>
-    public void Update(
-        int seed,
-        int tickCount,
-        int bossHp,
-        IReadOnlyList<int> playerHps,
-        IReadOnlyList<int> incapacitatedTicks,
-        IReadOnlyList<Projectile> projectiles,
-        GamePhase phase
-    )
-    {
+    /// <summary>メインスレッドから呼ぶ。スナップショットを不可分に差し替える(配列はコピーして固定する)。</summary>
+    public void Update(GameLogic game) =>
         _current = new Snapshot(
-            seed,
-            tickCount,
-            bossHp,
-            playerHps,
-            incapacitatedTicks,
-            projectiles,
-            phase
+            game.Seed,
+            game.TickCount,
+            game.BossHp,
+            game.PlayerHps.ToArray(),
+            game.IncapacitatedTicks.ToArray(),
+            game.PlayerLanes.ToArray(),
+            game.Projectiles.ToArray(),
+            game.PendingBossAttackLane,
+            game.PendingBossAttackTicks,
+            game.Phase
         );
-    }
 }

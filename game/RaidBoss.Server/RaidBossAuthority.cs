@@ -102,9 +102,13 @@ public sealed class RaidBossAuthority
     }
 
     private static PlayerAction ParseAction(IReadOnlyDictionary<string, string>? args) =>
-        args is not null
-        && args.TryGetValue("action", out var action)
-        && action.Equals("attack", StringComparison.OrdinalIgnoreCase)
-            ? PlayerAction.Attack
+        args is not null && args.TryGetValue("action", out var action)
+            ? action.ToLowerInvariant() switch
+            {
+                "attack" => PlayerAction.Attack,
+                "left" => PlayerAction.MoveLeft,
+                "right" => PlayerAction.MoveRight,
+                _ => PlayerAction.Idle,
+            }
             : PlayerAction.Idle;
 }

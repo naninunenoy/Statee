@@ -13,7 +13,10 @@ public partial class RaidBossState
         int BossHp,
         IReadOnlyList<int> PlayerHps,
         IReadOnlyList<int> IncapacitatedTicks,
+        IReadOnlyList<int> PlayerLanes,
         IReadOnlyList<Projectile> Projectiles,
+        int PendingBossAttackLane,
+        int PendingBossAttackTicks,
         GamePhase Phase
     );
 
@@ -24,6 +27,9 @@ public partial class RaidBossState
         [],
         [],
         [],
+        [],
+        -1,
+        0,
         GamePhase.Waiting
     );
 
@@ -43,8 +49,18 @@ public partial class RaidBossState
     public string IncapacitatedTicks => string.Join(",", _current.IncapacitatedTicks);
 
     [StateeField]
+    public string PlayerLanes => string.Join(",", _current.PlayerLanes);
+
+    [StateeField]
     public string Projectiles =>
         string.Join(";", _current.Projectiles.Select(p => $"{p.OwnerIndex}:{p.TicksRemaining}"));
+
+    /// <summary>予告中のボス攻撃(D-059)。「レーン:残りTick」。予告がなければ空文字。</summary>
+    [StateeField]
+    public string PendingBossAttack =>
+        _current.PendingBossAttackLane >= 0
+            ? $"{_current.PendingBossAttackLane}:{_current.PendingBossAttackTicks}"
+            : "";
 
     [StateeField]
     public string Phase => _current.Phase.ToString();
@@ -56,7 +72,10 @@ public partial class RaidBossState
             game.BossHp,
             game.PlayerHps,
             game.IncapacitatedTicks,
+            game.PlayerLanes,
             game.Projectiles,
+            game.PendingBossAttackLane,
+            game.PendingBossAttackTicks,
             game.Phase
         );
 }

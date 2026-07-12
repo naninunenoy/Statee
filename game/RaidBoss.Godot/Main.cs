@@ -46,6 +46,14 @@ public partial class Main : Node2D
     private int _nextSendTick;
     private AcceptDialog? _errorDialog;
 
+    // リアルタイム化(D-059)。入力を待たず一定間隔でTickを自動進行し、キー入力は
+    // 「次のTickで実行する行動」として蓄えて自動Tick時に消費する。freeze中は自動Tickを
+    // 止め、従来の step コマンドで決定論的に進められる(シナリオ検証用)
+    private const float TickIntervalSeconds = 0.5f;
+    private double _tickAccumulator;
+    private PlayerAction _pendingPlayer1Action = PlayerAction.Idle;
+    private PlayerAction _pendingPlayer2Action = PlayerAction.Idle;
+
     // ロビーUI(D-056)。参加/部屋を立てるの選択→合言葉入力→待機、を画面上のボタンで操作できるようにする。
     // ゲームが始まる(_logic.Phase が Waiting でなくなる)と自動的に隠れる
     private Control? _lobbyRoot;
@@ -66,20 +74,38 @@ public partial class Main : Node2D
             new KeyBinding(
                 Key.Q,
                 "attack1",
-                "プレイヤー1がボスを攻撃(ネット対戦では自分の攻撃)",
-                () => OnAttackPressed(PlayerAction.Attack, PlayerAction.Idle)
+                "プレイヤー1が攻撃(ネット対戦では自分の攻撃)",
+                () => SetPendingPlayer1(PlayerAction.Attack)
+            ),
+            new KeyBinding(
+                Key.A,
+                "left1",
+                "プレイヤー1が左のレーンへ移動(ネット対戦では自分)",
+                () => SetPendingPlayer1(PlayerAction.MoveLeft)
+            ),
+            new KeyBinding(
+                Key.D,
+                "right1",
+                "プレイヤー1が右のレーンへ移動(ネット対戦では自分)",
+                () => SetPendingPlayer1(PlayerAction.MoveRight)
             ),
             new KeyBinding(
                 Key.W,
                 "attack2",
-                "プレイヤー2がボスを攻撃(ローカル対戦専用)",
-                () => OnAttackPressed(PlayerAction.Idle, PlayerAction.Attack)
+                "プレイヤー2が攻撃(ローカル対戦専用)",
+                () => SetPendingPlayer2(PlayerAction.Attack)
             ),
             new KeyBinding(
-                Key.Space,
-                "wait",
-                "何もせず1Tick進める",
-                () => OnAttackPressed(PlayerAction.Idle, PlayerAction.Idle)
+                Key.Left,
+                "left2",
+                "プレイヤー2が左のレーンへ移動(ローカル対戦専用)",
+                () => SetPendingPlayer2(PlayerAction.MoveLeft)
+            ),
+            new KeyBinding(
+                Key.Right,
+                "right2",
+                "プレイヤー2が右のレーンへ移動(ローカル対戦専用)",
+                () => SetPendingPlayer2(PlayerAction.MoveRight)
             ),
         ];
 
@@ -105,6 +131,64 @@ public partial class Main : Node2D
                 _lobbyStatusLabel.Text = "部屋で待機中...(参加人数が揃ったら開始を押してください)";
             }
         }
+        AutoTick(delta);
+    }
+
+    /// <summary>
+    /// リアルタイム化の自動Tick(D-059)。プレイ中は一定間隔で蓄えた行動を消費して
+    /// Tickを進める(ネット対戦は自分の行動の自動送信。確定はサーバの入力揃い待ち)。
+    /// freeze中は止まり、step コマンドによる手動進行だけになる。
+    /// </summary>
+    private void AutoTick(double delta)
+    {
+        if (_logic.Phase != GamePhase.Playing || _time.IsFrozen)
+        {
+            return;
+        }
+        // 弾・予告の補間描画のため、プレイ中は毎フレーム再描画する
+        QueueRedraw();
+        // フレームが長時間止まった後にTickが連発しないよう、繰り越しは1Tick分までにする
+        _tickAccumulator = Math.Min(_tickAccumulator + delta, TickIntervalSeconds * 2);
+        if (_tickAccumulator < TickIntervalSeconds)
+        {
+            return;
+        }
+        _tickAccumulator -= TickIntervalSeconds;
+        if (_networkMode)
+        {
+            SendNetworkInput(_pendingPlayer1Action);
+        }
+        else
+        {
+            _logic.Step([_pendingPlayer1Action, _pendingPlayer2Action]);
+            RefreshView();
+        }
+        _pendingPlayer1Action = PlayerAction.Idle;
+        _pendingPlayer2Action = PlayerAction.Idle;
+    }
+
+    /// <summary>キー入力を「次のTickの行動」として蓄える。ローカルはWaitingなら2人対戦を即開始する。</summary>
+    private void SetPendingPlayer1(PlayerAction action)
+    {
+        StartLocalIfWaiting();
+        _pendingPlayer1Action = action;
+    }
+
+    /// <summary>プレイヤー2のキー入力(ローカル対戦専用)。</summary>
+    private void SetPendingPlayer2(PlayerAction action)
+    {
+        StartLocalIfWaiting();
+        _pendingPlayer2Action = action;
+    }
+
+    private void StartLocalIfWaiting()
+    {
+        if (_networkMode || _logic.Phase != GamePhase.Waiting)
+        {
+            return;
+        }
+        _logic.Start(playerCount: 2);
+        RefreshView();
     }
 
     /// <summary>
@@ -180,40 +264,59 @@ public partial class Main : Node2D
             fontSize: 16
         );
 
-        var playerPositions = GetPlayerPositions(Math.Max(_logic.PlayerCount, 1));
+        // ボス攻撃の予告(D-059)。対象レーンを赤い帯で示し、着弾が近づくほど濃くする
+        if (_logic.PendingBossAttackLane >= 0)
+        {
+            var closeness =
+                1f - (float)_logic.PendingBossAttackTicks / (GameLogic.BossAttackWindupTicks + 1);
+            DrawRect(
+                new Rect2(_logic.PendingBossAttackLane * LaneWidth, 220, LaneWidth, 280),
+                new Color(1f, 0.1f, 0.1f, 0.15f + 0.25f * closeness)
+            );
+        }
+
         for (var i = 0; i < _logic.PlayerCount; i++)
         {
+            var position = LanePosition(_logic.PlayerLanes[i]);
             var incapacitated = _logic.IncapacitatedTicks[i] > 0;
             var color = incapacitated ? new Color(0.5f, 0.5f, 0.5f) : new Color(0.3f, 0.5f, 1f);
-            DrawCircle(playerPositions[i], PlayerRadius, color);
+            DrawCircle(position, PlayerRadius, color);
             DrawString(
                 ThemeDB.FallbackFont,
-                playerPositions[i] + new Vector2(-PlayerRadius, PlayerRadius + 16),
+                position + new Vector2(-PlayerRadius, PlayerRadius + 16),
                 $"P{i + 1} HP:{_logic.PlayerHps[i]}",
                 fontSize: 14
             );
         }
 
+        // 弾はTick間も滑らかに見えるよう、自動Tickの経過割合(_tickAccumulator)で補間する
+        var tickFraction = _time.IsFrozen ? 0f : (float)(_tickAccumulator / TickIntervalSeconds);
         foreach (var projectile in _logic.Projectiles)
         {
-            var from = playerPositions[projectile.OwnerIndex];
-            var progress = 1f - (float)projectile.TicksRemaining / GameLogic.ProjectileTravelTicks;
+            var from = LanePosition(_logic.PlayerLanes[projectile.OwnerIndex]);
+            var progress =
+                (GameLogic.ProjectileTravelTicks - projectile.TicksRemaining + tickFraction)
+                / GameLogic.ProjectileTravelTicks;
             var position = from.Lerp(BossPosition, Math.Clamp(progress, 0f, 1f));
             DrawCircle(position, ProjectileRadius, new Color(1f, 1f, 0.2f));
         }
+
+        if (_logic.Phase == GamePhase.Playing)
+        {
+            DrawString(
+                ThemeDB.FallbackFont,
+                new Vector2(16, 540),
+                "Q: 攻撃  A/D: 移動(赤い帯のレーンから逃げる)",
+                fontSize: 14
+            );
+        }
     }
 
-    /// <summary>プレイヤーを画面下部に等間隔で並べた座標を返す(描画専用。ロジックは持たない)。</summary>
-    private static Vector2[] GetPlayerPositions(int playerCount)
-    {
-        const float y = 450f;
-        const float spacing = 150f;
-        var startX = 400f - (spacing * (playerCount - 1) / 2f);
-        return Enumerable
-            .Range(0, playerCount)
-            .Select(i => new Vector2(startX + spacing * i, y))
-            .ToArray();
-    }
+    /// <summary>レーン番号を画面座標へ変換する(描画専用。ロジックは持たない)。</summary>
+    private static Vector2 LanePosition(int lane) => new((lane + 0.5f) * LaneWidth, 450f);
+
+    private const float ViewWidth = 800f;
+    private const float LaneWidth = ViewWidth / GameLogic.LaneCount;
 
     public override void _ExitTree()
     {
@@ -222,25 +325,7 @@ public partial class Main : Node2D
         _loggerFactory?.Dispose();
     }
 
-    /// <summary>
-    /// キー入力・step コマンドからの共通入口。ネット対戦中はサーバへの送信に振り替え、
-    /// ローカル対戦中は両プレイヤー分の行動を1Tick分同時に適用する。
-    /// </summary>
-    private void OnAttackPressed(PlayerAction player1Action, PlayerAction player2Action)
-    {
-        if (_networkMode)
-        {
-            var thisClientAction =
-                player1Action == PlayerAction.Attack || player2Action == PlayerAction.Attack
-                    ? PlayerAction.Attack
-                    : PlayerAction.Idle;
-            SendNetworkInput(thisClientAction);
-            return;
-        }
-        ActStep(player1Action, player2Action);
-    }
-
-    /// <summary>両プレイヤーの行動を1Tick分同時に適用する(ローカル対戦専用)。</summary>
+    /// <summary>両プレイヤーの行動を1Tick分同時に適用する(ローカル対戦の step コマンド専用)。</summary>
     private void ActStep(PlayerAction player1Action, PlayerAction player2Action)
     {
         if (_logic.Phase == GamePhase.Waiting)
@@ -254,15 +339,7 @@ public partial class Main : Node2D
     /// <summary>アクション後の状態を State と描画へ反映する。</summary>
     private void RefreshView()
     {
-        _state.Update(
-            _logic.Seed,
-            _logic.TickCount,
-            _logic.BossHp,
-            _logic.PlayerHps,
-            _logic.IncapacitatedTicks,
-            _logic.Projectiles,
-            _logic.Phase
-        );
+        _state.Update(_logic);
         QueueRedraw();
     }
 
@@ -386,9 +463,13 @@ public partial class Main : Node2D
             .ToArray();
         _logic.Step(actions);
         RefreshView();
-        _logger.ZLogInformation(
-            $"確定 tick={bundle.Tick} → boss={_logic.BossHp} players={string.Join(",", _logic.PlayerHps)} phase={_logic.Phase}"
-        );
+        // 自動Tick(D-059)で毎Tick確定するため、全員Idleの確定はログに残さない
+        if (actions.Any(a => a != PlayerAction.Idle))
+        {
+            _logger.ZLogInformation(
+                $"確定 tick={bundle.Tick} → boss={_logic.BossHp} players={string.Join(",", _logic.PlayerHps)} phase={_logic.Phase}"
+            );
+        }
     }
 
     /// <summary>
@@ -405,12 +486,16 @@ public partial class Main : Node2D
                     new System.Collections.Generic.Dictionary<string, string>
                     {
                         ["tick"] = tick.ToString(),
-                        ["action"] = action == PlayerAction.Attack ? "attack" : "idle",
+                        ["action"] = ActionToWire(action),
                     }
                 )
             )
         );
-        _logger.ZLogInformation($"input(tick={tick}, action={action}) をサーバへ送信");
+        // 自動Tick(D-059)で毎回送信するため、Idleはログに残さない
+        if (action != PlayerAction.Idle)
+        {
+            _logger.ZLogInformation($"input(tick={tick}, action={action}) をサーバへ送信");
+        }
     }
 
     private void StartStatee(LogBuffer buffer)
@@ -476,7 +561,20 @@ public partial class Main : Node2D
     }
 
     private static PlayerAction ParseAction(string? name) =>
-        name?.Equals("attack", StringComparison.OrdinalIgnoreCase) == true
-            ? PlayerAction.Attack
-            : PlayerAction.Idle;
+        name?.ToLowerInvariant() switch
+        {
+            "attack" => PlayerAction.Attack,
+            "left" => PlayerAction.MoveLeft,
+            "right" => PlayerAction.MoveRight,
+            _ => PlayerAction.Idle,
+        };
+
+    private static string ActionToWire(PlayerAction action) =>
+        action switch
+        {
+            PlayerAction.Attack => "attack",
+            PlayerAction.MoveLeft => "left",
+            PlayerAction.MoveRight => "right",
+            _ => "idle",
+        };
 }
