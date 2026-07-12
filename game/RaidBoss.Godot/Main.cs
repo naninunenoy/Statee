@@ -300,7 +300,16 @@ public partial class Main : Node2D
     /// <summary>部屋作成者が参加人数の確定・開始を要求する(ロビーで人数が揃ったあと)。</summary>
     private void StartRoom()
     {
-        _network!.Send(SyncWire.Serialize(new CommandRequest("start", null)));
+        if (_network is null)
+        {
+            if (_lobbyStatusLabel is not null)
+            {
+                _lobbyStatusLabel.Text = "先に部屋を立てるか、参加してください";
+            }
+            _logger.ZLogWarning($"未接続のため start を送信できない(先に create/join が必要)");
+            return;
+        }
+        _network.Send(SyncWire.Serialize(new CommandRequest("start", null)));
         _logger.ZLogInformation($"start をサーバへ送信");
     }
 
