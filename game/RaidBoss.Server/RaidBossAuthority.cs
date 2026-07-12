@@ -13,6 +13,12 @@ namespace RaidBoss.Server;
 /// </summary>
 public sealed class RaidBossAuthority
 {
+    /// <summary>
+    /// 開始通知バンドルの Tick 値。通常の確定Tick(0以上)と区別するための負値で、
+    /// クライアントはこれを受けてロビーから Playing へ遷移する(Step はしない)。
+    /// </summary>
+    public const int StartNotificationTick = -1;
+
     // 開始前は人数未確定のため、誤って確定しないよう到達不能な値にしておく
     private readonly TickBundleAuthority _authority = new(expectedClientCount: int.MaxValue);
     private readonly ClientRegistry _registry;
@@ -64,6 +70,13 @@ public sealed class RaidBossAuthority
         }
         Game.Start(ConnectedClientCount);
         _authority.SetExpectedClientCount(ConnectedClientCount);
+        // 確定Tickは最初の入力が揃うまで発生しないため、開始したことを即座に通知する
+        var placeholders = Enumerable
+            .Range(1, ConnectedClientCount)
+            .ToDictionary(n => $"client-{n}", _ => (IReadOnlyDictionary<string, string>?)null);
+        _registry.Broadcast(
+            SyncWire.Serialize(new TickBundle(StartNotificationTick, placeholders))
+        );
     }
 
     private void OnInput(string clientId, IReadOnlyDictionary<string, string>? args)

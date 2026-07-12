@@ -320,6 +320,13 @@ public partial class Main : Node2D
         {
             _logic.Start(bundle.InputsByClient.Count);
         }
+        // 負Tickはサーバの開始通知(RaidBossAuthority.StartNotificationTick)。Step はしない
+        if (bundle.Tick < 0)
+        {
+            RefreshView();
+            _logger.ZLogInformation($"ゲーム開始通知を受信 players={bundle.InputsByClient.Count}");
+            return;
+        }
         var actions = Enumerable
             .Range(1, _logic.PlayerCount)
             .Select(n =>

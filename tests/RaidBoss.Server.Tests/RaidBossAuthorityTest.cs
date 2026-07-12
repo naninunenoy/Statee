@@ -79,6 +79,25 @@ public class RaidBossAuthorityTest
     }
 
     [Fact]
+    public void startすると開始通知が全クライアントへ配布される()
+    {
+        var serverTransport = new FakeServerTransport();
+        var authority = new RaidBossAuthority(serverTransport);
+        var client1 = serverTransport.Connect();
+        var client2 = serverTransport.Connect();
+        TickBundle? received1 = null;
+        TickBundle? received2 = null;
+        client1.Received += bytes => received1 = SyncWire.DeserializeTickBundle(bytes);
+        client2.Received += bytes => received2 = SyncWire.DeserializeTickBundle(bytes);
+
+        SendStart(client1);
+
+        received1!.Tick.ShouldBe(RaidBossAuthority.StartNotificationTick);
+        received1.InputsByClient.Count.ShouldBe(2);
+        received2!.Tick.ShouldBe(RaidBossAuthority.StartNotificationTick);
+    }
+
+    [Fact]
     public void 片方だけ入力する_確定せず両クライアントへ配布されない()
     {
         var serverTransport = new FakeServerTransport();
