@@ -151,15 +151,66 @@ public partial class Main : Node2D
         KeyBindingTable.TryHandle(_keyBindings, @event);
     }
 
+    private static readonly Vector2 BossPosition = new(400, 150);
+    private const float BossRadius = 60f;
+    private const float PlayerRadius = 24f;
+    private const float ProjectileRadius = 6f;
+
     public override void _Draw()
     {
-        // プレースホルダ描画。実ゲームの描画に置き換える
         DrawString(
             ThemeDB.FallbackFont,
             new Vector2(16, 32),
-            $"RaidBoss  boss={_logic.BossHp}  players={string.Join(",", _logic.PlayerHps)}  tick={_logic.TickCount}  {_logic.Phase}",
+            $"RaidBoss  tick={_logic.TickCount}  {_logic.Phase}",
             fontSize: 20
         );
+
+        var bossHpFraction = Math.Clamp((float)_logic.BossHp / GameLogic.BossMaxHp, 0f, 1f);
+        DrawCircle(
+            BossPosition,
+            BossRadius,
+            new Color(1f, 1f - bossHpFraction, 1f - bossHpFraction)
+        );
+        DrawString(
+            ThemeDB.FallbackFont,
+            BossPosition + new Vector2(-BossRadius, -BossRadius - 10),
+            $"Boss HP: {_logic.BossHp}",
+            fontSize: 16
+        );
+
+        var playerPositions = GetPlayerPositions(Math.Max(_logic.PlayerCount, 1));
+        for (var i = 0; i < _logic.PlayerCount; i++)
+        {
+            var incapacitated = _logic.IncapacitatedTicks[i] > 0;
+            var color = incapacitated ? new Color(0.5f, 0.5f, 0.5f) : new Color(0.3f, 0.5f, 1f);
+            DrawCircle(playerPositions[i], PlayerRadius, color);
+            DrawString(
+                ThemeDB.FallbackFont,
+                playerPositions[i] + new Vector2(-PlayerRadius, PlayerRadius + 16),
+                $"P{i + 1} HP:{_logic.PlayerHps[i]}",
+                fontSize: 14
+            );
+        }
+
+        foreach (var projectile in _logic.Projectiles)
+        {
+            var from = playerPositions[projectile.OwnerIndex];
+            var progress = 1f - (float)projectile.TicksRemaining / GameLogic.ProjectileTravelTicks;
+            var position = from.Lerp(BossPosition, Math.Clamp(progress, 0f, 1f));
+            DrawCircle(position, ProjectileRadius, new Color(1f, 1f, 0.2f));
+        }
+    }
+
+    /// <summary>プレイヤーを画面下部に等間隔で並べた座標を返す(描画専用。ロジックは持たない)。</summary>
+    private static Vector2[] GetPlayerPositions(int playerCount)
+    {
+        const float y = 450f;
+        const float spacing = 150f;
+        var startX = 400f - (spacing * (playerCount - 1) / 2f);
+        return Enumerable
+            .Range(0, playerCount)
+            .Select(i => new Vector2(startX + spacing * i, y))
+            .ToArray();
     }
 
     public override void _ExitTree()
@@ -207,6 +258,7 @@ public partial class Main : Node2D
             _logic.BossHp,
             _logic.PlayerHps,
             _logic.IncapacitatedTicks,
+            _logic.Projectiles,
             _logic.Phase
         );
         QueueRedraw();

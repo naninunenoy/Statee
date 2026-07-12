@@ -41,26 +41,50 @@ public class GameLogicTest
         game.TickCount.ShouldBe(1);
         game.BossHp.ShouldBe(GameLogic.BossMaxHp);
         game.PlayerHps.ShouldBe([GameLogic.PlayerMaxHp, GameLogic.PlayerMaxHp]);
+        game.Projectiles.ShouldBeEmpty();
     }
 
     [Fact]
-    public void Step_1人がAttack_ボスHPが攻撃力分減る()
+    public void Step_1人がAttack_即ダメージではなく弾が発射される()
     {
         var game = new GameLogic(seed: 1);
         game.Start(playerCount: 2);
 
         game.Step([PlayerAction.Attack, PlayerAction.Idle]);
 
-        game.BossHp.ShouldBe(GameLogic.BossMaxHp - GameLogic.PlayerAttackDamage);
+        game.BossHp.ShouldBe(GameLogic.BossMaxHp);
+        game.Projectiles.ShouldBe([new Projectile(OwnerIndex: 0, GameLogic.ProjectileTravelTicks)]);
     }
 
     [Fact]
-    public void Step_全員がAttack_ボスHPが人数分減る()
+    public void 弾はProjectileTravelTicks後に着弾しボスにダメージを与える()
+    {
+        var game = new GameLogic(seed: 1);
+        game.Start(playerCount: 2);
+
+        game.Step([PlayerAction.Attack, PlayerAction.Idle]);
+        for (var i = 0; i < GameLogic.ProjectileTravelTicks - 1; i++)
+        {
+            game.Step([PlayerAction.Idle, PlayerAction.Idle]);
+            game.BossHp.ShouldBe(GameLogic.BossMaxHp);
+        }
+        game.Step([PlayerAction.Idle, PlayerAction.Idle]);
+
+        game.BossHp.ShouldBe(GameLogic.BossMaxHp - GameLogic.PlayerAttackDamage);
+        game.Projectiles.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Step_全員がAttack_着弾時にボスHPが人数分減る()
     {
         var game = new GameLogic(seed: 1);
         game.Start(playerCount: 3);
 
         game.Step([PlayerAction.Attack, PlayerAction.Attack, PlayerAction.Attack]);
+        for (var i = 0; i < GameLogic.ProjectileTravelTicks; i++)
+        {
+            game.Step([PlayerAction.Idle, PlayerAction.Idle, PlayerAction.Idle]);
+        }
 
         game.BossHp.ShouldBe(GameLogic.BossMaxHp - GameLogic.PlayerAttackDamage * 3);
     }
@@ -77,6 +101,10 @@ public class GameLogicTest
         for (var i = 0; i < attacksNeeded; i++)
         {
             game.Step([PlayerAction.Attack, PlayerAction.Attack]);
+        }
+        for (var i = 0; i < GameLogic.ProjectileTravelTicks; i++)
+        {
+            game.Step([PlayerAction.Idle, PlayerAction.Idle]);
         }
 
         game.Phase.ShouldBe(GamePhase.Victory);
@@ -160,9 +188,8 @@ public class GameLogicTest
         game.IncapacitatedTicks[0].ShouldBe(GameLogic.IncapacitationDuration);
         game.Phase.ShouldBe(GamePhase.Playing);
 
-        var bossHpBeforeIgnoredAttack = game.BossHp;
-        game.Step([PlayerAction.Attack, PlayerAction.Idle]); // 操作不能中はAttackが無視される
-        game.BossHp.ShouldBe(bossHpBeforeIgnoredAttack);
+        game.Step([PlayerAction.Attack, PlayerAction.Idle]); // 操作不能中はAttackが無視される(弾も発射しない)
+        game.Projectiles.ShouldBeEmpty();
         game.IncapacitatedTicks[0].ShouldBe(GameLogic.IncapacitationDuration - 1);
 
         for (var i = 0; i < GameLogic.IncapacitationDuration - 1; i++)
@@ -197,6 +224,7 @@ public class GameLogicTest
 
         first.BossHp.ShouldBe(second.BossHp);
         first.PlayerHps.ShouldBe(second.PlayerHps);
+        first.Projectiles.ShouldBe(second.Projectiles);
         first.Phase.ShouldBe(second.Phase);
     }
 }

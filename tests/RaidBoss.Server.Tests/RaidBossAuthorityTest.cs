@@ -94,7 +94,7 @@ public class RaidBossAuthorityTest
     }
 
     [Fact]
-    public void 両者揃って入力する_確定してボスHPが減り両クライアントへ配布される()
+    public void 両者揃って入力する_確定して弾が発射され両クライアントへ配布される()
     {
         var serverTransport = new FakeServerTransport();
         var authority = new RaidBossAuthority(serverTransport);
@@ -110,13 +110,14 @@ public class RaidBossAuthorityTest
         SendInput(client2, 0, "attack");
 
         authority.ConfirmedTickCount.ShouldBe(1);
-        authority.Game.BossHp.ShouldBe(GameLogic.BossMaxHp - GameLogic.PlayerAttackDamage * 2);
+        authority.Game.Projectiles.Count.ShouldBe(2);
+        authority.Game.BossHp.ShouldBe(GameLogic.BossMaxHp);
         received1!.Tick.ShouldBe(0);
         received2!.Tick.ShouldBe(0);
     }
 
     [Fact]
-    public void 複数Tickを順に確定する_Tick順にGameLogicへ適用される()
+    public void 弾が着弾するとボスHPが減る()
     {
         var serverTransport = new FakeServerTransport();
         var authority = new RaidBossAuthority(serverTransport);
@@ -125,11 +126,14 @@ public class RaidBossAuthorityTest
         SendStart(client1);
 
         SendInput(client1, 0, "attack");
-        SendInput(client2, 0, "idle");
-        SendInput(client1, 1, "idle");
-        SendInput(client2, 1, "attack");
+        SendInput(client2, 0, "attack");
+        for (var tick = 1; tick <= GameLogic.ProjectileTravelTicks; tick++)
+        {
+            SendInput(client1, tick, "idle");
+            SendInput(client2, tick, "idle");
+        }
 
-        authority.Game.TickCount.ShouldBe(2);
+        authority.Game.TickCount.ShouldBe(GameLogic.ProjectileTravelTicks + 1);
         authority.Game.BossHp.ShouldBe(GameLogic.BossMaxHp - GameLogic.PlayerAttackDamage * 2);
     }
 }

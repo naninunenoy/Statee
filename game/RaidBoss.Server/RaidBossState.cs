@@ -13,10 +13,19 @@ public partial class RaidBossState
         int BossHp,
         IReadOnlyList<int> PlayerHps,
         IReadOnlyList<int> IncapacitatedTicks,
+        IReadOnlyList<Projectile> Projectiles,
         GamePhase Phase
     );
 
-    private volatile Snapshot _current = new(0, 0, GameLogic.BossMaxHp, [], [], GamePhase.Waiting);
+    private volatile Snapshot _current = new(
+        0,
+        0,
+        GameLogic.BossMaxHp,
+        [],
+        [],
+        [],
+        GamePhase.Waiting
+    );
 
     [StateeField]
     public int Seed => _current.Seed;
@@ -34,6 +43,10 @@ public partial class RaidBossState
     public string IncapacitatedTicks => string.Join(",", _current.IncapacitatedTicks);
 
     [StateeField]
+    public string Projectiles =>
+        string.Join(";", _current.Projectiles.Select(p => $"{p.OwnerIndex}:{p.TicksRemaining}"));
+
+    [StateeField]
     public string Phase => _current.Phase.ToString();
 
     public void Update(GameLogic game) =>
@@ -43,6 +56,7 @@ public partial class RaidBossState
             game.BossHp,
             game.PlayerHps,
             game.IncapacitatedTicks,
+            game.Projectiles,
             game.Phase
         );
 }
