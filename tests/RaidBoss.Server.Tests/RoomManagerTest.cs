@@ -79,6 +79,42 @@ public class RoomManagerTest
     }
 
     [Fact]
+    public void 全員が切断すると部屋が消え同じ合言葉で再び部屋を立てられる()
+    {
+        var rawTransport = new FakeServerTransport();
+        var manager = new RoomManager(rawTransport);
+        var client1 = rawTransport.Connect();
+        SendCreate(client1, "abc");
+
+        client1.Disconnect();
+
+        manager.Rooms.ShouldNotContainKey("abc");
+        manager.LastTouchedRoom.ShouldBeNull();
+
+        var client2 = rawTransport.Connect();
+        SendCreate(client2, "abc");
+
+        manager.Rooms.ShouldContainKey("abc");
+        manager.Rooms["abc"].Authority.ConnectedClientCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void 誰かが残っている間は部屋が消えない()
+    {
+        var rawTransport = new FakeServerTransport();
+        var manager = new RoomManager(rawTransport);
+        var client1 = rawTransport.Connect();
+        var client2 = rawTransport.Connect();
+        SendCreate(client1, "abc");
+        SendJoin(client2, "abc");
+
+        client2.Disconnect();
+
+        manager.Rooms.ShouldContainKey("abc");
+        manager.Rooms["abc"].Authority.ConnectedClientCount.ShouldBe(1);
+    }
+
+    [Fact]
     public void 別の合言葉は別の部屋になる()
     {
         var rawTransport = new FakeServerTransport();

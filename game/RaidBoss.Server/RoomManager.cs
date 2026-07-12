@@ -52,8 +52,7 @@ public sealed class RoomManager
                         return;
                     }
                     var room = CreateRoom(keyword);
-                    room.Transport.Accept(transport);
-                    LastTouchedRoom = room;
+                    EnterRoom(room, transport);
                     return;
                 case "join":
                     if (!_rooms.TryGetValue(keyword, out var existing))
@@ -61,8 +60,7 @@ public sealed class RoomManager
                         transport.Disconnect();
                         return;
                     }
-                    existing.Transport.Accept(transport);
-                    LastTouchedRoom = existing;
+                    EnterRoom(existing, transport);
                     return;
                 default:
                     transport.Disconnect();
@@ -80,5 +78,30 @@ public sealed class RoomManager
         var room = new Room(keyword, authority, roomTransport);
         _rooms[keyword] = room;
         return room;
+    }
+
+    /// <summary>
+    /// 接続を部屋へ受け入れ、切断時に部屋が空なら削除する(合言葉を再利用できるようにする)。
+    /// 空判定の購読は Accept の後に行う。ClientRegistry の切断ハンドラ(登録解除)が
+    /// 先に走り、その後にこちらが人数を見る順序を保証するため。
+    /// </summary>
+    private void EnterRoom(Room room, ITransport transport)
+    {
+        room.Transport.Accept(transport);
+        transport.Disconnected += () => RemoveRoomIfEmpty(room.Keyword);
+        LastTouchedRoom = room;
+    }
+
+    private void RemoveRoomIfEmpty(string keyword)
+    {
+        if (!_rooms.TryGetValue(keyword, out var room) || room.Authority.ConnectedClientCount > 0)
+        {
+            return;
+        }
+        _rooms.Remove(keyword);
+        if (LastTouchedRoom == room)
+        {
+            LastTouchedRoom = null;
+        }
     }
 }
