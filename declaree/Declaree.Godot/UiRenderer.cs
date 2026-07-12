@@ -32,6 +32,10 @@ public static class UiRenderer
                 node.MinHeight ?? 0
             );
         }
+        if (node.FontSize is { } fontSize)
+        {
+            control.AddThemeFontSizeOverride("font_size", fontSize);
+        }
         return control;
     }
 
@@ -67,6 +71,85 @@ public static class UiRenderer
                 var eventId = button.OnClick;
                 gdButton.Pressed += () => dispatch(eventId);
                 return gdButton;
+            }
+            case CheckBox checkBox:
+            {
+                var gdCheckBox = new global::Godot.CheckBox
+                {
+                    Text = checkBox.Text,
+                    ButtonPressed = checkBox.Checked,
+                };
+                var eventId = checkBox.OnToggle;
+                // チェック状態は宣言が正。押下は通知のみ行い、ホストが状態を変えて再構築する
+                gdCheckBox.Pressed += () => dispatch(eventId);
+                return gdCheckBox;
+            }
+            case Slider slider:
+            {
+                var gdSlider = new global::Godot.HSlider
+                {
+                    MinValue = slider.Min,
+                    MaxValue = slider.Max,
+                    Step = slider.Step,
+                    Value = slider.Value,
+                };
+                var eventId = slider.OnChange;
+                // ドラッグ中の ValueChanged で dispatch すると全再構築(D-035)がスライダー自身を
+                // 破棄してドラッグが途切れるため、確定タイミング(ドラッグ終了・キー操作)のみ通知する
+                var dragging = false;
+                gdSlider.DragStarted += () => dragging = true;
+                gdSlider.DragEnded += changed =>
+                {
+                    dragging = false;
+                    if (changed)
+                    {
+                        dispatch(eventId);
+                    }
+                };
+                gdSlider.ValueChanged += _ =>
+                {
+                    if (!dragging)
+                    {
+                        dispatch(eventId);
+                    }
+                };
+                return gdSlider;
+            }
+            case Stack stack:
+            {
+                // 子を同じ領域に重ねる。コンテナではなく素の Control に全面アンカーで載せる
+                var container = new GdControl();
+                foreach (var child in stack.Children)
+                {
+                    var rendered = Render(child, dispatch);
+                    container.AddChild(rendered);
+                    rendered.SetAnchorsAndOffsetsPreset(GdControl.LayoutPreset.FullRect);
+                }
+                return container;
+            }
+            case Overlay overlay:
+            {
+                // 半透明の幕。MouseFilter.Stop が背面 UI へのマウス入力を遮断する
+                var veil = new global::Godot.ColorRect
+                {
+                    Color = new global::Godot.Color(0f, 0f, 0f, 0.5f),
+                    MouseFilter = GdControl.MouseFilterEnum.Stop,
+                };
+                var rendered = Render(overlay.Child, dispatch);
+                veil.AddChild(rendered);
+                rendered.SetAnchorsAndOffsetsPreset(GdControl.LayoutPreset.FullRect);
+                return veil;
+            }
+            case ReorderList reorderList:
+            {
+                var container = new ReorderListContainer();
+                foreach (var child in reorderList.Children)
+                {
+                    container.AddChild(Render(child, dispatch));
+                }
+                var eventId = reorderList.OnReorder;
+                container.Reordered += (from, to) => dispatch($"{eventId}:{from}:{to}");
+                return container;
             }
             case LineEdit lineEdit:
                 // 値の読み出しはリアクティブにせず、ホスト側が Name(D-038)で

@@ -36,6 +36,10 @@ public static class UiTree
         {
             props["explain"] = explain;
         }
+        if (node.FontSize is { } fontSize)
+        {
+            props["fontSize"] = fontSize.ToString(CultureInfo.InvariantCulture);
+        }
 
         return node switch
         {
@@ -58,8 +62,12 @@ public static class UiTree
                 AddLineEditProps(props, lineEdit),
                 NoChildren
             ),
-            CheckBox checkBox => new UiDescriptor("CheckBox", props, NoChildren),
-            Slider slider => new UiDescriptor("Slider", props, NoChildren),
+            CheckBox checkBox => new UiDescriptor(
+                "CheckBox",
+                AddCheckBoxProps(props, checkBox),
+                NoChildren
+            ),
+            Slider slider => new UiDescriptor("Slider", AddSliderProps(props, slider), NoChildren),
             Stack stack => new UiDescriptor("Stack", props, Describe(stack.Children, id)),
             Overlay overlay => new UiDescriptor(
                 "Overlay",
@@ -68,7 +76,7 @@ public static class UiTree
             ),
             ReorderList reorderList => new UiDescriptor(
                 "ReorderList",
-                props,
+                Add(props, "onReorder", reorderList.OnReorder),
                 Describe(reorderList.Children, id)
             ),
             _ => throw new ArgumentException(
@@ -147,6 +155,33 @@ public static class UiTree
     {
         props["text"] = lineEdit.Text;
         props["placeholder"] = lineEdit.PlaceholderText;
+        return props;
+    }
+
+    private static Dictionary<string, string> AddCheckBoxProps(
+        Dictionary<string, string> props,
+        CheckBox checkBox
+    )
+    {
+        props["text"] = checkBox.Text;
+        props["onToggle"] = checkBox.OnToggle;
+        if (checkBox.Checked)
+        {
+            props["checked"] = "true";
+        }
+        return props;
+    }
+
+    private static Dictionary<string, string> AddSliderProps(
+        Dictionary<string, string> props,
+        Slider slider
+    )
+    {
+        props["min"] = slider.Min.ToString(CultureInfo.InvariantCulture);
+        props["max"] = slider.Max.ToString(CultureInfo.InvariantCulture);
+        props["value"] = slider.Value.ToString(CultureInfo.InvariantCulture);
+        props["step"] = slider.Step.ToString(CultureInfo.InvariantCulture);
+        props["onChange"] = slider.OnChange;
         return props;
     }
 
