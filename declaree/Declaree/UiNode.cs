@@ -20,4 +20,7 @@ public abstract record UiNode
 
     /// <summary>人間向けの説明ヒント(D-032 の Explain)。描画には影響せず、記述子にのみ現れる。</summary>
     public string? Explain { get; init; }
+
+    /// <summary>フォントサイズ(px)。null なら Godot テーマの既定値。</summary>
+    public int? FontSize { get; init; }
 }

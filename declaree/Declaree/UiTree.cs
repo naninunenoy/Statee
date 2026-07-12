@@ -58,6 +58,19 @@ public static class UiTree
                 AddLineEditProps(props, lineEdit),
                 NoChildren
             ),
+            CheckBox checkBox => new UiDescriptor("CheckBox", props, NoChildren),
+            Slider slider => new UiDescriptor("Slider", props, NoChildren),
+            Stack stack => new UiDescriptor("Stack", props, Describe(stack.Children, id)),
+            Overlay overlay => new UiDescriptor(
+                "Overlay",
+                props,
+                [Describe(overlay.Child, id.Child(0))]
+            ),
+            ReorderList reorderList => new UiDescriptor(
+                "ReorderList",
+                props,
+                Describe(reorderList.Children, id)
+            ),
             _ => throw new ArgumentException(
                 $"未知のノード型: {node.GetType().Name}",
                 nameof(node)
