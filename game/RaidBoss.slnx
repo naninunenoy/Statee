@@ -4,9 +4,16 @@
       <BuildType Project="Debug" />
     </Project>
     <Project Path="RaidBoss.Logic/RaidBoss.Logic.csproj" />
+    <Project Path="RaidBoss.Server/RaidBoss.Server.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="../tests/RaidBoss.Logic.Tests/RaidBoss.Logic.Tests.csproj" />
+    <Project Path="../tests/RaidBoss.Server.Tests/RaidBoss.Server.Tests.csproj" />
+  </Folder>
+  <Folder Name="/syncee/">
+    <Project Path="../syncee/Syncee/Syncee.csproj" />
+    <Project Path="../syncee/Syncee.LiteNetLib/Syncee.LiteNetLib.csproj" />
+    <Project Path="../syncee/Syncee.Statee/Syncee.Statee.csproj" />
   </Folder>
   <Folder Name="/libs/">
     <Project Path="../libs/Statee.Godot/Statee.Godot.csproj" />
