@@ -26,7 +26,10 @@ docs/ARCHITECTURE.md「サンプルゲーム:RaidBoss」節に集約する。
       (19件全緑)
 - [x] **B-6** `RaidBoss.Server`(純C#。`RaidBossAuthority`が`TickBundleAuthority`で
       両クライアントの入力を確定・配布しつつ同じ`GameLogic`をヘッドレスで並走させる。4件全緑)
-- [ ] **B-7** `RaidBoss.Godot` のネットワークモード(入力遅延バッファ、確定バンドル適用)
+- [x] **B-7** `RaidBoss.Godot` のネットワークモード。`connect`コマンドで接続し、
+      以後の入力は確認応答を待たない単調増加Tick番号での先行送信+`TickReplicaLog`での
+      確定バンドル適用に切り替わる。実サーバ+2クライアントのheadless E2Eで
+      同一Tick確定後に両クライアントのStateが完全一致することを確認済み
 - [ ] **B-8** マルチインスタンス E2E(D-051 のシナリオ語彙を使用。2クライアント+サーバで
       決定論が保たれること、片方切断で残り側が不戦勝相当になることを確認)
 
