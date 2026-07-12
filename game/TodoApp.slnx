@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/game/">
+    <Project Path="TodoApp.Godot/TodoApp.Godot.csproj">
+      <BuildType Project="Debug" />
+    </Project>
+    <Project Path="TodoApp.Logic/TodoApp.Logic.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="../tests/TodoApp.Logic.Tests/TodoApp.Logic.Tests.csproj" />
+  </Folder>
+  <Folder Name="/libs/">
+    <Project Path="../libs/Statee.Godot/Statee.Godot.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="../src/Statee.Core/Statee.Core.csproj" />
+    <Project Path="../src/Statee.Generator/Statee.Generator.csproj" />
+    <Project Path="../src/Statee.Remote/Statee.Remote.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,22 @@
+<Project Sdk="Godot.NET.Sdk/4.7.0">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>TodoApp</RootNamespace>
+    <Nullable>enable</Nullable>
+    <!-- Godot は .godot/mono/temp/bin から実行するため、NuGet 依存 DLL を出力へコピーする必要がある -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ZLogger" Version="2.5.10" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TodoApp.Logic\TodoApp.Logic.csproj" />
+    <ProjectReference Include="..\..\libs\Statee.Godot\Statee.Godot.csproj" />
+    <ProjectReference Include="..\..\src\Statee.Core\Statee.Core.csproj" />
+    <ProjectReference
+      Include="..\..\src\Statee.Generator\Statee.Generator.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\src\Statee.Remote\Statee.Remote.csproj" />
+  </ItemGroup>
+</Project>
