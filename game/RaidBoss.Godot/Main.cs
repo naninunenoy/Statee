@@ -42,7 +42,9 @@ public partial class Main : Node2D
     private LiteNetLibClientTransport? _network;
     private TickReplicaLog? _replicaLog;
     private bool _networkMode;
+    private bool _connectedToServer;
     private int _nextSendTick;
+    private AcceptDialog? _errorDialog;
 
     // ロビーUI(D-056)。参加/部屋を立てるの選択→合言葉入力→待機、を画面上のボタンで操作できるようにする。
     // ゲームが始まる(_logic.Phase が Waiting でなくなる)と自動的に隠れる
@@ -284,6 +286,7 @@ public partial class Main : Node2D
         };
         _network.Connected += () =>
         {
+            _connectedToServer = true;
             _network!.Send(
                 SyncWire.Serialize(
                     new CommandRequest(command, new Dictionary<string, string> { ["room"] = room })
@@ -291,10 +294,54 @@ public partial class Main : Node2D
             );
             _logger.ZLogInformation($"{command}(room={room}) をサーバへ送信");
         };
+        _network.Disconnected += OnNetworkDisconnected;
         var host = CmdlineArgs.ParseString("--game-host=", DefaultGameHost);
         var port = CmdlineArgs.ParseInt("--game-port=", DefaultGamePort);
         _network.Connect(host, port);
         _logger.ZLogInformation($"RaidBoss.Server へ接続 host={host} port={port}");
+    }
+
+    /// <summary>
+    /// サーバとの切断(接続失敗を含む)を通知して、ロビーからやり直せる状態へ戻す。
+    /// LiteNetLib のイベントは _Process の PollEvents から届く(=メインスレッド)が、
+    /// トランスポート自身のイベント中に Dispose しないよう後始末は次フレームへ遅延する。
+    /// </summary>
+    private void OnNetworkDisconnected()
+    {
+        var message = _connectedToServer
+            ? "サーバから切断されました(合言葉が違う/同名の部屋が既にある可能性があります)"
+            : "サーバへ接続できませんでした。RaidBoss.Server が起動しているか確認してください";
+        _logger.ZLogWarning($"{message}");
+        ShowErrorDialog(message);
+        Callable.From(ResetNetwork).CallDeferred();
+    }
+
+    /// <summary>ネット対戦の状態を破棄してロビー操作をやり直せるようにする。</summary>
+    private void ResetNetwork()
+    {
+        _network?.Dispose();
+        _network = null;
+        _replicaLog = null;
+        _networkMode = false;
+        _connectedToServer = false;
+        _nextSendTick = 0;
+        // _Process は _networkMode 中しかラベルを触らないため、初期文言へ戻すのはここで行う
+        if (_lobbyStatusLabel is not null)
+        {
+            _lobbyStatusLabel.Text = "参加するか、部屋を立ててください";
+        }
+    }
+
+    /// <summary>エラーダイアログを表示する(初回に生成して使い回す)。</summary>
+    private void ShowErrorDialog(string message)
+    {
+        if (_errorDialog is null)
+        {
+            _errorDialog = new AcceptDialog { Name = "ErrorDialog", Title = "接続エラー" };
+            AddChild(_errorDialog);
+        }
+        _errorDialog.DialogText = message;
+        _errorDialog.PopupCentered();
     }
 
     /// <summary>部屋作成者が参加人数の確定・開始を要求する(ロビーで人数が揃ったあと)。</summary>
