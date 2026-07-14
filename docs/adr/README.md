@@ -71,6 +71,7 @@
 | [D-058](D-058.md) | RaidBossをシューティング演出化(弾の発射・着弾を決定論ロジックに追加) |
 | [D-059](D-059.md) | RaidBossをリアルタイム化(自動Tick+レーン移動+予告付きボス攻撃) |
 | [D-060](D-060.md) | Declaree にフォーム系ノードを追加(CheckBox/Slider/Stack/Overlay/ReorderList/FontSize) |
+| [D-061](D-061.md) | Declaree に差分適用(Reconcile)を導入、Slider はドラッグ中もライブ通知 |
 
 ## notes(書き捨てメモ)
 
