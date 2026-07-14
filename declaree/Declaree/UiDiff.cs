@@ -12,5 +12,21 @@ public static class UiDiff
     /// 描画済み Control を破棄せずに <paramref name="next"/> の内容へ更新できるか。
     /// 型・Name・イベント ID(クロージャに固定されるもの)がすべて一致するときだけ true。
     /// </summary>
-    public static bool CanPatch(UiNode current, UiNode next) => false;
+    public static bool CanPatch(UiNode current, UiNode next) =>
+        current.GetType() == next.GetType()
+        && current.Name == next.Name
+        && SameEventIds(current, next);
+
+    /// <summary>
+    /// イベント ID は Render 時にクロージャへ固定されるため、変わったらパッチでは追従できない。
+    /// </summary>
+    private static bool SameEventIds(UiNode current, UiNode next) =>
+        (current, next) switch
+        {
+            (Button a, Button b) => a.OnClick == b.OnClick,
+            (CheckBox a, CheckBox b) => a.OnToggle == b.OnToggle,
+            (Slider a, Slider b) => a.OnChange == b.OnChange,
+            (ReorderList a, ReorderList b) => a.OnReorder == b.OnReorder,
+            _ => true,
+        };
 }
