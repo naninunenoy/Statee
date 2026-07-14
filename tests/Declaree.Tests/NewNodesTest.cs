@@ -85,6 +85,30 @@ public class NewNodesTest
     }
 
     [Fact]
+    public void Describe_ドラッグ中のReorderList_draggingIndexとdropIndexが変換される()
+    {
+        var descriptor = UiTree.Describe(
+            new ReorderList("Reorder", new Label("a"), new Label("b"))
+            {
+                DraggingIndex = 0,
+                DropIndex = 1,
+            }
+        );
+
+        descriptor.Props["draggingIndex"].ShouldBe("0");
+        descriptor.Props["dropIndex"].ShouldBe("1");
+    }
+
+    [Fact]
+    public void Describe_ドラッグしていないReorderList_draggingIndexとdropIndexは現れない()
+    {
+        var descriptor = UiTree.Describe(new ReorderList("Reorder", new Label("a")));
+
+        descriptor.Props.ShouldNotContainKey("draggingIndex");
+        descriptor.Props.ShouldNotContainKey("dropIndex");
+    }
+
+    [Fact]
     public void Describe_FontSize付きノード_fontSizeが変換される()
     {
         var descriptor = UiTree.Describe(new Label("big") { FontSize = 24 });
