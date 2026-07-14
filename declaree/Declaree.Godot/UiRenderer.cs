@@ -136,7 +136,10 @@ public static class UiRenderer
                     container.AddChild(Render(child, dispatch));
                 }
                 var eventId = reorderList.OnReorder;
-                container.Reordered += (from, to) => dispatch($"{eventId}:{from}:{to}");
+                container.DragUpdated += (from, to) => dispatch($"{eventId}:update:{from}:{to}");
+                container.Reordered += (from, to) => dispatch($"{eventId}:commit:{from}:{to}");
+                container.DragCanceled += () => dispatch($"{eventId}:cancel");
+                ApplyDragVisuals(container, reorderList);
                 return container;
             }
             case LineEdit lineEdit:
@@ -261,12 +264,36 @@ public static class UiRenderer
                     gdSlider.SetValueNoSignal(slider.Value);
                 }
                 break;
+            case ReorderList reorderList:
+                ApplyDragVisuals((ReorderListContainer)control, reorderList);
+                break;
             case Margin margin when ((Margin)previous).All != margin.All:
                 control.AddThemeConstantOverride("margin_left", margin.All);
                 control.AddThemeConstantOverride("margin_top", margin.All);
                 control.AddThemeConstantOverride("margin_right", margin.All);
                 control.AddThemeConstantOverride("margin_bottom", margin.All);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// ドラッグ状態の宣言(D-062)を行の見た目へ反映する。移動中の行は半透明、
+    /// ドロップ先の行は緑がかったハイライト。宣言がなければ全行を通常表示へ戻す。
+    /// </summary>
+    private static void ApplyDragVisuals(ReorderListContainer container, ReorderList reorderList)
+    {
+        for (var i = 0; i < container.GetChildCount(); i++)
+        {
+            if (container.GetChild(i) is not GdControl child)
+            {
+                continue;
+            }
+            child.Modulate = i switch
+            {
+                _ when i == reorderList.DraggingIndex => new global::Godot.Color(1f, 1f, 1f, 0.4f),
+                _ when i == reorderList.DropIndex => new global::Godot.Color(0.6f, 1f, 0.6f),
+                _ => global::Godot.Colors.White,
+            };
         }
     }
 

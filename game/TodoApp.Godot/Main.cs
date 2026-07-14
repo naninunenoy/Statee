@@ -38,7 +38,7 @@ public partial class Main : Node2D
     private const string EvConfirmDelete = "ConfirmDelete";
     private const string EvCancelDelete = "CancelDelete";
     private const string EvFilter = "Filter"; // Filter:<All|Active|Completed>
-    private const string EvReorder = "Reorder"; // Reorder:<from>:<to>(ReorderList が付与)
+    private const string EvReorder = "Reorder"; // Reorder:update|commit:<from>:<to> / Reorder:cancel
     private const string EvFontSize = "FontSizeChanged";
 
     private readonly MainThreadDispatcher _dispatcher = new();
@@ -47,6 +47,10 @@ public partial class Main : Node2D
     private readonly GameState _state = new();
 
     private KeyBinding[] _keyBindings = [];
+
+    // ドラッグ並び替えの進行状態(VisibleItems のインデックス)。UI の一時状態なので
+    // ロジックには置かず、宣言(ReorderList.DraggingIndex/DropIndex)の源とする(D-062)
+    private (int From, int To)? _drag;
     private CanvasLayer _uiLayer = null!;
     private UiNode _uiTree = null!;
     private Control? _uiRoot;
@@ -104,7 +108,7 @@ public partial class Main : Node2D
     /// 状態から UI ツリーを導出する純関数(D-035)。文字サイズはロジックの FontSize を
     /// 全テキスト要素へ適用する(スライダー1つで全体が変わる。D-060)。
     /// </summary>
-    private static UiNode BuildUi(TodoLogic logic)
+    private static UiNode BuildUi(TodoLogic logic, (int From, int To)? drag)
     {
         var fs = logic.FontSize;
         var main = new Margin(
@@ -138,7 +142,10 @@ public partial class Main : Node2D
                 )
                 {
                     Name = "TaskList",
-                    Explain = "タスク一覧。行をドラッグで並び替えできる",
+                    Explain =
+                        "タスク一覧。行をドラッグで並び替えできる(移動中は半透明・ドロップ先はハイライト)",
+                    DraggingIndex = drag?.From,
+                    DropIndex = drag?.To,
                 },
                 new HBox(
                     new Label("文字サイズ") { Name = "FontSizeLabel", FontSize = fs },
@@ -303,10 +310,29 @@ public partial class Main : Node2D
                 SetFilter(Enum.Parse<TodoFilter>(parts[1]));
                 break;
             case EvReorder:
-                ReorderVisible(
-                    int.Parse(parts[1], CultureInfo.InvariantCulture),
-                    int.Parse(parts[2], CultureInfo.InvariantCulture)
-                );
+                switch (parts[1])
+                {
+                    case "update":
+                        _drag = (
+                            int.Parse(parts[2], CultureInfo.InvariantCulture),
+                            int.Parse(parts[3], CultureInfo.InvariantCulture)
+                        );
+                        RefreshView();
+                        break;
+                    case "commit":
+                        _drag = null;
+                        ReorderVisible(
+                            int.Parse(parts[2], CultureInfo.InvariantCulture),
+                            int.Parse(parts[3], CultureInfo.InvariantCulture)
+                        );
+                        RefreshView();
+                        break;
+                    case "cancel":
+                        _drag = null;
+                        _logger.ZLogInformation($"並び替えをキャンセル");
+                        RefreshView();
+                        break;
+                }
                 break;
             case EvFontSize:
                 // 値はイベントに載らないので、破棄前のスライダーから直接読む(D-060)
@@ -409,7 +435,7 @@ public partial class Main : Node2D
     private void RefreshView()
     {
         _state.Update(_logic);
-        var next = BuildUi(_logic);
+        var next = BuildUi(_logic, _drag);
         if (_uiRoot is null)
         {
             _uiRoot = UiRenderer.Render(next, Dispatch);
