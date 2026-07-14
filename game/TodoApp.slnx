@@ -8,6 +8,11 @@
   <Folder Name="/tests/">
     <Project Path="../tests/TodoApp.Logic.Tests/TodoApp.Logic.Tests.csproj" />
   </Folder>
+  <Folder Name="/declaree/">
+    <Project Path="../declaree/Declaree/Declaree.csproj" />
+    <Project Path="../declaree/Declaree.Godot/Declaree.Godot.csproj" />
+    <Project Path="../declaree/Declaree.Statee/Declaree.Statee.csproj" />
+  </Folder>
   <Folder Name="/libs/">
     <Project Path="../libs/Statee.Godot/Statee.Godot.csproj" />
   </Folder>
