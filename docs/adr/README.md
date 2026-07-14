@@ -70,6 +70,7 @@
 | [D-057](D-057.md) | マッチング待機は1人でも開始可能。HP0は一時的な操作不能(全滅でDefeat) |
 | [D-058](D-058.md) | RaidBossをシューティング演出化(弾の発射・着弾を決定論ロジックに追加) |
 | [D-059](D-059.md) | RaidBossをリアルタイム化(自動Tick+レーン移動+予告付きボス攻撃) |
+| [D-060](D-060.md) | Declaree にフォーム系ノードを追加(CheckBox/Slider/Stack/Overlay/ReorderList/FontSize) |
 
 ## notes(書き捨てメモ)
 
