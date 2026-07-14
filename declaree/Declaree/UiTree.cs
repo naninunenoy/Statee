@@ -76,7 +76,7 @@ public static class UiTree
             ),
             ReorderList reorderList => new UiDescriptor(
                 "ReorderList",
-                Add(props, "onReorder", reorderList.OnReorder),
+                AddReorderListProps(props, reorderList),
                 Describe(reorderList.Children, id)
             ),
             _ => throw new ArgumentException(
@@ -182,6 +182,23 @@ public static class UiTree
         props["value"] = slider.Value.ToString(CultureInfo.InvariantCulture);
         props["step"] = slider.Step.ToString(CultureInfo.InvariantCulture);
         props["onChange"] = slider.OnChange;
+        return props;
+    }
+
+    private static Dictionary<string, string> AddReorderListProps(
+        Dictionary<string, string> props,
+        ReorderList reorderList
+    )
+    {
+        props["onReorder"] = reorderList.OnReorder;
+        if (reorderList.DraggingIndex is { } dragging)
+        {
+            props["draggingIndex"] = dragging.ToString(CultureInfo.InvariantCulture);
+        }
+        if (reorderList.DropIndex is { } drop)
+        {
+            props["dropIndex"] = drop.ToString(CultureInfo.InvariantCulture);
+        }
         return props;
     }
 
