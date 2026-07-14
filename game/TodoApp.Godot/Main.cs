@@ -402,16 +402,26 @@ public partial class Main : Node2D
         }
     }
 
-    /// <summary>状態変更後に State・UI へ反映する。UI は全破棄・全再構築(D-035)。</summary>
+    /// <summary>
+    /// 状態変更後に State・UI へ反映する。初回は全構築、以降は差分適用(D-061)。
+    /// Slider のドラッグや LineEdit の入力中テキストが更新をまたいで生き残る。
+    /// </summary>
     private void RefreshView()
     {
         _state.Update(_logic);
-        _uiTree = BuildUi(_logic);
-        _uiRoot?.QueueFree();
-        _uiRoot = UiRenderer.Render(_uiTree, Dispatch);
-        _uiLayer.AddChild(_uiRoot);
-        // アンカーはツリーに入って親サイズが確定してから設定する
-        _uiRoot.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        var next = BuildUi(_logic);
+        if (_uiRoot is null)
+        {
+            _uiRoot = UiRenderer.Render(next, Dispatch);
+            _uiLayer.AddChild(_uiRoot);
+            // アンカーはツリーに入って親サイズが確定してから設定する
+            _uiRoot.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        }
+        else
+        {
+            _uiRoot = UiRenderer.Reconcile(_uiRoot, _uiTree, next, Dispatch);
+        }
+        _uiTree = next;
         _uiSnapshot = UiTree.Describe(_uiTree);
     }
 
@@ -546,11 +556,64 @@ public partial class Main : Node2D
             {
                 // name 指定なら ui/tree の Rect から中心を導出する(D-038)。
                 // 実際の入力経路(PushInput)を通るため、モーダルに隠れた UI には正しく「効かない」
-                var position = args.GetString("name") is { } name
-                    ? CenterOf(name)
-                    : new Vector2(args.GetInt("x", 0), args.GetInt("y", 0));
+                var position = PositionOf(args);
                 PushClick(position);
                 _logger.ZLogInformation($"click x={position.X} y={position.Y}");
+                return new { X = position.X, Y = position.Y };
+            }
+        );
+        host.RegisterMainThreadCommand(
+            "press",
+            args =>
+            {
+                // 押下だけを注入する(release まで含む click と違い、ドラッグ中の状態を観測できる)
+                var position = PositionOf(args);
+                var viewport = GetViewport();
+                viewport.PushInput(
+                    new InputEventMouseMotion { Position = position, GlobalPosition = position }
+                );
+                viewport.PushInput(
+                    new InputEventMouseButton
+                    {
+                        Position = position,
+                        GlobalPosition = position,
+                        ButtonIndex = MouseButton.Left,
+                        Pressed = true,
+                    }
+                );
+                _logger.ZLogInformation($"press x={position.X} y={position.Y}");
+                return new { X = position.X, Y = position.Y };
+            }
+        );
+        host.RegisterMainThreadCommand(
+            "move",
+            args =>
+            {
+                var position = PositionOf(args);
+                GetViewport()
+                    .PushInput(
+                        new InputEventMouseMotion { Position = position, GlobalPosition = position }
+                    );
+                _logger.ZLogInformation($"move x={position.X} y={position.Y}");
+                return new { X = position.X, Y = position.Y };
+            }
+        );
+        host.RegisterMainThreadCommand(
+            "release",
+            args =>
+            {
+                var position = PositionOf(args);
+                GetViewport()
+                    .PushInput(
+                        new InputEventMouseButton
+                        {
+                            Position = position,
+                            GlobalPosition = position,
+                            ButtonIndex = MouseButton.Left,
+                            Pressed = false,
+                        }
+                    );
+                _logger.ZLogInformation($"release x={position.X} y={position.Y}");
                 return new { X = position.X, Y = position.Y };
             }
         );
@@ -582,6 +645,12 @@ public partial class Main : Node2D
         _server.Start();
         _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
     }
+
+    /// <summary>コマンド引数から座標を得る(name 指定なら要素中心、なければ x/y)。</summary>
+    private Vector2 PositionOf(CommandArgs args) =>
+        args.GetString("name") is { } name
+            ? CenterOf(name)
+            : new Vector2(args.GetInt("x", 0), args.GetInt("y", 0));
 
     /// <summary>ui/tree のスナップショットから name の要素を探し、Rect の中心を返す。</summary>
     private Vector2 CenterOf(string name)
