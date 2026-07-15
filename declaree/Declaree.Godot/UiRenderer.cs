@@ -189,6 +189,24 @@ public static class UiRenderer
         Action<string> dispatch
     )
     {
+        var focusedName = FocusedNameWithin(current);
+        var result = ReconcileCore(current, previous, next, dispatch);
+        // 行の並び替え等でフォーカス中の Control が別サブツリーへ再構築された場合、
+        // ツリー全体から同名を探して復元する(Rebuild 内の復元はサブツリー内しか見えない)
+        if (result.GetViewport()?.GuiGetFocusOwner() is null)
+        {
+            RestoreFocus(result, focusedName);
+        }
+        return result;
+    }
+
+    private static GdControl ReconcileCore(
+        GdControl current,
+        UiNode previous,
+        UiNode next,
+        Action<string> dispatch
+    )
+    {
         var prevChildren = ChildrenOf(previous);
         var nextChildren = ChildrenOf(next);
         if (!UiDiff.CanPatch(previous, next) || prevChildren.Count != nextChildren.Count)
@@ -198,7 +216,12 @@ public static class UiRenderer
         Patch(current, previous, next);
         for (var i = 0; i < nextChildren.Count; i++)
         {
-            Reconcile(current.GetChild<GdControl>(i), prevChildren[i], nextChildren[i], dispatch);
+            ReconcileCore(
+                current.GetChild<GdControl>(i),
+                prevChildren[i],
+                nextChildren[i],
+                dispatch
+            );
         }
         return current;
     }
