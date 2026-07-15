@@ -75,6 +75,10 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
 - headless では project.godot のウィンドウサイズが反映されない。必要なら実行時に
   `GetWindow().Size` で設定する
 - `screenshot` コマンドの保存先は絶対パスで渡す(headless では撮影不可)
+- **本番ビルド(ExportRelease)には TCP 待ち受けを含めない**(D-065)。
+  `StateeTcpServer` の起動・停止は `Main.StateeServer.cs`(partial + partial method)に隔離し、
+  csproj で `ExportRelease` のとき `Compile Remove` + `Statee.Remote` 参照を条件付きにする。
+  本番出力に `Statee.Remote.dll` が無いことが確認手段
 
 ## 5. 動作確認の回し方
 

@@ -8,7 +8,6 @@ using Godot;
 using Microsoft.Extensions.Logging;
 using Statee.Core;
 using Statee.Godot;
-using Statee.Remote;
 using TodoApp.Logic;
 using ZLogger;
 using Button = Declaree.Button;
@@ -55,7 +54,6 @@ public partial class Main : Node2D
     private UiNode _uiTree = null!;
     private Control? _uiRoot;
     private volatile UiDescriptor _uiSnapshot = null!;
-    private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
 
@@ -100,7 +98,7 @@ public partial class Main : Node2D
 
     public override void _ExitTree()
     {
-        _server?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
+        StopStateeServer();
         _loggerFactory?.Dispose();
     }
 
@@ -670,10 +668,14 @@ public partial class Main : Node2D
                 };
             }
         );
-        _server = new StateeTcpServer(host, CmdlineArgs.ParseInt("--port=", DefaultPort));
-        _server.Start();
-        _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
+        StartStateeServer(host);
     }
+
+    // TCP 待ち受け(外部 CLI/MCP の入口)は Main.StateeServer.cs に隔離している。
+    // ExportRelease ではファイルごとビルドから除外され、この呼び出しは丸ごと消える(D-065)
+    partial void StartStateeServer(StateeHost host);
+
+    partial void StopStateeServer();
 
     /// <summary>コマンド引数から座標を得る(name 指定なら要素中心、なければ x/y)。</summary>
     private Vector2 PositionOf(CommandArgs args) =>

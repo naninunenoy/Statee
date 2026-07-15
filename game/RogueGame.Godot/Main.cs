@@ -7,7 +7,6 @@ using Microsoft.Extensions.Logging;
 using RogueGame.Logic;
 using Statee.Core;
 using Statee.Godot;
-using Statee.Remote;
 using ZLogger;
 
 namespace RogueGame;
@@ -38,7 +37,6 @@ public partial class Main : Node2D
     private RogueLogic _logic = null!;
     private HashSet<GridPos> _visible = [];
     private FontVariation _font = null!;
-    private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
 
@@ -112,7 +110,7 @@ public partial class Main : Node2D
 
     public override void _ExitTree()
     {
-        _server?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
+        StopStateeServer();
         _loggerFactory?.Dispose();
     }
 
@@ -345,10 +343,14 @@ public partial class Main : Node2D
                 return ActionResult();
             }
         );
-        _server = new StateeTcpServer(host, CmdlineArgs.ParseInt("--port=", DefaultPort));
-        _server.Start();
-        _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
+        StartStateeServer(host);
     }
+
+    // TCP 待ち受け(外部 CLI/MCP の入口)は Main.StateeServer.cs に隔離している。
+    // ExportRelease ではファイルごとビルドから除外され、この呼び出しは丸ごと消える(D-065)
+    partial void StartStateeServer(StateeHost host);
+
+    partial void StopStateeServer();
 
     /// <summary>アクション系コマンドの応答。1ターン後の要点を返す。</summary>
     private object ActionResult() =>
