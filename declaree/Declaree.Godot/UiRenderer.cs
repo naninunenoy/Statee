@@ -39,6 +39,11 @@ public static class UiRenderer
         {
             control.AddThemeFontSizeOverride("font_size", fontSize);
         }
+        if (node.AutoFocus)
+        {
+            // 生成直後はツリー外で GrabFocus できないため、ツリー投入後に一度だけ掴む
+            control.Ready += control.GrabFocus;
+        }
         return control;
     }
 
@@ -107,11 +112,27 @@ public static class UiRenderer
             {
                 // 子を同じ領域に重ねる。コンテナではなく素の Control に全面アンカーで載せる
                 var container = new GdControl();
-                foreach (var child in stack.Children)
+                var rendered = new GdControl[stack.Children.Length];
+                for (var i = 0; i < stack.Children.Length; i++)
                 {
-                    var rendered = Render(child, dispatch);
-                    container.AddChild(rendered);
-                    rendered.SetAnchorsAndOffsetsPreset(GdControl.LayoutPreset.FullRect);
+                    rendered[i] = Render(stack.Children[i], dispatch);
+                    container.AddChild(rendered[i]);
+                    rendered[i].SetAnchorsAndOffsetsPreset(GdControl.LayoutPreset.FullRect);
+                }
+                // Overlay(モーダル)より背面の子はフォーカスも遮断する
+                // (マウスは veil の MouseFilter.Stop、キーボードはここが担当。D-063)
+                for (var i = 0; i < stack.Children.Length; i++)
+                {
+                    if (stack.Children[i] is not Overlay)
+                    {
+                        continue;
+                    }
+                    for (var j = 0; j < i; j++)
+                    {
+                        rendered[j].FocusBehaviorRecursive = GdControl
+                            .FocusBehaviorRecursiveEnum
+                            .Disabled;
+                    }
                 }
                 return container;
             }
@@ -187,6 +208,7 @@ public static class UiRenderer
     {
         var parent = current.GetParent();
         var index = current.GetIndex();
+        var focusedName = FocusedNameWithin(current);
         var rebuilt = Render(next, dispatch);
         // Stack/Overlay 直下の全面アンカー等、親が Render 時に設定したレイアウトを保つ
         rebuilt.AnchorLeft = current.AnchorLeft;
@@ -201,7 +223,50 @@ public static class UiRenderer
         current.QueueFree();
         parent.AddChild(rebuilt);
         parent.MoveChild(rebuilt, index);
+        RestoreFocus(rebuilt, focusedName);
         return rebuilt;
+    }
+
+    /// <summary>root のサブツリー内にフォーカスがあれば、その Control の Name。なければ null。</summary>
+    private static string? FocusedNameWithin(GdControl root)
+    {
+        if (!root.IsInsideTree())
+        {
+            return null;
+        }
+        var focused = root.GetViewport().GuiGetFocusOwner();
+        if (focused is null)
+        {
+            return null;
+        }
+        return focused == root || root.IsAncestorOf(focused) ? focused.Name : null;
+    }
+
+    /// <summary>
+    /// Rebuild で破棄されたフォーカスを、再構築後のサブツリー内の同名 Control へ戻す(D-063)。
+    /// 同名が見つからなければ(行削除等)フォーカスは失われたままにする。
+    /// </summary>
+    private static void RestoreFocus(GdControl rebuilt, string? focusedName)
+    {
+        if (focusedName is null)
+        {
+            return;
+        }
+        // AutoFocus 等で再構築後のサブツリー内に既にフォーカスが確定していれば奪わない
+        var owner = rebuilt.GetViewport().GuiGetFocusOwner();
+        if (owner is not null && (owner == rebuilt || rebuilt.IsAncestorOf(owner)))
+        {
+            return;
+        }
+        if (rebuilt.Name == focusedName)
+        {
+            rebuilt.GrabFocus();
+            return;
+        }
+        if (rebuilt.FindChild(focusedName, recursive: true, owned: false) is GdControl target)
+        {
+            target.GrabFocus();
+        }
     }
 
     /// <summary>型・Name・イベント ID が一致するノードのプロパティ差分を Control へ反映する。</summary>

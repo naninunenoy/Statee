@@ -13,6 +13,34 @@ namespace Statee.Godot;
 /// </summary>
 public static class StandardCommands
 {
+    /// <summary>"ctrl+space" 形式のキー指定を分解する。修飾子は ctrl / shift / alt。</summary>
+    private static (Key Key, bool Ctrl, bool Shift, bool Alt) ParseKey(string name)
+    {
+        var parts = name.Split('+', StringSplitOptions.TrimEntries);
+        var key = Enum.Parse<Key>(parts[^1], ignoreCase: true);
+        var ctrl = false;
+        var shift = false;
+        var alt = false;
+        foreach (var modifier in parts[..^1])
+        {
+            switch (modifier.ToLowerInvariant())
+            {
+                case "ctrl":
+                    ctrl = true;
+                    break;
+                case "shift":
+                    shift = true;
+                    break;
+                case "alt":
+                    alt = true;
+                    break;
+                default:
+                    throw new InvalidOperationException($"未知の修飾キー: {modifier}");
+            }
+        }
+        return (key, ctrl, shift, alt);
+    }
+
     public static void Register(StateeHost host, Node node, ILogger logger)
     {
         host.RegisterCommand(
@@ -31,13 +59,33 @@ public static class StandardCommands
             {
                 var name =
                     args.GetString("key")
-                    ?? throw new InvalidOperationException("key を指定すること(例: space)");
-                var key = Enum.Parse<Key>(name, ignoreCase: true);
+                    ?? throw new InvalidOperationException(
+                        "key を指定すること(例: space, ctrl+space)"
+                    );
+                var (key, ctrl, shift, alt) = ParseKey(name);
                 var viewport = node.GetViewport();
-                viewport.PushInput(new InputEventKey { Keycode = key, Pressed = true });
-                viewport.PushInput(new InputEventKey { Keycode = key, Pressed = false });
-                logger.ZLogInformation($"key {key}");
-                return new { Key = key.ToString() };
+                viewport.PushInput(
+                    new InputEventKey
+                    {
+                        Keycode = key,
+                        CtrlPressed = ctrl,
+                        ShiftPressed = shift,
+                        AltPressed = alt,
+                        Pressed = true,
+                    }
+                );
+                viewport.PushInput(
+                    new InputEventKey
+                    {
+                        Keycode = key,
+                        CtrlPressed = ctrl,
+                        ShiftPressed = shift,
+                        AltPressed = alt,
+                        Pressed = false,
+                    }
+                );
+                logger.ZLogInformation($"key {name}");
+                return new { Key = name };
             }
         );
         host.RegisterMainThreadCommand(

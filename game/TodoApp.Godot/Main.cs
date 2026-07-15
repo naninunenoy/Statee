@@ -119,6 +119,7 @@ public partial class Main : Node2D
                     new LineEdit("")
                     {
                         Name = "NewTaskInput",
+                        AutoFocus = true,
                         PlaceholderText = "新しいタスク",
                         MinWidth = 400,
                         FontSize = fs,
@@ -189,6 +190,8 @@ public partial class Main : Node2D
                         new Button("やめる", OnClick: EvCancelDelete)
                         {
                             Name = "CancelDeleteButton",
+                            // 誤操作で消さないよう、開いた直後は「やめる」にフォーカスを置く
+                            AutoFocus = true,
                             FontSize = fs,
                             Explain = "削除せずダイアログを閉じるボタン",
                         }

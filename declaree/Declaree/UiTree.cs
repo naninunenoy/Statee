@@ -40,6 +40,10 @@ public static class UiTree
         {
             props["fontSize"] = fontSize.ToString(CultureInfo.InvariantCulture);
         }
+        if (node.AutoFocus)
+        {
+            props["autoFocus"] = "true";
+        }
 
         return node switch
         {
