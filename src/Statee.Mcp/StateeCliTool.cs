@@ -26,13 +26,20 @@ public static class StateeCliTool
             return "error: 環境変数 STATEE_CLI に Statee.Cli 実行ファイルのパスを設定してください";
         }
 
-        // 相対パス指定(カレントディレクトリ基準)を許容するため絶対化する
-        var startInfo = new ProcessStartInfo(Path.GetFullPath(cliPath))
+        // 相対パス指定(カレントディレクトリ基準)を許容するため絶対化する。
+        // .dll 指定なら dotnet 経由で起動する(OS 依存の apphost 拡張子差を吸収: D-066)
+        var fullPath = Path.GetFullPath(cliPath);
+        var isDll = fullPath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
+        var startInfo = new ProcessStartInfo(isDll ? "dotnet" : fullPath)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+        if (isDll)
+        {
+            startInfo.ArgumentList.Add(fullPath);
+        }
         foreach (var arg in args)
         {
             startInfo.ArgumentList.Add(arg);

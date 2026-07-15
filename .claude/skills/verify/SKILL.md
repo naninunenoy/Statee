@@ -13,8 +13,8 @@ description: >-
 
 ## 0. 前提
 
-- Godot は **.NET 版**の絶対パスを使う(標準版は C# を実行できない)。
-  パスは CLAUDE.md「環境の知識」に記載のもの(`*_console.exe`)を使う
+- Godot は **.NET 版**を使う(標準版は C# を実行できない)。
+  パスは環境変数 `GODOT_BIN` に設定されている(D-066)。未設定ならユーザーに設定を依頼する
 - ターゲットは引数(`--path <dir>`)または依頼の文脈から決める。
   指定が無ければ確認対象に応じて選ぶ:
   - `sandbox/PingTarget.Godot` … フレームワーク(`src/`)の疎通・プロトコル確認用の最小ターゲット
@@ -34,8 +34,10 @@ dotnet build <ターゲットのディレクトリ>   # 例: dotnet build game/S
 ## 2. ターゲット起動(バックグラウンド)
 
 ```powershell
-& "<godot_console.exe>" --headless --path <ターゲットのディレクトリ> -- --port=9310 --seed=12345
+& $env:GODOT_BIN --headless --path <ターゲットのディレクトリ> -- --port=9310 --seed=12345
 ```
+
+(sh の場合は `"$GODOT_BIN" --headless ...`)
 
 - **バックグラウンドで起動**する(フォアグラウンドだと待ち受けたまま返ってこない)
 - `--seed=` で乱数シードを注入すると決定論的に観測できる(対応しているターゲットのみ)

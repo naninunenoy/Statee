@@ -25,10 +25,10 @@ model: haiku
 ## ターゲットの起動(PingTarget の場合)
 
 ```
-& "<godot_console.exe>" --headless --path sandbox/PingTarget.Godot -- --port=9310
+& $env:GODOT_BIN --headless --path sandbox/PingTarget.Godot -- --port=9310
 ```
 
-- `<godot_console.exe>` は CLAUDE.md「環境の知識」に記載の Godot .NET 版のパス
+- Godot .NET 版のパスは環境変数 `GODOT_BIN` に設定されている(sh では `"$GODOT_BIN"`)
 
 - バックグラウンドで起動し、接続拒否されたら待ち受け開始前なので少し待って再試行する
 - 事前ビルドが必要なら `dotnet build sandbox/PingTarget.Godot`
