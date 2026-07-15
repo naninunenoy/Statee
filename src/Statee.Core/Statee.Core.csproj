@@ -4,6 +4,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>Statee.Core</PackageId>
+    <Description>ゲームエンジン非依存の Statee コア。State/Command/Log の境界を定義し、AI Agent からの動作確認を可能にする。</Description>
   </PropertyGroup>
 
   <ItemGroup>

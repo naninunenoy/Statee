@@ -5,6 +5,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>Statee.Mcp</PackageId>
+    <Description>Statee の MCP サーバー(dotnet tool)。statee_cli ツールを AI Agent に公開する。</Description>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>statee-mcp</ToolCommandName>
   </PropertyGroup>
 
   <ItemGroup>

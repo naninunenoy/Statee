@@ -8,6 +8,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>Statee.Remote</PackageId>
+    <Description>Statee のトランスポート層。localhost 限定の TCP で 1 行 JSON のワイヤプロトコルを提供する。</Description>
   </PropertyGroup>
 
 </Project>
