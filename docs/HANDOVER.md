@@ -26,11 +26,13 @@ Statee を使ってゲームを作る側(フレームワークを触らない人
 2. **Godot 4.7.stable の .NET 版**を [godotengine.org のダウンロード](https://godotengine.org/download)から入手する。
    - 必ず「**.NET**」版(zip 名に `mono` を含む。例: `Godot_v4.7-stable_mono_win64.zip`)。
      標準版は C# を実行できない
-   - 任意の場所に展開し、`*_console.exe` の絶対パスを **CLAUDE.md「環境の知識」に書き換える**
-     (skill・エージェントはそこを参照している)
+   - 任意の場所に展開し、実行ファイルの絶対パスを**環境変数 `GODOT_BIN`** に設定する(D-066)。
+     Windows は `*_console.exe`、macOS は `Godot_mono.app/Contents/MacOS/Godot`。
+     skill・エージェント・tools のスクリプトは `GODOT_BIN` を参照する
 3. リポジトリ直下で `dotnet tool restore`(CSharpier などのローカルツール)
 4. 動作確認: `dotnet test tests/Statee.Core.Tests` が緑になること
-   (全体は `tools/build-all.ps1`。ソリューションはフレームワークとゲームで分割: D-046)。
+   (全体は `tools/build-all.ps1`、macOS / Linux は `tools/build-all.sh`。
+   ソリューションはフレームワークとゲームで分割: D-046)。
    headless E2E まで確認するなら `/verify` skill の手順(初回は `--import` が必要。
    完了後にクラッシュするが exit code は無視してよい: D-016)
 5. MCP を使うなら `dotnet build src/Statee.Mcp` 後にセッションを再起動する
@@ -113,7 +115,7 @@ AI の動作確認は再現できなければ意味がない。だから:
 
 ## ハマりどころ(先人が全部踏んだ)
 
-- **Godot は .NET 版バイナリ必須**。標準版では C# が動かない。パスは CLAUDE.md 参照
+- **Godot は .NET 版バイナリ必須**。標準版では C# が動かない。パスは環境変数 `GODOT_BIN`(D-066)
 - **初回の `--headless --import` は完了後にクラッシュする**(exit 0xC0000005)。
   インポートは成功しているので exit code を無視してよい(D-016)
 - **MCP サーバー実行中は `Statee.Mcp` がビルドできない**(exe ロック)。
