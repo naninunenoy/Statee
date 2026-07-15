@@ -4,13 +4,14 @@
 # 使い方: pwsh tools/run-reversi-network.ps1 [-GodotExe <path>]
 # 終了は各ポートへ `quit` コマンドを送る(dotnet run --project src/Statee.Cli -- send --command quit --port <N>)。
 param(
-    [string]$GodotExe = "C:\Users\naninunenoy\Downloads\Godot_v4.7-stable_mono_win64\Godot_v4.7-stable_mono_win64\Godot_v4.7-stable_mono_win64_console.exe",
+    [string]$GodotExe = $env:GODOT_BIN,
     [int]$ServerPort = 9310,
     [int]$GamePort = 9410,
     [int]$Client1Port = 9311,
     [int]$Client2Port = 9312
 )
 $ErrorActionPreference = "Stop"
+if (-not $GodotExe) { throw "環境変数 GODOT_BIN(または -GodotExe)に Godot .NET 版のパスを設定すること(D-066)" }
 $root = Split-Path $PSScriptRoot -Parent
 
 Write-Host "=== Reversi.Server 起動 (port=$ServerPort game-port=$GamePort) ==="

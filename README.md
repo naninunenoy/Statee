@@ -51,10 +51,16 @@ Statee.slnx
 
 ## 開発を始める
 
+Windows / macOS の両方で開発できます。
+
 ```sh
 dotnet tool restore        # CSharpier 等のローカルツールを復元
 dotnet build Statee.slnx
 ```
+
+Godot の .NET 版バイナリのフルパスを環境変数 `GODOT_BIN` に設定してください
+(Windows: `*_console.exe` / macOS: `Godot_mono.app/Contents/MacOS/Godot`)。
+詳細な手順は [docs/HANDOVER.md](docs/HANDOVER.md) の「新しい環境のセットアップ」を参照してください。
 
 ## ドキュメント
 
