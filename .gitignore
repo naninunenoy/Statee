@@ -5,6 +5,7 @@
 # .NET build artifacts
 bin/
 obj/
+artifacts/
 
 # Godot cache and build artifacts
 .godot/

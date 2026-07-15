@@ -5,6 +5,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>Statee.Scenario</PackageId>
+    <Description>Statee のシナリオランナー(dotnet tool)。ChibiRuby スクリプトでターゲットの操作シナリオを実行する。</Description>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>statee-scenario</ToolCommandName>
   </PropertyGroup>
 
   <ItemGroup>

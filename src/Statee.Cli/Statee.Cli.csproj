@@ -5,6 +5,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>Statee.Cli</PackageId>
+    <Description>Statee の汎用 CLI(dotnet tool)。ping / state / send / logs でターゲットと対話する。</Description>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>statee</ToolCommandName>
   </PropertyGroup>
 
   <ItemGroup>
