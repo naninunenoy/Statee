@@ -20,4 +20,13 @@ public abstract record UiNode
 
     /// <summary>人間向けの説明ヒント(D-032 の Explain)。描画には影響せず、記述子にのみ現れる。</summary>
     public string? Explain { get; init; }
+
+    /// <summary>フォントサイズ(px)。null なら Godot テーマの既定値。</summary>
+    public int? FontSize { get; init; }
+
+    /// <summary>
+    /// true なら、この要素が生成されてツリーに入った時点で一度だけフォーカスを掴む。
+    /// フォーカスの現在位置はエンジンが管理する一時状態なので宣言しない(初期位置のヒントのみ)。
+    /// </summary>
+    public bool AutoFocus { get; init; }
 }

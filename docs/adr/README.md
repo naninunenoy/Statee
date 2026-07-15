@@ -70,6 +70,10 @@
 | [D-057](D-057.md) | マッチング待機は1人でも開始可能。HP0は一時的な操作不能(全滅でDefeat) |
 | [D-058](D-058.md) | RaidBossをシューティング演出化(弾の発射・着弾を決定論ロジックに追加) |
 | [D-059](D-059.md) | RaidBossをリアルタイム化(自動Tick+レーン移動+予告付きボス攻撃) |
+| [D-060](D-060.md) | Declaree にフォーム系ノードを追加(CheckBox/Slider/Stack/Overlay/ReorderList/FontSize) |
+| [D-061](D-061.md) | Declaree に差分適用(Reconcile)を導入、Slider はドラッグ中もライブ通知 |
+| [D-062](D-062.md) | ReorderList のドラッグ状態を宣言(IR)に昇格し、移動中・ドロップ先を可視化 |
+| [D-063](D-063.md) | キーボード/ゲームパッド操作は Godot 標準フォーカスに乗る(掴みモード並び替え・フォーカストラップ) |
 
 ## notes(書き捨てメモ)
 

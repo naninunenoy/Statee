@@ -36,6 +36,14 @@ public static class UiTree
         {
             props["explain"] = explain;
         }
+        if (node.FontSize is { } fontSize)
+        {
+            props["fontSize"] = fontSize.ToString(CultureInfo.InvariantCulture);
+        }
+        if (node.AutoFocus)
+        {
+            props["autoFocus"] = "true";
+        }
 
         return node switch
         {
@@ -57,6 +65,23 @@ public static class UiTree
                 "LineEdit",
                 AddLineEditProps(props, lineEdit),
                 NoChildren
+            ),
+            CheckBox checkBox => new UiDescriptor(
+                "CheckBox",
+                AddCheckBoxProps(props, checkBox),
+                NoChildren
+            ),
+            Slider slider => new UiDescriptor("Slider", AddSliderProps(props, slider), NoChildren),
+            Stack stack => new UiDescriptor("Stack", props, Describe(stack.Children, id)),
+            Overlay overlay => new UiDescriptor(
+                "Overlay",
+                props,
+                [Describe(overlay.Child, id.Child(0))]
+            ),
+            ReorderList reorderList => new UiDescriptor(
+                "ReorderList",
+                AddReorderListProps(props, reorderList),
+                Describe(reorderList.Children, id)
             ),
             _ => throw new ArgumentException(
                 $"未知のノード型: {node.GetType().Name}",
@@ -134,6 +159,50 @@ public static class UiTree
     {
         props["text"] = lineEdit.Text;
         props["placeholder"] = lineEdit.PlaceholderText;
+        return props;
+    }
+
+    private static Dictionary<string, string> AddCheckBoxProps(
+        Dictionary<string, string> props,
+        CheckBox checkBox
+    )
+    {
+        props["text"] = checkBox.Text;
+        props["onToggle"] = checkBox.OnToggle;
+        if (checkBox.Checked)
+        {
+            props["checked"] = "true";
+        }
+        return props;
+    }
+
+    private static Dictionary<string, string> AddSliderProps(
+        Dictionary<string, string> props,
+        Slider slider
+    )
+    {
+        props["min"] = slider.Min.ToString(CultureInfo.InvariantCulture);
+        props["max"] = slider.Max.ToString(CultureInfo.InvariantCulture);
+        props["value"] = slider.Value.ToString(CultureInfo.InvariantCulture);
+        props["step"] = slider.Step.ToString(CultureInfo.InvariantCulture);
+        props["onChange"] = slider.OnChange;
+        return props;
+    }
+
+    private static Dictionary<string, string> AddReorderListProps(
+        Dictionary<string, string> props,
+        ReorderList reorderList
+    )
+    {
+        props["onReorder"] = reorderList.OnReorder;
+        if (reorderList.DraggingIndex is { } dragging)
+        {
+            props["draggingIndex"] = dragging.ToString(CultureInfo.InvariantCulture);
+        }
+        if (reorderList.DropIndex is { } drop)
+        {
+            props["dropIndex"] = drop.ToString(CultureInfo.InvariantCulture);
+        }
         return props;
     }
 

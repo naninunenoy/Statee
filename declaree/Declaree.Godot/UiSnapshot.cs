@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GdControl = Godot.Control;
 
 namespace Declaree.Godot;
@@ -25,8 +26,15 @@ public static class UiSnapshot
         }
 
         var rect = control.GetGlobalRect();
+        var props = descriptor.Props;
+        if (control.HasFocus())
+        {
+            // フォーカスは宣言(IR)にはない実行時状態なので、採取時にだけ現れる(D-063)
+            props = new Dictionary<string, string>(props) { ["focused"] = "true" };
+        }
         return descriptor with
         {
+            Props = props,
             Children = children,
             Rect = new UiRect(rect.Position.X, rect.Position.Y, rect.Size.X, rect.Size.Y),
         };
