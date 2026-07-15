@@ -10,7 +10,6 @@ using Microsoft.Extensions.Logging;
 using R3;
 using Statee.Core;
 using Statee.Godot;
-using Statee.Remote;
 using SuikaGame.Logic;
 using VitalRouter;
 using ZLogger;
@@ -55,7 +54,6 @@ public partial class Main : Node2D
     private Control? _uiRoot;
     private volatile UiDescriptor _uiSnapshot = UiTree.Describe(BuildUi(GamePhase.Title, 0));
     private IDisposable _subscriptions = null!;
-    private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
     private float _dropX = (WallLeft + WallRight) / 2f;
@@ -224,7 +222,7 @@ public partial class Main : Node2D
 
     public override void _ExitTree()
     {
-        _server?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
+        StopStateeServer();
         _subscriptions.Dispose();
         _commands.Dispose();
         _flow.Dispose();
@@ -309,10 +307,14 @@ public partial class Main : Node2D
                 return new { X = position.X, Y = position.Y };
             }
         );
-        _server = new StateeTcpServer(host, CmdlineArgs.ParseInt("--port=", DefaultPort));
-        _server.Start();
-        _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
+        StartStateeServer(host);
     }
+
+    // TCP 待ち受け(外部 CLI/MCP の入口)は Main.StateeServer.cs に隔離している。
+    // ExportRelease ではファイルごとビルドから除外され、この呼び出しは丸ごと消える(D-065)
+    partial void StartStateeServer(StateeHost host);
+
+    partial void StopStateeServer();
 
     /// <summary>
     /// キーを「押下 → コマンド発行」で配線する(D-039)。State に公開される

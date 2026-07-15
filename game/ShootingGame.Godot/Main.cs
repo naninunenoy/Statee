@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using ShootingGame.Logic;
 using Statee.Core;
 using Statee.Godot;
-using Statee.Remote;
 using ZLogger;
 
 namespace ShootingGame;
@@ -29,7 +28,6 @@ public partial class Main : Node2D
 
     private ShootingLogic _logic = null!;
     private FontVariation _font = null!;
-    private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
 
@@ -124,7 +122,7 @@ public partial class Main : Node2D
 
     public override void _ExitTree()
     {
-        _server?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
+        StopStateeServer();
         _loggerFactory?.Dispose();
         _logic.Dispose();
     }
@@ -227,10 +225,14 @@ public partial class Main : Node2D
                 };
             }
         );
-        _server = new StateeTcpServer(host, CmdlineArgs.ParseInt("--port=", DefaultPort));
-        _server.Start();
-        _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
+        StartStateeServer(host);
     }
+
+    // TCP 待ち受け(外部 CLI/MCP の入口)は Main.StateeServer.cs に隔離している。
+    // ExportRelease ではファイルごとビルドから除外され、この呼び出しは丸ごと消える(D-065)
+    partial void StartStateeServer(StateeHost host);
+
+    partial void StopStateeServer();
 
     /// <summary>"right+shoot" のような + 区切りトークンを InputState へ写す。</summary>
     private static InputState ParseInput(string tokens)

@@ -175,7 +175,13 @@ public class GameLogicTest
       Include="..\..\src\Statee.Generator\Statee.Generator.csproj"
       OutputItemType="Analyzer"
       ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <!-- 外部 CLI/MCP の入口(TCP 待ち受け)は本番ビルドに含めない(D-065) -->
+  <ItemGroup Condition="'$(Configuration)' != 'ExportRelease'">
     <ProjectReference Include="..\..\src\Statee.Remote\Statee.Remote.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'ExportRelease'">
+    <Compile Remove="Main.StateeServer.cs" />
   </ItemGroup>
 </Project>
 ```
@@ -260,7 +266,6 @@ using Godot;
 using Microsoft.Extensions.Logging;
 using Statee.Core;
 using Statee.Godot;
-using Statee.Remote;
 using ZLogger;
 
 namespace <Name>;
@@ -280,7 +285,6 @@ public partial class Main : Node2D
 
     private GameLogic _logic = null!;
     private KeyBinding[] _keyBindings = [];
-    private StateeTcpServer? _server;
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
 
@@ -331,7 +335,7 @@ public partial class Main : Node2D
 
     public override void _ExitTree()
     {
-        _server?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
+        StopStateeServer();
         _loggerFactory?.Dispose();
     }
 
@@ -366,9 +370,46 @@ public partial class Main : Node2D
                 return new { StepCount = _logic.StepCount };
             }
         );
+        StartStateeServer(host);
+    }
+
+    // TCP 待ち受け(外部 CLI/MCP の入口)は Main.StateeServer.cs に隔離している。
+    // ExportRelease ではファイルごとビルドから除外され、この呼び出しは丸ごと消える(D-065)
+    partial void StartStateeServer(StateeHost host);
+
+    partial void StopStateeServer();
+}
+```
+
+### game/<Name>.Godot/Main.StateeServer.cs
+
+```csharp
+using System;
+using Statee.Core;
+using Statee.Godot;
+using Statee.Remote;
+using ZLogger;
+
+namespace <Name>;
+
+/// <summary>
+/// Statee の TCP 待ち受け(外部 CLI/MCP の入口)。本番ビルド(ExportRelease)では
+/// csproj の条件でこのファイルと Statee.Remote 参照ごと除外される(D-065)。
+/// </summary>
+public partial class Main
+{
+    private StateeTcpServer? _server;
+
+    partial void StartStateeServer(StateeHost host)
+    {
         _server = new StateeTcpServer(host, CmdlineArgs.ParseInt("--port=", DefaultPort));
         _server.Start();
         _logger.ZLogInformation($"Statee 待ち受け開始 port={_server.Port}");
+    }
+
+    partial void StopStateeServer()
+    {
+        _server?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
     }
 }
 ```
