@@ -16,6 +16,9 @@ public sealed record BattleConfig
     // プレイヤー
     public float PlayerRadius { get; init; } = 6f;
     public float PlayerSpeed { get; init; } = 90f;
+
+    /// <summary>スプリント(左 Shift)中の移動速度。</summary>
+    public float SprintSpeed { get; init; } = 140f;
     public int PlayerMaxHp { get; init; } = 3;
 
     // 通常射撃(エイム方向へ弾を撃つ。低ダメージの繋ぎ)
