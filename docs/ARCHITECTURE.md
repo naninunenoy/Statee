@@ -117,9 +117,15 @@ samples/SuikaGame.slnx / samples/RogueGame.slnx / samples/ShootingGame.slnx
 ├─ samples/<Name>.Logic      … 純C#ロジック(規則・状態遷移のすべて)
 ├─ samples/<Name>.Godot      … Godot 4.7 プロジェクト(EntryPoint・描画・入力)
 └─ tests/<Name>.Logic.Tests
+
+games/<Name>/<Name>.slnx
+(本気で開発するゲーム。1ゲーム = 1ディレクトリで自己完結。D-069)
+├─ games/<Name>/<Name>.Logic
+├─ games/<Name>/<Name>.Godot
+└─ games/<Name>/tests/<Name>.Logic.Tests(テストも内包。別リポジトリへの切り出しに備える)
 ```
 
-依存方向は `samples/ → libs/ → src/` の一方通行。フレームワーク(`src/`)と
+依存方向は `samples/・games/ → libs/ → src/` の一方通行。フレームワーク(`src/`)と
 サンプルゲーム(`samples/`)を分離し、後の NuGet 化・別ゲームへの流用に備える。
 ゲームを作る人の入口は docs/USING.md、雛形生成は `/new-game` skill(D-045)。
 
