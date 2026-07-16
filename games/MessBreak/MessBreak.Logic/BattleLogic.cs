@@ -99,7 +99,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                     TickDodge();
                     return;
                 }
-                Move(input.MoveDir);
+                Move(input.MoveDir, input.Sprint ? Config.SprintSpeed : Config.PlayerSpeed);
                 if (input.Fire && FireCooldown == 0)
                 {
                     _bullets.Add(new Bullet(_nextBulletId++, PlayerPos, PlayerFacing));
@@ -116,14 +116,14 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         }
     }
 
-    private void Move(Vector2 dir)
+    private void Move(Vector2 dir, float speed)
     {
         if (dir == Vector2.Zero)
         {
             return;
         }
         var unit = Vector2.Normalize(dir);
-        PlayerPos = ClampToRoom(PlayerPos + unit * Config.PlayerSpeed * Dt, Config.PlayerRadius);
+        PlayerPos = ClampToRoom(PlayerPos + unit * speed * Dt, Config.PlayerRadius);
     }
 
     private void TickDodge()
