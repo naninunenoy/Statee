@@ -64,6 +64,18 @@ public class BattleLogicTest
         logic.PlayerPos.X.ShouldBe(logic.Config.PlayerRadius, 0.001f);
     }
 
+    [Fact]
+    public void Tick_スプリント入力つきの移動_スプリント速度で移動する()
+    {
+        var logic = Create();
+        var before = logic.PlayerPos;
+
+        logic.Tick(new TickInput(new Vector2(1f, 0f), Sprint: true));
+
+        var expected = before.X + logic.Config.SprintSpeed / logic.Config.TicksPerSecond;
+        logic.PlayerPos.X.ShouldBe(expected, 0.001f);
+    }
+
     // ---- エイム(移動と独立) ----
 
     [Fact]
