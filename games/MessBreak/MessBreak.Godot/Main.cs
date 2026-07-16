@@ -91,17 +91,6 @@ public partial class Main : Node2D
                 : new Color(0.85f, 0.29f, 0.37f);
         DrawCircle(ToScreen(_logic.PlayerPos), config.PlayerRadius * Zoom, playerColor);
 
-        // 攻撃判定(Attack 中のみ・向いている方向)
-        if (_logic.PlayerAction == PlayerAction.Attack)
-        {
-            var hitCenter = _logic.PlayerPos + _logic.PlayerFacing * config.AttackReach;
-            DrawCircle(
-                ToScreen(hitCenter),
-                config.AttackRadius * Zoom,
-                new Color(1f, 0.85f, 0.4f, 0.4f)
-            );
-        }
-
         // HUD
         var phaseText = _logic.Phase switch
         {
@@ -145,7 +134,7 @@ public partial class Main : Node2D
         }
         return new TickInput(
             dir,
-            Attack: Input.IsPhysicalKeyPressed(Key.Z) || Input.IsPhysicalKeyPressed(Key.J),
+            Fire: Input.IsPhysicalKeyPressed(Key.Z) || Input.IsPhysicalKeyPressed(Key.J),
             Dodge: Input.IsPhysicalKeyPressed(Key.X) || Input.IsPhysicalKeyPressed(Key.K)
         );
     }
@@ -169,14 +158,15 @@ public partial class Main : Node2D
         StandardCommands.Register(host, this, _logger);
         // 継続入力つきで論理を進めるコマンド(エージェントのプレイ経路)。
         // freeze と組み合わせて「入力を指定して N Tick 進める」を実現する。
-        // 例: send --command tick --arg frames=30,input=right+attack
+        // 例: send --command tick --arg frames=30,input=right+fire,aimx=1,aimy=-0.5
         // (CLI の --arg は複数指定をカンマで区切るため、入力トークンは + で連結する)
         host.RegisterMainThreadCommand(
             "tick",
             args =>
             {
                 var frames = Math.Clamp(args.GetInt("frames", 1), 1, MaxTickFrames);
-                var input = ParseInput(args.GetString("input") ?? "");
+                var aim = new System.Numerics.Vector2(ParseFloat(args.GetString("aimx")), ParseFloat(args.GetString("aimy")));
+                var input = ParseInput(args.GetString("input") ?? "", aim);
                 for (var i = 0; i < frames; i++)
                 {
                     _logic.Tick(input);
@@ -204,11 +194,15 @@ public partial class Main : Node2D
 
     partial void StopStateeServer();
 
-    /// <summary>"right+attack" のような + 区切りトークンを TickInput へ写す。</summary>
-    private static TickInput ParseInput(string tokens)
+    /// <summary>tick コマンドの aimx / aimy 引数(未指定は 0)を読む。</summary>
+    private static float ParseFloat(string? value) =>
+        value is null ? 0f : float.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>"right+fire" のような + 区切りトークンと aim を TickInput へ写す。</summary>
+    private static TickInput ParseInput(string tokens, System.Numerics.Vector2 aim)
     {
         var dir = System.Numerics.Vector2.Zero;
-        var attack = false;
+        var fire = false;
         var dodge = false;
         foreach (var token in tokens.Split('+', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -228,18 +222,18 @@ public partial class Main : Node2D
                 case "down":
                     dir.Y += 1f;
                     break;
-                case "attack":
-                    attack = true;
+                case "fire":
+                    fire = true;
                     break;
                 case "dodge":
                     dodge = true;
                     break;
                 default:
                     throw new ArgumentException(
-                        $"未知の入力トークン '{token}'(left/right/up/down/attack/dodge)"
+                        $"未知の入力トークン '{token}'(left/right/up/down/fire/dodge)"
                     );
             }
         }
-        return new TickInput(dir, attack, dodge);
+        return new TickInput(dir, aim, fire, dodge);
     }
 }

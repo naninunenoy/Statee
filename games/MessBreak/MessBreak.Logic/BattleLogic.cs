@@ -26,16 +26,21 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     public PlayerAction PlayerAction { get; private set; } = PlayerAction.Free;
     public int DodgeCooldown { get; private set; }
 
+    /// <summary>次の発射まで待つ残り tick 数。</summary>
+    public int FireCooldown { get; private set; }
+
+    /// <summary>飛翔中のプレイヤーの弾。</summary>
+    public IReadOnlyList<Bullet> Bullets => _bullets;
+
     // 敵
     public Vector2 EnemyPos { get; private set; } = config.EnemySpawn;
     public int EnemyHp { get; private set; } = config.EnemyMaxHp;
     public EnemyAction EnemyAction { get; private set; } = EnemyAction.Idle;
 
-    /// <summary>現在のアクションの残り tick 数(Attack は残り全区間、Dodge は残り無敵時間)。</summary>
-    private int _actionTicks;
+    private readonly List<Bullet> _bullets = [];
 
-    /// <summary>攻撃の判定が今回の攻撃でもうダメージを与えたか(多段ヒット防止)。</summary>
-    private bool _attackHit;
+    /// <summary>ドッジの残り無敵 tick 数。</summary>
+    private int _actionTicks;
 
     private int _enemyPhaseTicks;
 
@@ -63,14 +68,6 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         switch (PlayerAction)
         {
             case PlayerAction.Free:
-                if (input.Attack)
-                {
-                    PlayerAction = PlayerAction.Attack;
-                    _actionTicks = AttackTotalTicks;
-                    _attackHit = false;
-                    TickAttack();
-                    return;
-                }
                 if (input.Dodge && DodgeCooldown == 0)
                 {
                     PlayerAction = PlayerAction.Dodge;
@@ -80,10 +77,6 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                     return;
                 }
                 Move(input.MoveDir);
-                return;
-
-            case PlayerAction.Attack:
-                TickAttack();
                 return;
 
             case PlayerAction.Dodge:
@@ -104,32 +97,6 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         var unit = Vector2.Normalize(dir);
         PlayerFacing = unit;
         PlayerPos = ClampToRoom(PlayerPos + unit * Config.PlayerSpeed * Dt, Config.PlayerRadius);
-    }
-
-    private int AttackTotalTicks =>
-        Config.AttackWindupTicks + Config.AttackActiveTicks + Config.AttackRecoveryTicks;
-
-    /// <summary>攻撃の 1 tick 分。有効区間中に射程内の敵がいれば 1 回だけダメージを与える。</summary>
-    private void TickAttack()
-    {
-        var elapsed = AttackTotalTicks - _actionTicks; // この tick が攻撃開始から何 tick 目か(0 始まり)
-        _actionTicks--;
-        var active =
-            elapsed >= Config.AttackWindupTicks
-            && elapsed < Config.AttackWindupTicks + Config.AttackActiveTicks;
-        if (active && !_attackHit && EnemyAction != EnemyAction.Dead)
-        {
-            var hitCenter = PlayerPos + PlayerFacing * Config.AttackReach;
-            if ((EnemyPos - hitCenter).Length() <= Config.AttackRadius + Config.EnemyRadius)
-            {
-                EnemyHp = Math.Max(0, EnemyHp - Config.AttackDamage);
-                _attackHit = true;
-            }
-        }
-        if (_actionTicks <= 0)
-        {
-            PlayerAction = PlayerAction.Free;
-        }
     }
 
     private void TickDodge()

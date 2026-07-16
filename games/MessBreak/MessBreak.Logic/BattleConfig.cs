@@ -18,13 +18,11 @@ public sealed record BattleConfig
     public float PlayerSpeed { get; init; } = 90f;
     public int PlayerMaxHp { get; init; } = 3;
 
-    // プレイヤーの近接攻撃(向いている方向に円形の判定を出す)
-    public int AttackWindupTicks { get; init; } = 6;
-    public int AttackActiveTicks { get; init; } = 4;
-    public int AttackRecoveryTicks { get; init; } = 8;
-    public float AttackReach { get; init; } = 20f;
-    public float AttackRadius { get; init; } = 12f;
-    public int AttackDamage { get; init; } = 1;
+    // 通常射撃(エイム方向へ弾を撃つ。低ダメージの繋ぎ)
+    public int FireCooldownTicks { get; init; } = 12;
+    public float BulletSpeed { get; init; } = 240f;
+    public float BulletRadius { get; init; } = 2f;
+    public int BulletDamage { get; init; } = 1;
 
     // ドッジ(向いている方向に高速移動・全区間無敵)
     public int DodgeTicks { get; init; } = 12;
