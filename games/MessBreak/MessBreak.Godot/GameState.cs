@@ -22,13 +22,32 @@ public partial class GameState
         int PlayerHp,
         string PlayerAction,
         int DodgeCooldown,
+        int FireCooldown,
+        int BulletCount,
         float EnemyX,
         float EnemyY,
         int EnemyHp,
         string EnemyAction
     );
 
-    private volatile Snapshot _current = new(0, 0, "", 0f, 0f, 0f, 0f, 0, "", 0, 0f, 0f, 0, "");
+    private volatile Snapshot _current = new(
+        0,
+        0,
+        "",
+        0f,
+        0f,
+        0f,
+        0f,
+        0,
+        "",
+        0,
+        0,
+        0,
+        0f,
+        0f,
+        0,
+        ""
+    );
 
     [StateeField]
     public int Seed => _current.Seed;
@@ -61,6 +80,12 @@ public partial class GameState
     public int DodgeCooldown => _current.DodgeCooldown;
 
     [StateeField]
+    public int FireCooldown => _current.FireCooldown;
+
+    [StateeField]
+    public int BulletCount => _current.BulletCount;
+
+    [StateeField]
     public float EnemyX => _current.EnemyX;
 
     [StateeField]
@@ -86,6 +111,8 @@ public partial class GameState
             logic.PlayerHp,
             logic.PlayerAction.ToString(),
             logic.DodgeCooldown,
+            logic.FireCooldown,
+            logic.Bullets.Count,
             logic.EnemyPos.X,
             logic.EnemyPos.Y,
             logic.EnemyHp,

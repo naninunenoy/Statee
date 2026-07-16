@@ -74,7 +74,7 @@ public partial class Main : Node2D
             new Color(0.12f, 0.10f, 0.14f)
         );
 
-        // 敵(Windup 中は白く点滅させて予備動作を見せる)
+        // 敵(Windup 中は白く点滅させて予備動作を見せる)。向きはプレイヤーへの視線
         if (_logic.EnemyAction != EnemyAction.Dead)
         {
             var enemyColor =
@@ -82,14 +82,49 @@ public partial class Main : Node2D
                     ? new Color(0.95f, 0.9f, 0.9f)
                     : new Color(0.55f, 0.25f, 0.6f);
             DrawCircle(ToScreen(_logic.EnemyPos), config.EnemyRadius * Zoom, enemyColor);
+            if (_logic.EnemyAction != EnemyAction.Idle)
+            {
+                var toPlayer = _logic.PlayerPos - _logic.EnemyPos;
+                if (toPlayer != System.Numerics.Vector2.Zero)
+                {
+                    DrawNose(
+                        _logic.EnemyPos,
+                        System.Numerics.Vector2.Normalize(toPlayer),
+                        config.EnemyRadius,
+                        new Color(0.9f, 0.75f, 0.95f)
+                    );
+                }
+            }
         }
 
-        // プレイヤー(ドッジ中は半透明)
+        // プレイヤー(ドッジ中は半透明)。向き=エイム方向は銃身と細い照準線で見せる
         var playerColor =
             _logic.PlayerAction == PlayerAction.Dodge
                 ? new Color(0.85f, 0.29f, 0.37f, 0.5f)
                 : new Color(0.85f, 0.29f, 0.37f);
+        DrawLine(
+            ToScreen(_logic.PlayerPos),
+            ToScreen(_logic.PlayerPos + _logic.PlayerFacing * 60f),
+            new Color(1f, 1f, 1f, 0.15f),
+            width: 1f
+        );
         DrawCircle(ToScreen(_logic.PlayerPos), config.PlayerRadius * Zoom, playerColor);
+        DrawNose(
+            _logic.PlayerPos,
+            _logic.PlayerFacing,
+            config.PlayerRadius,
+            new Color(1f, 0.9f, 0.75f)
+        );
+
+        // 弾
+        foreach (var bullet in _logic.Bullets)
+        {
+            DrawCircle(
+                ToScreen(bullet.Pos),
+                config.BulletRadius * Zoom,
+                new Color(1f, 0.85f, 0.4f)
+            );
+        }
 
         // HUD
         var phaseText = _logic.Phase switch
@@ -113,7 +148,7 @@ public partial class Main : Node2D
     }
 
     /// <summary>人間プレイの入力(押されているキーの集合)を TickInput へ写す。</summary>
-    private static TickInput ReadHumanInput()
+    private TickInput ReadHumanInput()
     {
         var dir = System.Numerics.Vector2.Zero;
         if (Input.IsPhysicalKeyPressed(Key.Left) || Input.IsPhysicalKeyPressed(Key.A))
@@ -132,12 +167,39 @@ public partial class Main : Node2D
         {
             dir.Y += 1f;
         }
+        // エイムはマウスカーソル方向(ツインスティックの照準軸)
+        var aim = ToLogic(GetGlobalMousePosition()) - _logic.PlayerPos;
         return new TickInput(
             dir,
-            Fire: Input.IsPhysicalKeyPressed(Key.Z) || Input.IsPhysicalKeyPressed(Key.J),
-            Dodge: Input.IsPhysicalKeyPressed(Key.X) || Input.IsPhysicalKeyPressed(Key.K)
+            aim,
+            Fire: Input.IsMouseButtonPressed(MouseButton.Left)
+                || Input.IsPhysicalKeyPressed(Key.Z)
+                || Input.IsPhysicalKeyPressed(Key.J),
+            Dodge: Input.IsMouseButtonPressed(MouseButton.Right)
+                || Input.IsPhysicalKeyPressed(Key.X)
+                || Input.IsPhysicalKeyPressed(Key.K)
         );
     }
+
+    /// <summary>中心から向きを示す短い銃身(ノーズ)を描く。円だけでは向きが分からない対策。</summary>
+    private void DrawNose(
+        System.Numerics.Vector2 center,
+        System.Numerics.Vector2 dir,
+        float radius,
+        Color color
+    )
+    {
+        DrawLine(
+            ToScreen(center + dir * radius * 0.5f),
+            ToScreen(center + dir * radius * 1.8f),
+            color,
+            width: 3f
+        );
+    }
+
+    /// <summary>描画座標を論理座標へ写す(マウス位置の変換用)。</summary>
+    private static System.Numerics.Vector2 ToLogic(Vector2 screen) =>
+        new(screen.X / Zoom, screen.Y / Zoom);
 
     /// <summary>論理座標(320x180・左上原点)を描画座標へ写す。</summary>
     private static Vector2 ToScreen(System.Numerics.Vector2 position) =>
@@ -165,7 +227,10 @@ public partial class Main : Node2D
             args =>
             {
                 var frames = Math.Clamp(args.GetInt("frames", 1), 1, MaxTickFrames);
-                var aim = new System.Numerics.Vector2(ParseFloat(args.GetString("aimx")), ParseFloat(args.GetString("aimy")));
+                var aim = new System.Numerics.Vector2(
+                    ParseFloat(args.GetString("aimx")),
+                    ParseFloat(args.GetString("aimy"))
+                );
                 var input = ParseInput(args.GetString("input") ?? "", aim);
                 for (var i = 0; i < frames; i++)
                 {
