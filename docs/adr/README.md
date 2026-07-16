@@ -77,6 +77,8 @@
 | [D-064](D-064.md) | なぜ任意メソッド呼び出し(PuerTS 的アプローチ)ではなく State/Command/Log 境界なのか |
 | [D-065](D-065.md) | 本番ビルド(ExportRelease)から Statee の外部入口をビルドレベルで除外する |
 | [D-066](D-066.md) | 環境依存パスを排除(GODOT_BIN / dotnet+dll 起動 / sh 版スクリプト)し Windows・macOS 両対応 |
+| [D-067](D-067.md) | Statee の配布は NuGet パッケージを一次形態とする |
+| [D-068](D-068.md) | サンプルゲームのディレクトリを game/ から samples/ にリネーム |
 
 ## notes(書き捨てメモ)
 

@@ -1,5 +1,5 @@
 <Solution>
-  <Folder Name="/game/">
+  <Folder Name="/samples/">
     <Project Path="RaidBoss.Godot/RaidBoss.Godot.csproj">
       <BuildType Project="Debug" />
     </Project>

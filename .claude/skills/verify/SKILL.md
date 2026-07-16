@@ -18,14 +18,14 @@ description: >-
 - ターゲットは引数(`--path <dir>`)または依頼の文脈から決める。
   指定が無ければ確認対象に応じて選ぶ:
   - `sandbox/PingTarget.Godot` … フレームワーク(`src/`)の疎通・プロトコル確認用の最小ターゲット
-  - `game/*.Godot` … 各ゲームのシナリオ確認用。公開している State・コマンドは
+  - `samples/*.Godot` … 各ゲームのシナリオ確認用。公開している State・コマンドは
     ゲームごとに異なるので、`state --path game/…` と各ゲームの Main.cs の登録を情報源にする
 - 通信は TCP localhost、既定ポート **9310**(D-018)
 
 ## 1. ビルド
 
 ```powershell
-dotnet build <ターゲットのディレクトリ>   # 例: dotnet build game/SuikaGame.Godot
+dotnet build <ターゲットのディレクトリ>   # 例: dotnet build samples/SuikaGame.Godot
 ```
 
 注意: `Statee.Mcp` は MCP サーバー実行中だと exe がロックされてビルドに失敗する。

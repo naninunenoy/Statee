@@ -17,13 +17,13 @@ fi
 root=$(cd "$(dirname "$0")/.." && pwd)
 
 echo "=== Reversi.Server 起動 (port=$server_port game-port=$game_port) ==="
-(cd "$root" && dotnet run --project "$root/game/Reversi.Server" -- "--port=$server_port" "--game-port=$game_port") &
+(cd "$root" && dotnet run --project "$root/samples/Reversi.Server" -- "--port=$server_port" "--game-port=$game_port") &
 
 echo "=== client1 起動 (port=$client1_port) ==="
-"$GODOT_BIN" --headless --path "$root/game/Reversi.Godot" -- "--port=$client1_port" --game-host=127.0.0.1 "--game-port=$game_port" &
+"$GODOT_BIN" --headless --path "$root/samples/Reversi.Godot" -- "--port=$client1_port" --game-host=127.0.0.1 "--game-port=$game_port" &
 
 echo "=== client2 起動 (port=$client2_port) ==="
-"$GODOT_BIN" --headless --path "$root/game/Reversi.Godot" -- "--port=$client2_port" --game-host=127.0.0.1 "--game-port=$game_port" &
+"$GODOT_BIN" --headless --path "$root/samples/Reversi.Godot" -- "--port=$client2_port" --game-host=127.0.0.1 "--game-port=$game_port" &
 
 echo "起動要求を送った。ping で疎通を確認してから使うこと(起動完了は保証しない)。"
 echo "server=$server_port client1=$client1_port client2=$client2_port"

@@ -65,7 +65,7 @@ TodoApp(UI 集約型・非ゲーム。Declaree を育てる題材。D-060)。
 ### 2. ロジックは純C#に置き、Godot 層は薄く保つ
 
 ルール・判定・状態機械は Godot に依存しない純C#プロジェクト
-(`src/Statee.Core`、`game/*.Logic`、`syncee/Syncee`)に置き、xUnit で厚くテストする。
+(`src/Statee.Core`、`samples/*.Logic`、`syncee/Syncee`)に置き、xUnit で厚くテストする。
 Godot 層(`*.Godot`)はエントリポイント・描画・入力・物理の配線だけ。
 「このロジック、Godot 層に書いた方が楽だな」と思ったら止まること。
 楽なのは今日だけで、明日からテストできなくなる(D-023, D-024)。
@@ -135,7 +135,7 @@ AI の動作確認は再現できなければ意味がない。だから:
   ことがある。`quit` コマンドで正しく終了させるか、`Get-NetTCPConnection` で
   ポート保持者を特定して止める
 - マルチインスタンス検証(サーバ+複数クライアント)の手順は
-  `game/RaidBoss.Godot/README.md` と `scenarios/network-fullgame.rb` が実例
+  `samples/RaidBoss.Godot/README.md` と `scenarios/network-fullgame.rb` が実例
 
 ## 開発の1日の流れ(型)
 

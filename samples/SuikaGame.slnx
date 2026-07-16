@@ -1,12 +1,12 @@
 <Solution>
-  <Folder Name="/game/">
-    <Project Path="ShootingGame.Godot/ShootingGame.Godot.csproj">
+  <Folder Name="/samples/">
+    <Project Path="SuikaGame.Godot/SuikaGame.Godot.csproj">
       <BuildType Project="Debug" />
     </Project>
-    <Project Path="ShootingGame.Logic/ShootingGame.Logic.csproj" />
+    <Project Path="SuikaGame.Logic/SuikaGame.Logic.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="../tests/ShootingGame.Logic.Tests/ShootingGame.Logic.Tests.csproj" />
+    <Project Path="../tests/SuikaGame.Logic.Tests/SuikaGame.Logic.Tests.csproj" />
   </Folder>
   <Folder Name="/libs/">
     <Project Path="../libs/Statee.Godot/Statee.Godot.csproj" />

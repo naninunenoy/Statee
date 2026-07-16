@@ -20,8 +20,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\game\Reversi.Server\Reversi.Server.csproj" />
-    <ProjectReference Include="..\..\game\Reversi.Logic\Reversi.Logic.csproj" />
+    <ProjectReference Include="..\..\samples\Reversi.Server\Reversi.Server.csproj" />
+    <ProjectReference Include="..\..\samples\Reversi.Logic\Reversi.Logic.csproj" />
     <ProjectReference Include="..\..\syncee\Syncee\Syncee.csproj" />
     <ProjectReference Include="..\..\syncee\Syncee.Fake\Syncee.Fake.csproj" />
   </ItemGroup>

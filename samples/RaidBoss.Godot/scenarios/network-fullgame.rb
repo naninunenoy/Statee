@@ -10,10 +10,10 @@
 # 各クライアントを freeze して自動Tickを止める(step コマンドによる手動送信は freeze 中も効く)。
 #
 # 事前に以下を起動しておくこと(このシナリオ自体は接続済みインスタンスへ繋ぐだけ):
-#   dotnet run --project game/RaidBoss.Server -- --port=<server> --game-port=<game>
-#   godot --headless --path game/RaidBoss.Godot -- --port=<client1> --game-port=<game>
-#   godot --headless --path game/RaidBoss.Godot -- --port=<client2> --game-port=<game>
-#   godot --headless --path game/RaidBoss.Godot -- --port=<client3> --game-port=<game>
+#   dotnet run --project samples/RaidBoss.Server -- --port=<server> --game-port=<game>
+#   godot --headless --path samples/RaidBoss.Godot -- --port=<client1> --game-port=<game>
+#   godot --headless --path samples/RaidBoss.Godot -- --port=<client2> --game-port=<game>
+#   godot --headless --path samples/RaidBoss.Godot -- --port=<client3> --game-port=<game>
 
 expect "server・client2・client3 をターゲットとして登録する(既定ターゲット自身が client1)"
 target :server, port: 9391

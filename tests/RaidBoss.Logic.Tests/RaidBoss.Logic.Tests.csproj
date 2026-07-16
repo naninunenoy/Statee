@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\game\RaidBoss.Logic\RaidBoss.Logic.csproj" />
+    <ProjectReference Include="..\..\samples\RaidBoss.Logic\RaidBoss.Logic.csproj" />
   </ItemGroup>
 
 </Project>

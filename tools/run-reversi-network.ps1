@@ -15,13 +15,13 @@ if (-not $GodotExe) { throw "環境変数 GODOT_BIN(または -GodotExe)に Godo
 $root = Split-Path $PSScriptRoot -Parent
 
 Write-Host "=== Reversi.Server 起動 (port=$ServerPort game-port=$GamePort) ==="
-Start-Process dotnet -ArgumentList "run", "--project", "$root/game/Reversi.Server", "--", "--port=$ServerPort", "--game-port=$GamePort" -WorkingDirectory $root
+Start-Process dotnet -ArgumentList "run", "--project", "$root/samples/Reversi.Server", "--", "--port=$ServerPort", "--game-port=$GamePort" -WorkingDirectory $root
 
 Write-Host "=== client1 起動 (port=$Client1Port) ==="
-Start-Process $GodotExe -ArgumentList "--headless", "--path", "$root/game/Reversi.Godot", "--", "--port=$Client1Port", "--game-host=127.0.0.1", "--game-port=$GamePort"
+Start-Process $GodotExe -ArgumentList "--headless", "--path", "$root/samples/Reversi.Godot", "--", "--port=$Client1Port", "--game-host=127.0.0.1", "--game-port=$GamePort"
 
 Write-Host "=== client2 起動 (port=$Client2Port) ==="
-Start-Process $GodotExe -ArgumentList "--headless", "--path", "$root/game/Reversi.Godot", "--", "--port=$Client2Port", "--game-host=127.0.0.1", "--game-port=$GamePort"
+Start-Process $GodotExe -ArgumentList "--headless", "--path", "$root/samples/Reversi.Godot", "--", "--port=$Client2Port", "--game-host=127.0.0.1", "--game-port=$GamePort"
 
 Write-Host "起動要求を送った。ping で疎通を確認してから使うこと(起動完了は保証しない)。"
 Write-Host "server=$ServerPort client1=$Client1Port client2=$Client2Port"

@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\game\RaidBoss.Server\RaidBoss.Server.csproj" />
+    <ProjectReference Include="..\..\samples\RaidBoss.Server\RaidBoss.Server.csproj" />
     <ProjectReference Include="..\..\syncee\Syncee.Fake\Syncee.Fake.csproj" />
   </ItemGroup>
 

@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\game\TodoApp.Logic\TodoApp.Logic.csproj" />
+    <ProjectReference Include="..\..\samples\TodoApp.Logic\TodoApp.Logic.csproj" />
   </ItemGroup>
 
 </Project>
