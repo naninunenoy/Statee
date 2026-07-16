@@ -38,9 +38,13 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     public EnemyAction EnemyAction { get; private set; } = EnemyAction.Idle;
 
     private readonly List<Bullet> _bullets = [];
+    private int _nextBulletId = 1;
 
     /// <summary>ドッジの残り無敵 tick 数。</summary>
     private int _actionTicks;
+
+    /// <summary>ドッジの移動方向(開始時の移動入力、なければ Facing)。</summary>
+    private Vector2 _dodgeDir;
 
     private int _enemyPhaseTicks;
 
@@ -56,9 +60,24 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         {
             DodgeCooldown--;
         }
+        if (FireCooldown > 0)
+        {
+            FireCooldown--;
+        }
+        Aim(input.AimDir);
         TickPlayer(input);
+        TickBullets();
         TickEnemy();
         TickPhase();
+    }
+
+    /// <summary>照準は移動と独立に更新する(ツインスティック)。零入力なら前回を維持。</summary>
+    private void Aim(Vector2 aimDir)
+    {
+        if (PlayerAction != PlayerAction.Dead && aimDir != Vector2.Zero)
+        {
+            PlayerFacing = Vector2.Normalize(aimDir);
+        }
     }
 
     private float Dt => 1f / Config.TicksPerSecond;
@@ -73,10 +92,19 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                     PlayerAction = PlayerAction.Dodge;
                     _actionTicks = Config.DodgeTicks;
                     DodgeCooldown = Config.DodgeCooldownTicks;
+                    _dodgeDir =
+                        input.MoveDir == Vector2.Zero
+                            ? PlayerFacing
+                            : Vector2.Normalize(input.MoveDir);
                     TickDodge();
                     return;
                 }
                 Move(input.MoveDir);
+                if (input.Fire && FireCooldown == 0)
+                {
+                    _bullets.Add(new Bullet(_nextBulletId++, PlayerPos, PlayerFacing));
+                    FireCooldown = Config.FireCooldownTicks;
+                }
                 return;
 
             case PlayerAction.Dodge:
@@ -95,7 +123,6 @@ public sealed class BattleLogic(BattleConfig config, int seed)
             return;
         }
         var unit = Vector2.Normalize(dir);
-        PlayerFacing = unit;
         PlayerPos = ClampToRoom(PlayerPos + unit * Config.PlayerSpeed * Dt, Config.PlayerRadius);
     }
 
@@ -103,12 +130,37 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     {
         _actionTicks--;
         PlayerPos = ClampToRoom(
-            PlayerPos + PlayerFacing * Config.DodgeSpeed * Dt,
+            PlayerPos + _dodgeDir * Config.DodgeSpeed * Dt,
             Config.PlayerRadius
         );
         if (_actionTicks <= 0)
         {
             PlayerAction = PlayerAction.Free;
+        }
+    }
+
+    /// <summary>弾を進め、敵への命中と部屋外への逸脱で消す。</summary>
+    private void TickBullets()
+    {
+        for (var i = _bullets.Count - 1; i >= 0; i--)
+        {
+            var bullet = _bullets[i];
+            var pos = bullet.Pos + bullet.Dir * Config.BulletSpeed * Dt;
+            if (
+                EnemyHp > 0
+                && (EnemyPos - pos).Length() <= Config.BulletRadius + Config.EnemyRadius
+            )
+            {
+                EnemyHp = Math.Max(0, EnemyHp - Config.BulletDamage);
+                _bullets.RemoveAt(i);
+                continue;
+            }
+            if (pos.X < 0f || pos.X > Config.RoomWidth || pos.Y < 0f || pos.Y > Config.RoomHeight)
+            {
+                _bullets.RemoveAt(i);
+                continue;
+            }
+            _bullets[i] = bullet with { Pos = pos };
         }
     }
 
