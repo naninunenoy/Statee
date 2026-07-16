@@ -1,6 +1,6 @@
 using Shouldly;
 
-namespace FirstGame.Logic.Tests;
+namespace MessBreak.Logic.Tests;
 
 public class GameLogicTest
 {

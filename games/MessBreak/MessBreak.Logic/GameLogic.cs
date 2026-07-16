@@ -1,4 +1,4 @@
-namespace FirstGame.Logic;
+namespace MessBreak.Logic;
 
 /// <summary>
 /// ゲームの中核状態機械のプレースホルダ。ルール・状態遷移はすべてこの層に置き、

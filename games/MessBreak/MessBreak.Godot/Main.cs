@@ -1,16 +1,16 @@
 using System;
-using FirstGame.Logic;
+using MessBreak.Logic;
 using Godot;
 using Microsoft.Extensions.Logging;
 using Statee.Core;
 using Statee.Godot;
 using ZLogger;
 
-namespace FirstGame;
+namespace MessBreak;
 
 /// <summary>
-/// FirstGame の Godot 層エントリポイント。描画・入力・Statee 配線だけを担い、
-/// ゲームルールはすべて FirstGame.Logic に置く(docs/USING.md「境界の掟」)。
+/// MessBreak の Godot 層エントリポイント。描画・入力・Statee 配線だけを担い、
+/// ゲームルールはすべて MessBreak.Logic に置く(docs/USING.md「境界の掟」)。
 /// </summary>
 public partial class Main : Node2D
 {
@@ -43,7 +43,7 @@ public partial class Main : Node2D
 
         RefreshView();
         StartStatee(buffer);
-        _logger.ZLogInformation($"FirstGame 起動 seed={_logic.Seed}");
+        _logger.ZLogInformation($"MessBreak 起動 seed={_logic.Seed}");
     }
 
     public override void _Process(double delta)
@@ -66,7 +66,7 @@ public partial class Main : Node2D
         DrawString(
             ThemeDB.FallbackFont,
             new Vector2(16, 32),
-            $"FirstGame  seed={_logic.Seed}  step={_logic.StepCount}",
+            $"MessBreak  seed={_logic.Seed}  step={_logic.StepCount}",
             fontSize: 20
         );
     }

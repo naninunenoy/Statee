@@ -1,12 +1,12 @@
 <Solution>
   <Folder Name="/game/">
-    <Project Path="FirstGame.Godot/FirstGame.Godot.csproj">
+    <Project Path="MessBreak.Godot/MessBreak.Godot.csproj">
       <BuildType Project="Debug" />
     </Project>
-    <Project Path="FirstGame.Logic/FirstGame.Logic.csproj" />
+    <Project Path="MessBreak.Logic/MessBreak.Logic.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/FirstGame.Logic.Tests/FirstGame.Logic.Tests.csproj" />
+    <Project Path="tests/MessBreak.Logic.Tests/MessBreak.Logic.Tests.csproj" />
   </Folder>
   <Folder Name="/libs/">
     <Project Path="../../libs/Statee.Godot/Statee.Godot.csproj" />

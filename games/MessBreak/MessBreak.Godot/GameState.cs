@@ -1,6 +1,6 @@
 using Statee.Core;
 
-namespace FirstGame;
+namespace MessBreak;
 
 /// <summary>
 /// ゲーム状態の State 公開。CaptureState はソケットスレッドで走るため、
@@ -8,7 +8,7 @@ namespace FirstGame;
 /// 実ゲームではフィールドを増やし、検証に必要な情報を全公開する
 /// (画面上の演出で隠すものも State では隠さない)。
 /// </summary>
-[StateeState("game/firstgame")]
+[StateeState("game/messbreak")]
 public partial class GameState
 {
     private sealed record Snapshot(int Seed, int StepCount);

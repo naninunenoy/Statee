@@ -4,7 +4,7 @@ using Statee.Godot;
 using Statee.Remote;
 using ZLogger;
 
-namespace FirstGame;
+namespace MessBreak;
 
 /// <summary>
 /// Statee の TCP 待ち受け(外部 CLI/MCP の入口)。本番ビルド(ExportRelease)では
