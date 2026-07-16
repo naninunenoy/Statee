@@ -1,6 +1,6 @@
 using System;
-using MessBreak.Logic;
 using Godot;
+using MessBreak.Logic;
 using Microsoft.Extensions.Logging;
 using Statee.Core;
 using Statee.Godot;
@@ -9,20 +9,26 @@ using ZLogger;
 namespace MessBreak;
 
 /// <summary>
-/// MessBreak の Godot 層エントリポイント。描画・入力・Statee 配線だけを担い、
-/// ゲームルールはすべて MessBreak.Logic に置く(docs/USING.md「境界の掟」)。
+/// MessBreak の Godot 層エントリポイント。描画・入力→TickInput 変換・Statee 配線
+/// だけを担い、ゲームルールはすべて MessBreak.Logic に置く(docs/USING.md「境界の掟」)。
+/// 論理は _PhysicsProcess(60Hz)で 1 Tick ずつ進む固定タイムステップ(ShootingGame の D-048 と同型)。
 /// </summary>
 public partial class Main : Node2D
 {
     private const int DefaultPort = 9310;
     private const int DefaultSeed = 12345;
 
+    /// <summary>tick コマンド1回で進められる上限(暴走防止。60Hz の1分ぶん)。</summary>
+    private const int MaxTickFrames = 3600;
+
+    /// <summary>論理座標(320x180)→描画座標(960x540)の倍率。</summary>
+    private const float Zoom = 3f;
+
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly TimeControl _time = new();
     private readonly GameState _state = new();
 
-    private GameLogic _logic = null!;
-    private KeyBinding[] _keyBindings = [];
+    private BattleLogic _logic = null!;
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
 
@@ -35,11 +41,7 @@ public partial class Main : Node2D
         _loggerFactory = StateeLogging.CreateLoggerFactory(buffer);
         _logger = _loggerFactory.CreateLogger<Main>();
 
-        _logic = new GameLogic(CmdlineArgs.ParseInt("--seed=", DefaultSeed));
-        _keyBindings =
-        [
-            new KeyBinding(Key.Space, "step", "1ターン進める(プレースホルダ)", ActStep),
-        ];
+        _logic = new BattleLogic(new BattleConfig(), CmdlineArgs.ParseInt("--seed=", DefaultSeed));
 
         RefreshView();
         StartStatee(buffer);
@@ -49,24 +51,68 @@ public partial class Main : Node2D
     public override void _Process(double delta)
     {
         _dispatcher.Pump();
-        if (!_time.IsFrozen)
-        {
-            _time.OnFrame();
-        }
     }
 
-    public override void _UnhandledInput(InputEvent @event)
+    public override void _PhysicsProcess(double delta)
     {
-        KeyBindingTable.TryHandle(_keyBindings, @event);
+        if (_time.IsFrozen)
+        {
+            return;
+        }
+        _logic.Tick(ReadHumanInput());
+        _time.OnFrame();
+        RefreshView();
     }
 
     public override void _Draw()
     {
-        // プレースホルダ描画。実ゲームの描画に置き換える
+        var config = _logic.Config;
+
+        // 部屋
+        DrawRect(
+            new Rect2(0, 0, config.RoomWidth * Zoom, config.RoomHeight * Zoom),
+            new Color(0.12f, 0.10f, 0.14f)
+        );
+
+        // 敵(Windup 中は白く点滅させて予備動作を見せる)
+        if (_logic.EnemyAction != EnemyAction.Dead)
+        {
+            var enemyColor =
+                _logic.EnemyAction == EnemyAction.Windup
+                    ? new Color(0.95f, 0.9f, 0.9f)
+                    : new Color(0.55f, 0.25f, 0.6f);
+            DrawCircle(ToScreen(_logic.EnemyPos), config.EnemyRadius * Zoom, enemyColor);
+        }
+
+        // プレイヤー(ドッジ中は半透明)
+        var playerColor =
+            _logic.PlayerAction == PlayerAction.Dodge
+                ? new Color(0.85f, 0.29f, 0.37f, 0.5f)
+                : new Color(0.85f, 0.29f, 0.37f);
+        DrawCircle(ToScreen(_logic.PlayerPos), config.PlayerRadius * Zoom, playerColor);
+
+        // 攻撃判定(Attack 中のみ・向いている方向)
+        if (_logic.PlayerAction == PlayerAction.Attack)
+        {
+            var hitCenter = _logic.PlayerPos + _logic.PlayerFacing * config.AttackReach;
+            DrawCircle(
+                ToScreen(hitCenter),
+                config.AttackRadius * Zoom,
+                new Color(1f, 0.85f, 0.4f, 0.4f)
+            );
+        }
+
+        // HUD
+        var phaseText = _logic.Phase switch
+        {
+            BattlePhase.Victory => "  VICTORY!",
+            BattlePhase.Defeat => "  DEFEAT...",
+            _ => "",
+        };
         DrawString(
             ThemeDB.FallbackFont,
             new Vector2(16, 32),
-            $"MessBreak  seed={_logic.Seed}  step={_logic.StepCount}",
+            $"HP {_logic.PlayerHp}/{_logic.Config.PlayerMaxHp}  敵HP {_logic.EnemyHp}/{_logic.Config.EnemyMaxHp}  tick={_logic.TickCount}{phaseText}",
             fontSize: 20
         );
     }
@@ -77,17 +123,41 @@ public partial class Main : Node2D
         _loggerFactory?.Dispose();
     }
 
-    /// <summary>プレイヤーのアクション(プレースホルダ)。</summary>
-    private void ActStep()
+    /// <summary>人間プレイの入力(押されているキーの集合)を TickInput へ写す。</summary>
+    private static TickInput ReadHumanInput()
     {
-        _logic.Step();
-        RefreshView();
+        var dir = System.Numerics.Vector2.Zero;
+        if (Input.IsPhysicalKeyPressed(Key.Left) || Input.IsPhysicalKeyPressed(Key.A))
+        {
+            dir.X -= 1f;
+        }
+        if (Input.IsPhysicalKeyPressed(Key.Right) || Input.IsPhysicalKeyPressed(Key.D))
+        {
+            dir.X += 1f;
+        }
+        if (Input.IsPhysicalKeyPressed(Key.Up) || Input.IsPhysicalKeyPressed(Key.W))
+        {
+            dir.Y -= 1f;
+        }
+        if (Input.IsPhysicalKeyPressed(Key.Down) || Input.IsPhysicalKeyPressed(Key.S))
+        {
+            dir.Y += 1f;
+        }
+        return new TickInput(
+            dir,
+            Attack: Input.IsPhysicalKeyPressed(Key.Z) || Input.IsPhysicalKeyPressed(Key.J),
+            Dodge: Input.IsPhysicalKeyPressed(Key.X) || Input.IsPhysicalKeyPressed(Key.K)
+        );
     }
 
-    /// <summary>アクション後の状態を State と描画へ反映する。</summary>
+    /// <summary>論理座標(320x180・左上原点)を描画座標へ写す。</summary>
+    private static Vector2 ToScreen(System.Numerics.Vector2 position) =>
+        new(position.X * Zoom, position.Y * Zoom);
+
+    /// <summary>tick 後の状態を State と描画へ反映する。</summary>
     private void RefreshView()
     {
-        _state.Update(_logic.Seed, _logic.StepCount);
+        _state.Update(_logic);
         QueueRedraw();
     }
 
@@ -95,17 +165,34 @@ public partial class Main : Node2D
     {
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
         host.RegisterStateProvider(_state);
-        host.RegisterStateProvider(KeyBindingTable.CreateInputStateProvider(_keyBindings));
         host.RegisterTimeControl(_time);
         StandardCommands.Register(host, this, _logger);
-        // ゲーム状態を変えるコマンドはメインスレッドで実行する
+        // 継続入力つきで論理を進めるコマンド(エージェントのプレイ経路)。
+        // freeze と組み合わせて「入力を指定して N Tick 進める」を実現する。
+        // 例: send --command tick --arg frames=30,input=right+attack
+        // (CLI の --arg は複数指定をカンマで区切るため、入力トークンは + で連結する)
         host.RegisterMainThreadCommand(
-            "step",
-            _ =>
+            "tick",
+            args =>
             {
-                ActStep();
-                _logger.ZLogInformation($"step → {_logic.StepCount}");
-                return new { StepCount = _logic.StepCount };
+                var frames = Math.Clamp(args.GetInt("frames", 1), 1, MaxTickFrames);
+                var input = ParseInput(args.GetString("input") ?? "");
+                for (var i = 0; i < frames; i++)
+                {
+                    _logic.Tick(input);
+                    _time.OnFrame();
+                }
+                RefreshView();
+                _logger.ZLogInformation(
+                    $"tick {frames} → tick={_logic.TickCount} phase={_logic.Phase}"
+                );
+                return new
+                {
+                    _logic.TickCount,
+                    Phase = _logic.Phase.ToString(),
+                    _logic.PlayerHp,
+                    _logic.EnemyHp,
+                };
             }
         );
         StartStateeServer(host);
@@ -116,4 +203,43 @@ public partial class Main : Node2D
     partial void StartStateeServer(StateeHost host);
 
     partial void StopStateeServer();
+
+    /// <summary>"right+attack" のような + 区切りトークンを TickInput へ写す。</summary>
+    private static TickInput ParseInput(string tokens)
+    {
+        var dir = System.Numerics.Vector2.Zero;
+        var attack = false;
+        var dodge = false;
+        foreach (var token in tokens.Split('+', StringSplitOptions.RemoveEmptyEntries))
+        {
+            switch (token.Trim().ToLowerInvariant())
+            {
+                case "-":
+                    break; // 無入力
+                case "left":
+                    dir.X -= 1f;
+                    break;
+                case "right":
+                    dir.X += 1f;
+                    break;
+                case "up":
+                    dir.Y -= 1f;
+                    break;
+                case "down":
+                    dir.Y += 1f;
+                    break;
+                case "attack":
+                    attack = true;
+                    break;
+                case "dodge":
+                    dodge = true;
+                    break;
+                default:
+                    throw new ArgumentException(
+                        $"未知の入力トークン '{token}'(left/right/up/down/attack/dodge)"
+                    );
+            }
+        }
+        return new TickInput(dir, attack, dodge);
+    }
 }

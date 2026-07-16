@@ -8,3 +8,5 @@
   画面上の演出で隠すものも State では隠さない
 - Godot.NET.Sdk は ImplicitUsings 無効。System 系 using を明示する。
   NuGet 依存には CopyLocalLockFileAssemblies が必要
+- 論理は `_PhysicsProcess`(60Hz)で 1 Tick。エージェントのプレイ経路は
+  freeze + `tick` コマンド(`--arg frames=N,input=right+attack`。ShootingGame の D-049 と同型)
