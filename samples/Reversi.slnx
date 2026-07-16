@@ -1,5 +1,5 @@
 <Solution>
-  <Folder Name="/game/">
+  <Folder Name="/samples/">
     <Project Path="Reversi.Godot/Reversi.Godot.csproj">
       <BuildType Project="Debug" />
     </Project>

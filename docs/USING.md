@@ -3,7 +3,7 @@
 このリポジトリをクローンして **Statee を使ったゲームを作りたい人**向けの入口。
 フレームワーク(`src/`)自体を開発する人は docs/HANDOVER.md から読むこと。
 
-> **サンプルについて**: `game/SuikaGame.*` と `game/RogueGame.*` は「動くデモ」であり
+> **サンプルについて**: `samples/SuikaGame.*` と `samples/RogueGame.*` は「動くデモ」であり
 > **規範ではない**。今後変更・削除されうるので、写経元にしない。
 > 作り方の正典はこの文書と `/new-game` skill である。
 
@@ -27,8 +27,8 @@ Statee はゲームに組み込む**動作確認用の窓口**。ゲームが TC
 
 | 層 | 置くもの | 置かないもの |
 |---|---|---|
-| `game/<Name>.Logic`(純C#) | ルール・状態遷移・生成・判定のすべて | Godot API への参照 |
-| `game/<Name>.Godot`(Godot層) | 描画・入力→アクション変換・Statee 配線 | ゲームルール |
+| `samples/<Name>.Logic`(純C#) | ルール・状態遷移・生成・判定のすべて | Godot API への参照 |
+| `samples/<Name>.Godot`(Godot層) | 描画・入力→アクション変換・Statee 配線 | ゲームルール |
 
 - ロジックは `tests/<Name>.Logic.Tests` で xUnit + Shouldly により厚くテストする
 - Godot 層は「in: ロジックのメソッド呼び出し、out: プロパティ読み出し」だけの薄い皮に保つ
@@ -42,7 +42,7 @@ Statee はゲームに組み込む**動作確認用の窓口**。ゲームが TC
 ```
 
 skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済みの
-エントリポイント、専用ソリューション `game/<Name>.slnx` を生成する
+エントリポイント、専用ソリューション `samples/<Name>.slnx` を生成する
 (フレームワークの `Statee.slnx` とは分離されている。D-046)。
 生成直後にビルド・テスト・headless 起動が通る状態になっている。以降は docs/GUIDELINE.md の4段階
 (スケルトン → 失敗するテスト → 実装 → リファクタ)でゲームを育てる。
@@ -83,7 +83,7 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
 ## 5. 動作確認の回し方
 
 ```
-/verify --path game/<Name>.Godot 確認したい観点…
+/verify --path samples/<Name>.Godot 確認したい観点…
 ```
 
 要点(詳細は skill 本文):

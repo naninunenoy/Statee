@@ -91,7 +91,7 @@ AI による自動確認の再現性を担保する要。
 ## ソリューション構成
 
 ソリューションは分割されている(D-046): フレームワークは `Statee.slnx`、
-各ゲームは専用の `game/<Name>.slnx`。全体の門番は `tools/build-all.ps1`。
+各ゲームは専用の `samples/<Name>.slnx`。全体の門番は `tools/build-all.ps1`。
 
 ```
 Statee.slnx(フレームワーク)
@@ -112,15 +112,15 @@ Statee.slnx(フレームワーク)
 │  └─ PingTarget.Godot    … フレームワーク検証用の最小ダミーターゲット(D-013)
 └─ tests/(フレームワークのテスト)
 
-game/SuikaGame.slnx / game/RogueGame.slnx / game/ShootingGame.slnx
+samples/SuikaGame.slnx / samples/RogueGame.slnx / samples/ShootingGame.slnx
 (サンプルゲーム。各ゲームが専用 slnx を持つ)
-├─ game/<Name>.Logic      … 純C#ロジック(規則・状態遷移のすべて)
-├─ game/<Name>.Godot      … Godot 4.7 プロジェクト(EntryPoint・描画・入力)
+├─ samples/<Name>.Logic      … 純C#ロジック(規則・状態遷移のすべて)
+├─ samples/<Name>.Godot      … Godot 4.7 プロジェクト(EntryPoint・描画・入力)
 └─ tests/<Name>.Logic.Tests
 ```
 
-依存方向は `game/ → libs/ → src/` の一方通行。フレームワーク(`src/`)と
-サンプルゲーム(`game/`)を分離し、後の NuGet 化・別ゲームへの流用に備える。
+依存方向は `samples/ → libs/ → src/` の一方通行。フレームワーク(`src/`)と
+サンプルゲーム(`samples/`)を分離し、後の NuGet 化・別ゲームへの流用に備える。
 ゲームを作る人の入口は docs/USING.md、雛形生成は `/new-game` skill(D-045)。
 
 ## サンプルゲーム:スイカゲーム

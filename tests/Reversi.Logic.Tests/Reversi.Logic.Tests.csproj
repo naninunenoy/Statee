@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\game\Reversi.Logic\Reversi.Logic.csproj" />
+    <ProjectReference Include="..\..\samples\Reversi.Logic\Reversi.Logic.csproj" />
   </ItemGroup>
 
 </Project>

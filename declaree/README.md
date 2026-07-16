@@ -50,7 +50,7 @@ Declaree.Statee  … UiStateProvider(記述子スナップショットを State 
   「値を運ぶイベント」は `dispatch(eventId, payload)` への拡張判断が必要
 - SizeFlags(Expand/Fill)・アンカーの直接指定は未対応。中央寄せは `Center` で足りたが、
   ルートのアンカー(FullRect)や MouseFilter はホストの責任
-  (game/SuikaGame.Godot/Main.cs の `RebuildUi` 参照)。
+  (samples/SuikaGame.Godot/Main.cs の `RebuildUi` 参照)。
   なおコンテナ直下の Label は縦センターに置かれるため、上寄せしたい場合は `VBox` で包む
 
 ## 状態更新のモデル

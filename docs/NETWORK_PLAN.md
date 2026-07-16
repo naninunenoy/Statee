@@ -14,8 +14,8 @@ ITransport 抽象(フェイク / LiteNetLib)+ 自サーバー形態固定)と **
 ## 現状の到達点(リバーシで実証済み)
 
 - **サーバ権威 + コマンドレプリケーション**: `syncee/`(`ITransport`/`AuthorityLog`/
-  `ReplicaLog`)、`game/Reversi.Server`(純C#コンソール権威サーバ)、
-  `game/Reversi.Godot`(クライアント化)。ワイヤは MemoryPack、TOON は観測用
+  `ReplicaLog`)、`samples/Reversi.Server`(純C#コンソール権威サーバ)、
+  `samples/Reversi.Godot`(クライアント化)。ワイヤは MemoryPack、TOON は観測用
 - **実トランスポート**: `Syncee.LiteNetLib`。テストの主戦場はフェイクトランスポート
   (`Syncee.Fake`)、実ソケットの E2E は薄く保つ(テストピラミッド)
 - **切断検知**: 対局中の切断は相手の不戦勝として扱う。再接続は未対応

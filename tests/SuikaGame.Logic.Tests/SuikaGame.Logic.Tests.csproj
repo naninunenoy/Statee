@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\game\SuikaGame.Logic\SuikaGame.Logic.csproj" />
+    <ProjectReference Include="..\..\samples\SuikaGame.Logic\SuikaGame.Logic.csproj" />
   </ItemGroup>
 
 </Project>

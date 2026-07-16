@@ -10,10 +10,10 @@
 
 ```powershell
 # 1. サーバを起動する(Statee port 9312 / ゲーム接続 port 9412。1プロセスで複数部屋を扱える)
-dotnet run --project game/RaidBoss.Server
+dotnet run --project samples/RaidBoss.Server
 
 # 2. クライアント(人数分)を起動する(要 .NET 版 Godot)
-<godot> --path game/RaidBoss.Godot
+<godot> --path samples/RaidBoss.Godot
 ```
 
 クライアントの画面上の流れ:

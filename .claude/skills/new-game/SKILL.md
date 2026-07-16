@@ -8,8 +8,8 @@ description: >-
 
 # 新しいゲームのスキャフォールド
 
-`game/<Name>.Logic` + `tests/<Name>.Logic.Tests` + `game/<Name>.Godot` の3プロジェクトと
-専用ソリューション `game/<Name>.slnx` を生成し(フレームワークの `Statee.slnx` には
+`samples/<Name>.Logic` + `tests/<Name>.Logic.Tests` + `samples/<Name>.Godot` の3プロジェクトと
+専用ソリューション `samples/<Name>.slnx` を生成し(フレームワークの `Statee.slnx` には
 入れない。D-046)、ビルド・テスト・headless 起動が通ることまで確認する。
 
 生成物は**動く最小構成**(カウンタを進めるだけのプレースホルダ)。Statee 配線の定型
@@ -20,12 +20,12 @@ description: >-
 ## 手順
 
 1. ゲーム名 `<Name>`(PascalCase)を引数から取る。無ければ聞く。
-   `game/<Name>.Logic` 等が既に存在したら中断して報告する
+   `samples/<Name>.Logic` 等が既に存在したら中断して報告する
 2. 下のテンプレートどおりにファイルを作る(`<Name>` を置換。
    `<name>` は小文字化した State パス用)
-3. 専用ソリューション `game/<Name>.slnx` を作る(テンプレート参照)
-4. `dotnet build game/<Name>.slnx` と `dotnet test game/<Name>.slnx --no-build` が緑になること
-5. `<godot> --headless --path game/<Name>.Godot --import` を実行
+3. 専用ソリューション `samples/<Name>.slnx` を作る(テンプレート参照)
+4. `dotnet build samples/<Name>.slnx` と `dotnet test samples/<Name>.slnx --no-build` が緑になること
+5. `<godot> --headless --path samples/<Name>.Godot --import` を実行
    (完了後にクラッシュするので exit code は無視。D-016)
 6. headless 起動(バックグラウンド)→ `ping` → `state --path game/<name>` →
    `send --command step` で StepCount が増える → `quit`(exit 0)を確認して報告する
@@ -33,14 +33,14 @@ description: >-
 
 ## テンプレート
 
-### game/<Name>.slnx
+### samples/<Name>.slnx
 
 デバッグでフレームワーク側へステップインできるよう、参照している `libs/` と `src/` も
 ビューとして含める。
 
 ```xml
 <Solution>
-  <Folder Name="/game/">
+  <Folder Name="/samples/">
     <Project Path="<Name>.Godot/<Name>.Godot.csproj">
       <BuildType Project="Debug" />
     </Project>
@@ -60,7 +60,7 @@ description: >-
 </Solution>
 ```
 
-### game/<Name>.Logic/<Name>.Logic.csproj
+### samples/<Name>.Logic/<Name>.Logic.csproj
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -75,7 +75,7 @@ description: >-
 </Project>
 ```
 
-### game/<Name>.Logic/GameLogic.cs
+### samples/<Name>.Logic/GameLogic.cs
 
 ```csharp
 namespace <Name>.Logic;
@@ -126,7 +126,7 @@ public sealed class GameLogic(int seed)
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\game\<Name>.Logic\<Name>.Logic.csproj" />
+    <ProjectReference Include="..\..\samples\<Name>.Logic\<Name>.Logic.csproj" />
   </ItemGroup>
 
 </Project>
@@ -153,7 +153,7 @@ public class GameLogicTest
 }
 ```
 
-### game/<Name>.Godot/<Name>.Godot.csproj
+### samples/<Name>.Godot/<Name>.Godot.csproj
 
 ```xml
 <Project Sdk="Godot.NET.Sdk/4.7.0">
@@ -186,7 +186,7 @@ public class GameLogicTest
 </Project>
 ```
 
-### game/<Name>.Godot/project.godot
+### samples/<Name>.Godot/project.godot
 
 ```ini
 config_version=5
@@ -207,7 +207,7 @@ window/size/viewport_height=540
 project/assembly_name="<Name>.Godot"
 ```
 
-### game/<Name>.Godot/main.tscn
+### samples/<Name>.Godot/main.tscn
 
 ```
 [gd_scene load_steps=2 format=3]
@@ -218,7 +218,7 @@ project/assembly_name="<Name>.Godot"
 script = ExtResource("1")
 ```
 
-### game/<Name>.Godot/GameState.cs
+### samples/<Name>.Godot/GameState.cs
 
 ```csharp
 using Statee.Core;
@@ -252,7 +252,7 @@ public partial class GameState
 }
 ```
 
-### game/<Name>.Godot/Main.cs
+### samples/<Name>.Godot/Main.cs
 
 using はアルファベット順(ゲーム名により正しい位置が変わる。hooks のフォーマッタが
 自動修正するので厳密でなくてよい)。Statee 配線の定型は `libs/Statee.Godot` を使う:
@@ -381,7 +381,7 @@ public partial class Main : Node2D
 }
 ```
 
-### game/<Name>.Godot/Main.StateeServer.cs
+### samples/<Name>.Godot/Main.StateeServer.cs
 
 ```csharp
 using System;
@@ -414,7 +414,7 @@ public partial class Main
 }
 ```
 
-### game/<Name>.Godot/CLAUDE.md
+### samples/<Name>.Godot/CLAUDE.md
 
 ```markdown
 # <Name>.Godot 開発指針
@@ -434,6 +434,6 @@ public partial class Main
 - プレースホルダ(GameLogic.Step / step コマンド / Space キー)を実ゲームの
   アクションに置き換えていく。進め方は docs/GUIDELINE.md の4段階
   (スケルトン → 失敗するテスト → 実装 → リファクタ。各段階でコミット)
-- 動作確認は `/verify --path game/<Name>.Godot`
+- 動作確認は `/verify --path samples/<Name>.Godot`
 - 決定論設計にするなら、全アクションをロジック層で記録(ActionLog)して State 公開すると
   リプレイ検証(記録 → 同一シード再起動 → 再生 → State 一致)まで到達できる
