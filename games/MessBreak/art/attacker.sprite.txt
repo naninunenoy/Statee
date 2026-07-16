@@ -1,0 +1,30 @@
+# アタッカー(18歳・剣士の女の子)16x16・正面向き・右手に剣
+# 変換: dotnet run --project tools/dotee/Dotee -- render --input games/MessBreak/art/attacker.sprite.txt
+palette:
+. = #00000000   # 透明
+H = #8F3049     # 髪(深紅)
+h = #6E2438     # 髪の影
+S = #F2C9A1     # 肌
+E = #3A2A33     # 目
+A = #D94A5E     # 服(赤)
+a = #A33246     # 服の影
+W = #CFD6E0     # 剣身
+G = #E0A83C     # 鍔(金)
+B = #5A4A5A     # ブーツ
+grid:
+....HHHHHHH.....
+...HHHHHHHHH..W.
+..HHHHHHHHHHH.W.
+..HHSSSSSSSHH.W.
+..HSSESSSESSH.W.
+..HSSSSSSSSSH.W.
+..HhSSSSSSShH.W.
+...hSSSSSSSh..G.
+....AAAAAAA.SGG.
+...AAAAAAAAAS...
+...AaAAAAAaA....
+....AAAAAAA.....
+....aAAAAAa.....
+.....S...S......
+....BB...BB.....
+....BB...BB.....

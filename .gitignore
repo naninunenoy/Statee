@@ -44,3 +44,6 @@ $RECYCLE.BIN/
 .directory
 .Trash-*
 .nfs*
+
+# dotee の確認用拡大プレビュー(等倍 png と .sprite.txt が正)
+*_x[0-9]*.png
