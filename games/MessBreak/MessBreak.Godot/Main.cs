@@ -169,15 +169,15 @@ public partial class Main : Node2D
         }
         // エイムはマウスカーソル方向(ツインスティックの照準軸)
         var aim = ToLogic(GetGlobalMousePosition()) - _logic.PlayerPos;
+        // 右クリックは将来のスキル発動用に空けてある(docs/DESIGN.md)
         return new TickInput(
             dir,
             aim,
             Fire: Input.IsMouseButtonPressed(MouseButton.Left)
                 || Input.IsPhysicalKeyPressed(Key.Z)
                 || Input.IsPhysicalKeyPressed(Key.J),
-            Dodge: Input.IsMouseButtonPressed(MouseButton.Right)
-                || Input.IsPhysicalKeyPressed(Key.X)
-                || Input.IsPhysicalKeyPressed(Key.K)
+            Dodge: Input.IsPhysicalKeyPressed(Key.Space),
+            Sprint: Input.IsPhysicalKeyPressed(Key.Shift)
         );
     }
 
@@ -269,6 +269,7 @@ public partial class Main : Node2D
         var dir = System.Numerics.Vector2.Zero;
         var fire = false;
         var dodge = false;
+        var sprint = false;
         foreach (var token in tokens.Split('+', StringSplitOptions.RemoveEmptyEntries))
         {
             switch (token.Trim().ToLowerInvariant())
@@ -293,12 +294,15 @@ public partial class Main : Node2D
                 case "dodge":
                     dodge = true;
                     break;
+                case "sprint":
+                    sprint = true;
+                    break;
                 default:
                     throw new ArgumentException(
-                        $"未知の入力トークン '{token}'(left/right/up/down/fire/dodge)"
+                        $"未知の入力トークン '{token}'(left/right/up/down/fire/dodge/sprint)"
                     );
             }
         }
-        return new TickInput(dir, aim, fire, dodge);
+        return new TickInput(dir, aim, fire, dodge, sprint);
     }
 }
