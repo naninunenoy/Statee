@@ -66,10 +66,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                 if (input.Attack)
                 {
                     PlayerAction = PlayerAction.Attack;
-                    _actionTicks =
-                        Config.AttackWindupTicks
-                        + Config.AttackActiveTicks
-                        + Config.AttackRecoveryTicks;
+                    _actionTicks = AttackTotalTicks;
                     _attackHit = false;
                     TickAttack();
                     return;
@@ -109,16 +106,14 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         PlayerPos = ClampToRoom(PlayerPos + unit * Config.PlayerSpeed * Dt, Config.PlayerRadius);
     }
 
+    private int AttackTotalTicks =>
+        Config.AttackWindupTicks + Config.AttackActiveTicks + Config.AttackRecoveryTicks;
+
     /// <summary>攻撃の 1 tick 分。有効区間中に射程内の敵がいれば 1 回だけダメージを与える。</summary>
     private void TickAttack()
     {
+        var elapsed = AttackTotalTicks - _actionTicks; // この tick が攻撃開始から何 tick 目か(0 始まり)
         _actionTicks--;
-        var elapsed =
-            Config.AttackWindupTicks
-            + Config.AttackActiveTicks
-            + Config.AttackRecoveryTicks
-            - 1
-            - _actionTicks;
         var active =
             elapsed >= Config.AttackWindupTicks
             && elapsed < Config.AttackWindupTicks + Config.AttackActiveTicks;
