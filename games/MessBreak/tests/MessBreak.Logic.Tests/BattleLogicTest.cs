@@ -378,6 +378,51 @@ public class BattleLogicTest
         }
     }
 
+    // ---- イベント(Godot 層が音・エフェクトに翻訳する) ----
+
+    [Fact]
+    public void Tick_発射_BulletFiredイベントが発射位置で発生する()
+    {
+        var logic = Create();
+
+        logic.Tick(new TickInput(Fire: true));
+
+        logic.Events.ShouldContain(new BattleEvent(BattleEventKind.BulletFired, logic.PlayerPos));
+    }
+
+    [Fact]
+    public void Tick_命中_TargetHitイベントが発生する()
+    {
+        var logic = Create();
+        logic.Tick(new TickInput(Fire: true));
+
+        TickUntil(logic, () => logic.HitCount == 1, 120);
+
+        logic.Events.ShouldContain(e => e.Kind == BattleEventKind.TargetHit);
+    }
+
+    [Fact]
+    public void Tick_撃破_TargetKilledイベントが的の位置で発生する()
+    {
+        var logic = Create();
+        var targetPos = logic.TargetPos;
+
+        ShootUntilKilled(logic);
+
+        logic.Events.ShouldContain(new BattleEvent(BattleEventKind.TargetKilled, targetPos));
+    }
+
+    [Fact]
+    public void Tick_何も起きないtick_イベントはクリアされる()
+    {
+        var logic = Create();
+        logic.Tick(new TickInput(Fire: true));
+
+        logic.Tick(TickInput.None);
+
+        logic.Events.ShouldBeEmpty();
+    }
+
     // ---- エイムアシスト ----
 
     [Fact]

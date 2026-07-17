@@ -42,6 +42,11 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     public int HitCount { get; private set; }
     public int KillCount { get; private set; }
 
+    /// <summary>直近の Tick で起きた出来事。毎 Tick 先頭でクリアされる。</summary>
+    public IReadOnlyList<BattleEvent> Events => _events;
+
+    private readonly List<BattleEvent> _events = [];
+
     private readonly List<Bullet> _bullets = [];
     private readonly Random _rng = new(seed);
     private int _nextBulletId = 1;
