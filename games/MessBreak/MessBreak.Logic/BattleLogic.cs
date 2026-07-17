@@ -77,10 +77,11 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         {
             SkillCooldown--;
         }
+        // 撃破(スキル=TickPlayer 内 / 弾=TickBullets 内)と同じ tick で
+        // カウントダウンが進まないよう、リスポーン処理は最初に行う
+        TickTargetRespawn();
         Aim(input);
         TickPlayer(input);
-        // 撃破と同じ tick でカウントダウンが進まないよう、弾処理より先に行う
-        TickTargetRespawn();
         TickBullets();
     }
 
@@ -118,6 +119,19 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                     return;
                 }
                 Move(input.MoveDir, input.Sprint ? Config.SprintSpeed : Config.PlayerSpeed);
+                if (input.Skill && SkillCooldown == 0)
+                {
+                    SkillCooldown = Config.SkillCooldownTicks;
+                    var center = PlayerPos + PlayerFacing * Config.SkillRange;
+                    _events.Add(new BattleEvent(BattleEventKind.SkillBurst, center));
+                    if (
+                        TargetHp > 0
+                        && (TargetPos - center).Length() <= Config.SkillRadius + Config.TargetRadius
+                    )
+                    {
+                        ApplyTargetDamage(Config.SkillDamage, TargetPos);
+                    }
+                }
                 if (input.Fire && FireCooldown == 0)
                 {
                     _bullets.Add(new Bullet(_nextBulletId++, PlayerPos, AssistDir(PlayerFacing)));
@@ -188,15 +202,8 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                 && (TargetPos - pos).Length() <= Config.BulletRadius + Config.TargetRadius
             )
             {
-                TargetHp = Math.Max(0, TargetHp - Config.BulletDamage);
                 HitCount++;
-                _events.Add(new BattleEvent(BattleEventKind.TargetHit, pos));
-                if (TargetHp == 0)
-                {
-                    KillCount++;
-                    TargetRespawnCooldown = Config.TargetRespawnTicks;
-                    _events.Add(new BattleEvent(BattleEventKind.TargetKilled, TargetPos));
-                }
+                ApplyTargetDamage(Config.BulletDamage, pos);
                 _bullets.RemoveAt(i);
                 continue;
             }
@@ -206,6 +213,19 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                 continue;
             }
             _bullets[i] = bullet with { Pos = pos };
+        }
+    }
+
+    /// <summary>的へのダメージ適用と撃破処理(弾・スキル共通)。命中統計は呼び出し側で数える。</summary>
+    private void ApplyTargetDamage(int damage, Vector2 hitPos)
+    {
+        TargetHp = Math.Max(0, TargetHp - damage);
+        _events.Add(new BattleEvent(BattleEventKind.TargetHit, hitPos));
+        if (TargetHp == 0)
+        {
+            KillCount++;
+            TargetRespawnCooldown = Config.TargetRespawnTicks;
+            _events.Add(new BattleEvent(BattleEventKind.TargetKilled, TargetPos));
         }
     }
 

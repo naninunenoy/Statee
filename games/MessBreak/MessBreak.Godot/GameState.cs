@@ -21,6 +21,7 @@ public partial class GameState
         string PlayerAction,
         int DodgeCooldown,
         int FireCooldown,
+        int SkillCooldown,
         int BulletCount,
         float TargetX,
         float TargetY,
@@ -39,6 +40,7 @@ public partial class GameState
         0f,
         0f,
         "",
+        0,
         0,
         0,
         0,
@@ -79,6 +81,9 @@ public partial class GameState
     public int FireCooldown => _current.FireCooldown;
 
     [StateeField]
+    public int SkillCooldown => _current.SkillCooldown;
+
+    [StateeField]
     public int BulletCount => _current.BulletCount;
 
     [StateeField]
@@ -115,6 +120,7 @@ public partial class GameState
             logic.PlayerAction.ToString(),
             logic.DodgeCooldown,
             logic.FireCooldown,
+            logic.SkillCooldown,
             logic.Bullets.Count,
             logic.TargetPos.X,
             logic.TargetPos.Y,

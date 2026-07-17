@@ -57,6 +57,7 @@ public partial class Main : Node2D
 
     private Texture2D _playerTexture = null!;
     private AudioStreamPlayer _shotPlayer = null!;
+    private AudioStreamPlayer _skillPlayer = null!;
 
     // カメラ(論理座標系。エイム側へ寄り、構えで少し拡大する)
     private System.Numerics.Vector2 _camPos;
@@ -66,6 +67,10 @@ public partial class Main : Node2D
     private int _hitstopFrames;
     private int _targetFlashFrames;
     private readonly List<(System.Numerics.Vector2 Pos, int Frames)> _hitMarkers = [];
+    private readonly List<(System.Numerics.Vector2 Pos, int Frames)> _burstMarkers = [];
+
+    /// <summary>スキル爆発リングの表示フレーム数。</summary>
+    private const int BurstMarkerFrames = 18;
 
     // 向きの表現(ロジックの PlayerFacing は即時。見た目だけ滑らかにする)
     private int _aimLingerFrames;
@@ -112,6 +117,11 @@ public partial class Main : Node2D
             _hitMarkers[i] = _hitMarkers[i] with { Frames = _hitMarkers[i].Frames - 1 };
         }
         _hitMarkers.RemoveAll(m => m.Frames <= 0);
+        for (var i = 0; i < _burstMarkers.Count; i++)
+        {
+            _burstMarkers[i] = _burstMarkers[i] with { Frames = _burstMarkers[i].Frames - 1 };
+        }
+        _burstMarkers.RemoveAll(m => m.Frames <= 0);
         if (_targetFlashFrames > 0)
         {
             _targetFlashFrames--;
@@ -217,6 +227,21 @@ public partial class Main : Node2D
             );
         }
 
+        // スキル爆発(爆心に半径いっぱいまで広がるリング)
+        foreach (var (pos, frames) in _burstMarkers)
+        {
+            var t = 1f - frames / (float)BurstMarkerFrames;
+            DrawArc(
+                ToScreen(pos),
+                config.SkillRadius * t * ScaleFactor,
+                0f,
+                Mathf.Tau,
+                48,
+                new Color(1f, 0.6f, 0.25f, 1f - t),
+                width: 4f
+            );
+        }
+
         // ヒットマーカー(命中位置に広がって消えるリング)
         foreach (var (pos, frames) in _hitMarkers)
         {
@@ -243,10 +268,14 @@ public partial class Main : Node2D
 
         // HUD(命中統計。「当たる感」検証の指標)
         var accuracy = _logic.ShotCount == 0 ? 0f : 100f * _logic.HitCount / _logic.ShotCount;
+        var skillText =
+            _logic.SkillCooldown == 0
+                ? "READY"
+                : $"{_logic.SkillCooldown / (float)config.TicksPerSecond:0.0}s";
         DrawString(
             ThemeDB.FallbackFont,
             new Vector2(16, 32),
-            $"shots={_logic.ShotCount}  hits={_logic.HitCount}  kills={_logic.KillCount}  acc={accuracy:0.#}%  tick={_logic.TickCount}",
+            $"shots={_logic.ShotCount}  hits={_logic.HitCount}  kills={_logic.KillCount}  acc={accuracy:0.#}%  skill={skillText}  tick={_logic.TickCount}",
             fontSize: 20
         );
     }
@@ -275,6 +304,13 @@ public partial class Main : Node2D
             ),
         };
         AddChild(_shotPlayer);
+        _skillPlayer = new AudioStreamPlayer
+        {
+            Stream = AudioStreamWav.LoadFromFile(
+                ProjectSettings.GlobalizePath("res://../audio/skill.wav")
+            ),
+        };
+        AddChild(_skillPlayer);
     }
 
     /// <summary>人間プレイの入力(押されているキーの集合)を TickInput へ写す。</summary>
@@ -323,7 +359,8 @@ public partial class Main : Node2D
             aim,
             Fire: fire,
             Dodge: Input.IsPhysicalKeyPressed(Key.Space),
-            Sprint: Input.IsPhysicalKeyPressed(Key.Shift)
+            Sprint: Input.IsPhysicalKeyPressed(Key.Shift),
+            Skill: Input.IsPhysicalKeyPressed(Key.E) || Input.IsPhysicalKeyPressed(Key.Q)
         );
     }
 
@@ -430,6 +467,10 @@ public partial class Main : Node2D
                 case BattleEventKind.TargetKilled:
                     _hitstopFrames = 6;
                     break;
+                case BattleEventKind.SkillBurst:
+                    _burstMarkers.Add((battleEvent.Pos, BurstMarkerFrames));
+                    _skillPlayer.Play();
+                    break;
             }
         }
         _state.Update(_logic);
@@ -495,6 +536,7 @@ public partial class Main : Node2D
         var fire = false;
         var dodge = false;
         var sprint = false;
+        var skill = false;
         foreach (var token in tokens.Split('+', StringSplitOptions.RemoveEmptyEntries))
         {
             switch (token.Trim().ToLowerInvariant())
@@ -522,12 +564,15 @@ public partial class Main : Node2D
                 case "sprint":
                     sprint = true;
                     break;
+                case "skill":
+                    skill = true;
+                    break;
                 default:
                     throw new ArgumentException(
-                        $"未知の入力トークン '{token}'(left/right/up/down/fire/dodge/sprint)"
+                        $"未知の入力トークン '{token}'(left/right/up/down/fire/dodge/sprint/skill)"
                     );
             }
         }
-        return new TickInput(dir, aim, fire, dodge, sprint);
+        return new TickInput(dir, aim, fire, dodge, sprint, skill);
     }
 }
