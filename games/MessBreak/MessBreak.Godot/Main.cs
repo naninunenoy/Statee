@@ -188,12 +188,16 @@ public partial class Main : Node2D
             MathF.Cos(_displayFacingAngle),
             MathF.Sin(_displayFacingAngle)
         );
-        DrawLine(
-            ToScreen(_logic.PlayerPos),
-            ToScreen(_logic.PlayerPos + displayFacing * 60f),
-            new Color(1f, 1f, 1f, 0.15f),
-            width: 1f
-        );
+        // 照準線はエイム中(構え・射撃・余韻)だけ出す。移動での向き変化を目立たせない
+        if (_aimLingerFrames > 0)
+        {
+            DrawLine(
+                ToScreen(_logic.PlayerPos),
+                ToScreen(_logic.PlayerPos + displayFacing * 60f),
+                new Color(1f, 1f, 1f, 0.15f),
+                width: 1f
+            );
+        }
         var spriteSize = _playerTexture.GetSize() * ScaleFactor;
         DrawTextureRect(
             _playerTexture,
