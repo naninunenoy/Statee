@@ -32,6 +32,16 @@ public sealed record BattleConfig
     /// </summary>
     public float AimAssistDegrees { get; init; } = 10f;
 
+    // スキル(向いている方向の一定距離先に範囲爆発。倒す主役=高ダメージ)
+    public int SkillCooldownTicks { get; init; } = 180;
+
+    /// <summary>爆発中心のプレイヤーからの距離(向いている方向)。</summary>
+    public float SkillRange { get; init; } = 80f;
+
+    /// <summary>爆発の半径。</summary>
+    public float SkillRadius { get; init; } = 40f;
+    public int SkillDamage { get; init; } = 3;
+
     // ドッジ(向いている方向に高速移動・全区間無敵)
     public int DodgeTicks { get; init; } = 12;
     public int DodgeCooldownTicks { get; init; } = 30;

@@ -378,6 +378,103 @@ public class BattleLogicTest
         }
     }
 
+    // ---- スキル(向いている方向の一定距離先に範囲爆発) ----
+
+    /// <summary>初期の向き(1,0)の SkillRange 先=爆心に的がいる配置。</summary>
+    private static BattleConfig TargetAtSkillCenter() =>
+        new() { TargetSpawn = new Vector2(160f + 80f, 180f), SkillRange = 80f };
+
+    [Fact]
+    public void Tick_スキル入力_範囲内の的にスキルダメージが入る()
+    {
+        var logic = Create(TargetAtSkillCenter());
+
+        logic.Tick(new TickInput(Skill: true));
+
+        logic.TargetHp.ShouldBe(Math.Max(0, logic.Config.TargetMaxHp - logic.Config.SkillDamage));
+    }
+
+    [Fact]
+    public void Tick_スキル入力_範囲外の的にはダメージが入らない()
+    {
+        var logic = Create(); // 的は 320 先。爆心 80 + 半径 40 + 的 8 では届かない
+
+        logic.Tick(new TickInput(Skill: true));
+
+        logic.TargetHp.ShouldBe(logic.Config.TargetMaxHp);
+    }
+
+    [Fact]
+    public void Tick_スキル入力_SkillBurstイベントが爆心位置で発生する()
+    {
+        var logic = Create();
+
+        logic.Tick(new TickInput(Skill: true));
+
+        var center = logic.PlayerPos + logic.PlayerFacing * logic.Config.SkillRange;
+        logic.Events.ShouldContain(new BattleEvent(BattleEventKind.SkillBurst, center));
+    }
+
+    [Fact]
+    public void Tick_スキル発動後_クールダウンが始まり連発できない()
+    {
+        var logic = Create(TargetAtSkillCenter());
+        logic.Tick(new TickInput(Skill: true));
+        var hpAfterFirst = logic.TargetHp;
+
+        logic.Tick(new TickInput(Skill: true));
+
+        logic.SkillCooldown.ShouldBe(logic.Config.SkillCooldownTicks - 1);
+        logic.TargetHp.ShouldBe(hpAfterFirst); // 2 発目は不発
+    }
+
+    [Fact]
+    public void Tick_クールダウン経過後_スキルを再発動できる()
+    {
+        var logic = Create(new BattleConfig { SkillCooldownTicks = 5 });
+        logic.Tick(new TickInput(Skill: true));
+        TickUntil(logic, () => logic.SkillCooldown == 0, 10);
+
+        logic.Tick(new TickInput(Skill: true));
+
+        logic.Events.ShouldContain(e => e.Kind == BattleEventKind.SkillBurst);
+    }
+
+    [Fact]
+    public void Tick_スキルで撃破_KillCountが増えリスポーン待ちが始まる()
+    {
+        var logic = Create(TargetAtSkillCenter()); // SkillDamage 3 = TargetMaxHp
+
+        logic.Tick(new TickInput(Skill: true));
+
+        logic.TargetHp.ShouldBe(0);
+        logic.KillCount.ShouldBe(1);
+        logic.TargetRespawnCooldown.ShouldBe(logic.Config.TargetRespawnTicks);
+    }
+
+    [Fact]
+    public void Tick_スキル命中_射撃の命中統計には数えない()
+    {
+        var logic = Create(TargetAtSkillCenter());
+
+        logic.Tick(new TickInput(Skill: true));
+
+        logic.ShotCount.ShouldBe(0);
+        logic.HitCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Tick_ドッジ中のスキル入力_発動しない()
+    {
+        var logic = Create(TargetAtSkillCenter() with { DodgeTicks = 10 });
+        logic.Tick(new TickInput(new Vector2(0f, 1f), Dodge: true));
+
+        logic.Tick(new TickInput(Skill: true));
+
+        logic.TargetHp.ShouldBe(logic.Config.TargetMaxHp);
+        logic.SkillCooldown.ShouldBe(0);
+    }
+
     // ---- イベント(Godot 層が音・エフェクトに翻訳する) ----
 
     [Fact]

@@ -11,7 +11,8 @@ public readonly record struct TickInput(
     Vector2 AimDir = default,
     bool Fire = false,
     bool Dodge = false,
-    bool Sprint = false
+    bool Sprint = false,
+    bool Skill = false
 )
 {
     public static TickInput None => new();

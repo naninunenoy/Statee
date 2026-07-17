@@ -27,6 +27,9 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>次の発射まで待つ残り tick 数。</summary>
     public int FireCooldown { get; private set; }
 
+    /// <summary>スキルの残りクールダウン tick 数。</summary>
+    public int SkillCooldown { get; private set; }
+
     /// <summary>飛翔中のプレイヤーの弾。</summary>
     public IReadOnlyList<Bullet> Bullets => _bullets;
 
@@ -69,6 +72,10 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         if (FireCooldown > 0)
         {
             FireCooldown--;
+        }
+        if (SkillCooldown > 0)
+        {
+            SkillCooldown--;
         }
         Aim(input);
         TickPlayer(input);

@@ -10,6 +10,9 @@ public enum BattleEventKind
 
     /// <summary>的を撃破した(Pos = 的の位置)。</summary>
     TargetKilled,
+
+    /// <summary>スキルの範囲爆発が発生した(Pos = 爆発中心)。</summary>
+    SkillBurst,
 }
 
 /// <summary>
