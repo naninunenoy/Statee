@@ -14,31 +14,30 @@ public partial class GameState
     private sealed record Snapshot(
         int Seed,
         int TickCount,
-        string Phase,
         float PlayerX,
         float PlayerY,
         float FacingX,
         float FacingY,
-        int PlayerHp,
         string PlayerAction,
         int DodgeCooldown,
         int FireCooldown,
         int BulletCount,
-        float EnemyX,
-        float EnemyY,
-        int EnemyHp,
-        string EnemyAction
+        float TargetX,
+        float TargetY,
+        int TargetHp,
+        int TargetRespawnCooldown,
+        int ShotCount,
+        int HitCount,
+        int KillCount
     );
 
     private volatile Snapshot _current = new(
         0,
         0,
-        "",
         0f,
         0f,
         0f,
         0f,
-        0,
         "",
         0,
         0,
@@ -46,7 +45,10 @@ public partial class GameState
         0f,
         0f,
         0,
-        ""
+        0,
+        0,
+        0,
+        0
     );
 
     [StateeField]
@@ -54,9 +56,6 @@ public partial class GameState
 
     [StateeField]
     public int TickCount => _current.TickCount;
-
-    [StateeField]
-    public string Phase => _current.Phase;
 
     [StateeField]
     public float PlayerX => _current.PlayerX;
@@ -71,9 +70,6 @@ public partial class GameState
     public float FacingY => _current.FacingY;
 
     [StateeField]
-    public int PlayerHp => _current.PlayerHp;
-
-    [StateeField]
     public string PlayerAction => _current.PlayerAction;
 
     [StateeField]
@@ -86,16 +82,25 @@ public partial class GameState
     public int BulletCount => _current.BulletCount;
 
     [StateeField]
-    public float EnemyX => _current.EnemyX;
+    public float TargetX => _current.TargetX;
 
     [StateeField]
-    public float EnemyY => _current.EnemyY;
+    public float TargetY => _current.TargetY;
 
     [StateeField]
-    public int EnemyHp => _current.EnemyHp;
+    public int TargetHp => _current.TargetHp;
 
     [StateeField]
-    public string EnemyAction => _current.EnemyAction;
+    public int TargetRespawnCooldown => _current.TargetRespawnCooldown;
+
+    [StateeField]
+    public int ShotCount => _current.ShotCount;
+
+    [StateeField]
+    public int HitCount => _current.HitCount;
+
+    [StateeField]
+    public int KillCount => _current.KillCount;
 
     /// <summary>メインスレッドから呼ぶ。スナップショットを不可分に差し替える。</summary>
     public void Update(BattleLogic logic)
@@ -103,20 +108,21 @@ public partial class GameState
         _current = new Snapshot(
             logic.Seed,
             logic.TickCount,
-            logic.Phase.ToString(),
             logic.PlayerPos.X,
             logic.PlayerPos.Y,
             logic.PlayerFacing.X,
             logic.PlayerFacing.Y,
-            logic.PlayerHp,
             logic.PlayerAction.ToString(),
             logic.DodgeCooldown,
             logic.FireCooldown,
             logic.Bullets.Count,
-            logic.EnemyPos.X,
-            logic.EnemyPos.Y,
-            logic.EnemyHp,
-            logic.EnemyAction.ToString()
+            logic.TargetPos.X,
+            logic.TargetPos.Y,
+            logic.TargetHp,
+            logic.TargetRespawnCooldown,
+            logic.ShotCount,
+            logic.HitCount,
+            logic.KillCount
         );
     }
 }

@@ -3,7 +3,8 @@ using System.Numerics;
 namespace MessBreak.Logic;
 
 /// <summary>
-/// 縦切り1「部屋1つ + 敵1種 + 攻撃と回避」の戦闘ロジック(docs/DESIGN.md)。
+/// 射撃場ロジック(docs/DESIGN.md「当たる感の検証」)。動かない的を撃ち、撃破すると
+/// リスポーンする。勝敗はなく、命中統計(発射数・命中数・撃破数)で手触りを検証する。
 /// tick 駆動・決定論。時間経過はすべて Tick 呼び出し回数で表し、実時間に依存しない。
 /// Godot 層は入力を <see cref="TickInput"/> に詰めて Tick を呼び、公開プロパティを描画するだけ。
 /// </summary>
@@ -11,18 +12,15 @@ public sealed class BattleLogic(BattleConfig config, int seed)
 {
     public BattleConfig Config { get; } = config;
 
-    /// <summary>生成に使ったシード。State で公開して再現性を検証できるようにする。</summary>
+    /// <summary>生成に使ったシード(リスポーン位置の乱数)。State で公開して再現性を検証する。</summary>
     public int Seed { get; } = seed;
 
     /// <summary>経過 tick 数。</summary>
     public int TickCount { get; private set; }
 
-    public BattlePhase Phase { get; private set; } = BattlePhase.Playing;
-
     // プレイヤー
     public Vector2 PlayerPos { get; private set; } = config.PlayerSpawn;
     public Vector2 PlayerFacing { get; private set; } = new(1f, 0f);
-    public int PlayerHp { get; private set; } = config.PlayerMaxHp;
     public PlayerAction PlayerAction { get; private set; } = PlayerAction.Free;
     public int DodgeCooldown { get; private set; }
 
@@ -32,10 +30,17 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>飛翔中のプレイヤーの弾。</summary>
     public IReadOnlyList<Bullet> Bullets => _bullets;
 
-    // 敵
-    public Vector2 EnemyPos { get; private set; } = config.EnemySpawn;
-    public int EnemyHp { get; private set; } = config.EnemyMaxHp;
-    public EnemyAction EnemyAction { get; private set; } = EnemyAction.Idle;
+    // 的
+    public Vector2 TargetPos { get; private set; } = config.TargetSpawn;
+    public int TargetHp { get; private set; } = config.TargetMaxHp;
+
+    /// <summary>リスポーンまでの残り tick 数(0 なら的は生存中)。</summary>
+    public int TargetRespawnCooldown { get; private set; }
+
+    // 命中統計(「当たる感」の検証指標)
+    public int ShotCount { get; private set; }
+    public int HitCount { get; private set; }
+    public int KillCount { get; private set; }
 
     private readonly List<Bullet> _bullets = [];
     private int _nextBulletId = 1;
@@ -46,15 +51,9 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>ドッジの移動方向(開始時の移動入力。移動入力なしでは発動しない)。</summary>
     private Vector2 _dodgeDir;
 
-    private int _enemyPhaseTicks;
-
-    /// <summary>1 tick 進める。Phase が Playing 以外なら何もしない。</summary>
+    /// <summary>1 tick 進める。</summary>
     public void Tick(TickInput input)
     {
-        if (Phase != BattlePhase.Playing)
-        {
-            return;
-        }
         TickCount++;
         if (DodgeCooldown > 0)
         {
@@ -67,8 +66,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         Aim(input);
         TickPlayer(input);
         TickBullets();
-        TickEnemy();
-        TickPhase();
+        TickTargetRespawn();
     }
 
     /// <summary>
@@ -77,10 +75,6 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// </summary>
     private void Aim(TickInput input)
     {
-        if (PlayerAction == PlayerAction.Dead)
-        {
-            return;
-        }
         if (input.AimDir != Vector2.Zero)
         {
             PlayerFacing = Vector2.Normalize(input.AimDir);
@@ -111,7 +105,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                 Move(input.MoveDir, input.Sprint ? Config.SprintSpeed : Config.PlayerSpeed);
                 if (input.Fire && FireCooldown == 0)
                 {
-                    _bullets.Add(new Bullet(_nextBulletId++, PlayerPos, PlayerFacing));
+                    _bullets.Add(new Bullet(_nextBulletId++, PlayerPos, AssistDir(PlayerFacing)));
                     FireCooldown = Config.FireCooldownTicks;
                 }
                 return;
@@ -119,11 +113,11 @@ public sealed class BattleLogic(BattleConfig config, int seed)
             case PlayerAction.Dodge:
                 TickDodge();
                 return;
-
-            case PlayerAction.Dead:
-                return;
         }
     }
+
+    /// <summary>エイムアシスト。スケルトン段階では補正しない。</summary>
+    private Vector2 AssistDir(Vector2 facing) => facing;
 
     private void Move(Vector2 dir, float speed)
     {
@@ -148,7 +142,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         }
     }
 
-    /// <summary>弾を進め、敵への命中と部屋外への逸脱で消す。</summary>
+    /// <summary>弾を進め、的への命中と部屋外への逸脱で消す。</summary>
     private void TickBullets()
     {
         for (var i = _bullets.Count - 1; i >= 0; i--)
@@ -156,11 +150,11 @@ public sealed class BattleLogic(BattleConfig config, int seed)
             var bullet = _bullets[i];
             var pos = bullet.Pos + bullet.Dir * Config.BulletSpeed * Dt;
             if (
-                EnemyHp > 0
-                && (EnemyPos - pos).Length() <= Config.BulletRadius + Config.EnemyRadius
+                TargetHp > 0
+                && (TargetPos - pos).Length() <= Config.BulletRadius + Config.TargetRadius
             )
             {
-                EnemyHp = Math.Max(0, EnemyHp - Config.BulletDamage);
+                TargetHp = Math.Max(0, TargetHp - Config.BulletDamage);
                 _bullets.RemoveAt(i);
                 continue;
             }
@@ -173,80 +167,8 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         }
     }
 
-    private void TickEnemy()
-    {
-        if (EnemyHp <= 0)
-        {
-            EnemyAction = EnemyAction.Dead;
-            return;
-        }
-        var toPlayer = PlayerPos - EnemyPos;
-        var distance = toPlayer.Length();
-        switch (EnemyAction)
-        {
-            case EnemyAction.Idle:
-                if (distance <= Config.EnemyAggroRange)
-                {
-                    EnemyAction = EnemyAction.Chase;
-                }
-                return;
-
-            case EnemyAction.Chase:
-                if (distance <= Config.EnemyAttackRange)
-                {
-                    EnemyAction = EnemyAction.Windup;
-                    _enemyPhaseTicks = Config.EnemyWindupTicks;
-                    return;
-                }
-                if (distance > 0f)
-                {
-                    EnemyPos = ClampToRoom(
-                        EnemyPos + Vector2.Normalize(toPlayer) * Config.EnemySpeed * Dt,
-                        Config.EnemyRadius
-                    );
-                }
-                return;
-
-            case EnemyAction.Windup:
-                _enemyPhaseTicks--;
-                if (_enemyPhaseTicks <= 0)
-                {
-                    // ドッジ中は無敵。範囲判定は Windup 完了時点の距離で行う
-                    if (distance <= Config.EnemyAttackRange && PlayerAction != PlayerAction.Dodge)
-                    {
-                        PlayerHp = Math.Max(0, PlayerHp - Config.EnemyAttackDamage);
-                    }
-                    EnemyAction = EnemyAction.Recovery;
-                    _enemyPhaseTicks = Config.EnemyRecoveryTicks;
-                }
-                return;
-
-            case EnemyAction.Recovery:
-                _enemyPhaseTicks--;
-                if (_enemyPhaseTicks <= 0)
-                {
-                    EnemyAction = EnemyAction.Chase;
-                }
-                return;
-
-            case EnemyAction.Dead:
-                return;
-        }
-    }
-
-    private void TickPhase()
-    {
-        if (EnemyHp <= 0)
-        {
-            EnemyAction = EnemyAction.Dead;
-            Phase = BattlePhase.Victory;
-        }
-        else if (PlayerHp <= 0)
-        {
-            PlayerAction = PlayerAction.Dead;
-            Phase = BattlePhase.Defeat;
-        }
-    }
+    /// <summary>撃破された的のリスポーン。スケルトン段階では復活しない。</summary>
+    private void TickTargetRespawn() { }
 
     private Vector2 ClampToRoom(Vector2 pos, float radius) =>
         new(

@@ -81,27 +81,15 @@ public partial class Main : Node2D
             new Color(0.12f, 0.10f, 0.14f)
         );
 
-        // 敵(Windup 中は白く点滅させて予備動作を見せる)。向きはプレイヤーへの視線
-        if (_logic.EnemyAction != EnemyAction.Dead)
+        // 的(残 HP で色を濃くする。リスポーン待ち中は非表示)
+        if (_logic.TargetHp > 0)
         {
-            var enemyColor =
-                _logic.EnemyAction == EnemyAction.Windup
-                    ? new Color(0.95f, 0.9f, 0.9f)
-                    : new Color(0.55f, 0.25f, 0.6f);
-            DrawCircle(ToScreen(_logic.EnemyPos), config.EnemyRadius * Zoom, enemyColor);
-            if (_logic.EnemyAction != EnemyAction.Idle)
-            {
-                var toPlayer = _logic.PlayerPos - _logic.EnemyPos;
-                if (toPlayer != System.Numerics.Vector2.Zero)
-                {
-                    DrawNose(
-                        _logic.EnemyPos,
-                        System.Numerics.Vector2.Normalize(toPlayer),
-                        config.EnemyRadius,
-                        new Color(0.9f, 0.75f, 0.95f)
-                    );
-                }
-            }
+            var hpRatio = _logic.TargetHp / (float)config.TargetMaxHp;
+            DrawCircle(
+                ToScreen(_logic.TargetPos),
+                config.TargetRadius * Zoom,
+                new Color(0.55f, 0.25f, 0.6f) * hpRatio + new Color(0.3f, 0.15f, 0.3f)
+            );
         }
 
         // プレイヤー(ドッジ中は半透明)。向き=エイム方向は銃身と細い照準線で見せる
@@ -137,17 +125,12 @@ public partial class Main : Node2D
             );
         }
 
-        // HUD
-        var phaseText = _logic.Phase switch
-        {
-            BattlePhase.Victory => "  VICTORY!",
-            BattlePhase.Defeat => "  DEFEAT...",
-            _ => "",
-        };
+        // HUD(命中統計。「当たる感」検証の指標)
+        var accuracy = _logic.ShotCount == 0 ? 0f : 100f * _logic.HitCount / _logic.ShotCount;
         DrawString(
             ThemeDB.FallbackFont,
             new Vector2(16, 32),
-            $"HP {_logic.PlayerHp}/{_logic.Config.PlayerMaxHp}  敵HP {_logic.EnemyHp}/{_logic.Config.EnemyMaxHp}  tick={_logic.TickCount}{phaseText}",
+            $"shots={_logic.ShotCount}  hits={_logic.HitCount}  kills={_logic.KillCount}  acc={accuracy:0.#}%  tick={_logic.TickCount}",
             fontSize: 20
         );
     }
@@ -280,14 +263,15 @@ public partial class Main : Node2D
                 }
                 RefreshView();
                 _logger.ZLogInformation(
-                    $"tick {frames} → tick={_logic.TickCount} phase={_logic.Phase}"
+                    $"tick {frames} → tick={_logic.TickCount} hits={_logic.HitCount}/{_logic.ShotCount}"
                 );
                 return new
                 {
                     _logic.TickCount,
-                    Phase = _logic.Phase.ToString(),
-                    _logic.PlayerHp,
-                    _logic.EnemyHp,
+                    _logic.ShotCount,
+                    _logic.HitCount,
+                    _logic.KillCount,
+                    _logic.TargetHp,
                 };
             }
         );

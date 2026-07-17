@@ -19,30 +19,38 @@ public sealed record BattleConfig
 
     /// <summary>スプリント(左 Shift)中の移動速度。</summary>
     public float SprintSpeed { get; init; } = 140f;
-    public int PlayerMaxHp { get; init; } = 3;
 
     // 通常射撃(エイム方向へ弾を撃つ。低ダメージの繋ぎ)
     public int FireCooldownTicks { get; init; } = 12;
     public float BulletSpeed { get; init; } = 240f;
-    public float BulletRadius { get; init; } = 2f;
+    public float BulletRadius { get; init; } = 3f;
     public int BulletDamage { get; init; } = 1;
+
+    /// <summary>
+    /// エイムアシストの吸着角(度)。発射方向と的の中心の角度差がこの範囲内なら
+    /// 弾は的の中心へ向かう。0 でアシストなし。
+    /// </summary>
+    public float AimAssistDegrees { get; init; } = 10f;
 
     // ドッジ(向いている方向に高速移動・全区間無敵)
     public int DodgeTicks { get; init; } = 12;
     public int DodgeCooldownTicks { get; init; } = 30;
     public float DodgeSpeed { get; init; } = 240f;
 
-    // 敵
-    public float EnemyRadius { get; init; } = 8f;
-    public float EnemySpeed { get; init; } = 60f;
-    public int EnemyMaxHp { get; init; } = 3;
-    public float EnemyAggroRange { get; init; } = 100f;
-    public float EnemyAttackRange { get; init; } = 24f;
-    public int EnemyWindupTicks { get; init; } = 20;
-    public int EnemyRecoveryTicks { get; init; } = 30;
-    public int EnemyAttackDamage { get; init; } = 1;
+    // 的(動かない・攻撃しない。撃破後にリスポーンする「当たる感」検証用ターゲット)
+    public float TargetRadius { get; init; } = 8f;
+    public int TargetMaxHp { get; init; } = 3;
+
+    /// <summary>撃破からリスポーンまでの tick 数。</summary>
+    public int TargetRespawnTicks { get; init; } = 30;
+
+    /// <summary>リスポーン位置の壁からの最小距離。</summary>
+    public float TargetSpawnMargin { get; init; } = 24f;
+
+    /// <summary>リスポーン位置とプレイヤーの最小距離(密着スポーン防止)。</summary>
+    public float TargetMinPlayerDistance { get; init; } = 60f;
 
     // 初期配置
     public System.Numerics.Vector2 PlayerSpawn { get; init; } = new(80f, 90f);
-    public System.Numerics.Vector2 EnemySpawn { get; init; } = new(240f, 90f);
+    public System.Numerics.Vector2 TargetSpawn { get; init; } = new(240f, 90f);
 }

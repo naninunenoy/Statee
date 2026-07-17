@@ -222,52 +222,206 @@ public class BattleLogicTest
     }
 
     [Fact]
-    public void Tick_弾が敵に当たる_ダメージを与えて弾は消える()
+    public void Tick_弾が的に当たる_HPが減り弾は消える()
     {
-        var logic = Create(new BattleConfig { EnemyAggroRange = 0f }); // 敵は動かず 160 先
-        logic.Tick(new TickInput(Fire: true)); // 初期 Facing (1,0) = 敵の方向
+        var logic = Create(); // 的は 160 先。初期 Facing (1,0) = 的の方向
+        logic.Tick(new TickInput(Fire: true));
 
-        TickUntil(logic, () => logic.EnemyHp < logic.Config.EnemyMaxHp, 120);
+        TickUntil(logic, () => logic.TargetHp < logic.Config.TargetMaxHp, 120);
 
-        logic.EnemyHp.ShouldBe(logic.Config.EnemyMaxHp - logic.Config.BulletDamage);
+        logic.TargetHp.ShouldBe(logic.Config.TargetMaxHp - logic.Config.BulletDamage);
         logic.Bullets.ShouldBeEmpty();
     }
 
     [Fact]
     public void Tick_弾が部屋の外に出る_消える()
     {
-        var logic = Create(new BattleConfig { EnemyAggroRange = 0f });
-        logic.Tick(new TickInput(AimDir: new Vector2(-1f, 0f))); // 敵のいない左の壁へ
+        var logic = Create();
+        logic.Tick(new TickInput(AimDir: new Vector2(-1f, 0f))); // 的のいない左の壁へ
         logic.Tick(new TickInput(Fire: true));
 
         TickUntil(logic, () => logic.Bullets.Count == 0, 120);
 
-        logic.EnemyHp.ShouldBe(logic.Config.EnemyMaxHp);
+        logic.TargetHp.ShouldBe(logic.Config.TargetMaxHp);
+    }
+
+    // ---- 命中統計 ----
+
+    [Fact]
+    public void Tick_発射_ShotCountが増える()
+    {
+        var logic = Create();
+
+        logic.Tick(new TickInput(Fire: true));
+
+        logic.ShotCount.ShouldBe(1);
     }
 
     [Fact]
-    public void Tick_敵HPが0になる_Victoryになり敵はDeadになる()
+    public void Tick_命中_HitCountが増える()
     {
-        var logic = Create(new BattleConfig { EnemyAggroRange = 0f, EnemyMaxHp = 1 });
-
+        var logic = Create();
         logic.Tick(new TickInput(Fire: true));
-        TickUntil(logic, () => logic.EnemyHp == 0, 120);
 
-        logic.Phase.ShouldBe(BattlePhase.Victory);
-        logic.EnemyAction.ShouldBe(EnemyAction.Dead);
+        TickUntil(logic, () => logic.TargetHp < logic.Config.TargetMaxHp, 120);
+
+        logic.HitCount.ShouldBe(1);
     }
 
     [Fact]
-    public void Tick_Victory後_状態が進まない()
+    public void Tick_弾が外れて消える_HitCountは増えない()
     {
-        var logic = Create(new BattleConfig { EnemyAggroRange = 0f, EnemyMaxHp = 1 });
+        var logic = Create();
+        logic.Tick(new TickInput(AimDir: new Vector2(-1f, 0f)));
         logic.Tick(new TickInput(Fire: true));
-        TickUntil(logic, () => logic.Phase == BattlePhase.Victory, 120);
-        var tickCount = logic.TickCount;
 
-        logic.Tick(new TickInput(new Vector2(1f, 0f)));
+        TickUntil(logic, () => logic.Bullets.Count == 0, 120);
 
-        logic.TickCount.ShouldBe(tickCount);
+        logic.ShotCount.ShouldBe(1);
+        logic.HitCount.ShouldBe(0);
+    }
+
+    // ---- 的の撃破とリスポーン ----
+
+    /// <summary>的を撃破するまで撃ち続ける。</summary>
+    private static void ShootUntilKilled(BattleLogic logic)
+    {
+        for (var i = 0; i < 600; i++)
+        {
+            if (logic.TargetHp == 0)
+            {
+                return;
+            }
+            logic.Tick(new TickInput(AimDir: logic.TargetPos - logic.PlayerPos, Fire: true));
+        }
+        throw new InvalidOperationException("600 tick 以内に的を撃破できませんでした");
+    }
+
+    [Fact]
+    public void Tick_的のHPが0_KillCountが増えリスポーン待ちが始まる()
+    {
+        var logic = Create();
+
+        ShootUntilKilled(logic);
+
+        logic.KillCount.ShouldBe(1);
+        logic.TargetRespawnCooldown.ShouldBe(logic.Config.TargetRespawnTicks);
+    }
+
+    [Fact]
+    public void Tick_リスポーン待ちが明ける_HP全快で復活する()
+    {
+        var logic = Create();
+        ShootUntilKilled(logic);
+
+        TickUntil(logic, () => logic.TargetHp > 0, logic.Config.TargetRespawnTicks + 1);
+
+        logic.TargetHp.ShouldBe(logic.Config.TargetMaxHp);
+        logic.TargetRespawnCooldown.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Tick_リスポーン位置_部屋内かつプレイヤーから離れている()
+    {
+        var logic = Create();
+        var config = logic.Config;
+
+        // 乱数配置なので複数回リスポーンさせて全数検査する
+        for (var kill = 0; kill < 5; kill++)
+        {
+            ShootUntilKilled(logic);
+            TickUntil(logic, () => logic.TargetHp > 0, config.TargetRespawnTicks + 1);
+
+            logic.TargetPos.X.ShouldBeInRange(
+                config.TargetSpawnMargin,
+                config.RoomWidth - config.TargetSpawnMargin
+            );
+            logic.TargetPos.Y.ShouldBeInRange(
+                config.TargetSpawnMargin,
+                config.RoomHeight - config.TargetSpawnMargin
+            );
+            (logic.TargetPos - logic.PlayerPos)
+                .Length()
+                .ShouldBeGreaterThanOrEqualTo(config.TargetMinPlayerDistance);
+        }
+    }
+
+    [Fact]
+    public void Tick_リスポーン待ち中_弾は当たらずすり抜ける()
+    {
+        var logic = Create();
+        ShootUntilKilled(logic);
+        var hits = logic.HitCount;
+
+        logic.Tick(new TickInput(AimDir: logic.TargetPos - logic.PlayerPos, Fire: true));
+        for (var i = 0; i < logic.Config.TargetRespawnTicks - 1; i++)
+        {
+            logic.Tick(TickInput.None);
+        }
+
+        logic.HitCount.ShouldBe(hits);
+    }
+
+    [Fact]
+    public void Tick_同じseed_リスポーン位置の履歴が一致する_決定論()
+    {
+        var first = Create();
+        var second = Create();
+        for (var kill = 0; kill < 3; kill++)
+        {
+            ShootUntilKilled(first);
+            TickUntil(first, () => first.TargetHp > 0, first.Config.TargetRespawnTicks + 1);
+            ShootUntilKilled(second);
+            TickUntil(second, () => second.TargetHp > 0, second.Config.TargetRespawnTicks + 1);
+
+            second.TargetPos.ShouldBe(first.TargetPos);
+        }
+    }
+
+    // ---- エイムアシスト ----
+
+    [Fact]
+    public void Tick_吸着角の内側にズレた発射_弾は的の中心へ向かう()
+    {
+        var logic = Create(new BattleConfig { AimAssistDegrees = 10f });
+        // 的は真右(1,0)。約 5.7 度上へずらしてもアシストで吸われる
+        logic.Tick(new TickInput(AimDir: new Vector2(1f, -0.1f)));
+
+        logic.Tick(new TickInput(Fire: true));
+
+        var toTarget = Vector2.Normalize(logic.TargetPos - logic.PlayerPos);
+        logic.Bullets[0].Dir.X.ShouldBe(toTarget.X, 0.001f);
+        logic.Bullets[0].Dir.Y.ShouldBe(toTarget.Y, 0.001f);
+    }
+
+    [Fact]
+    public void Tick_吸着角の外側の発射_補正されない()
+    {
+        var logic = Create(new BattleConfig { AimAssistDegrees = 10f });
+        // 約 45 度上=コーン外
+        var aim = Vector2.Normalize(new Vector2(1f, -1f));
+        logic.Tick(new TickInput(AimDir: aim));
+
+        logic.Tick(new TickInput(Fire: true));
+
+        logic.Bullets[0].Dir.X.ShouldBe(aim.X, 0.001f);
+        logic.Bullets[0].Dir.Y.ShouldBe(aim.Y, 0.001f);
+    }
+
+    [Fact]
+    public void Tick_リスポーン待ち中の発射_アシストされない()
+    {
+        var logic = Create(new BattleConfig { AimAssistDegrees = 10f });
+        ShootUntilKilled(logic);
+        TickUntil(logic, () => logic.FireCooldown == 0);
+        var aim = new Vector2(1f, -0.1f);
+        logic.Tick(new TickInput(AimDir: aim));
+
+        logic.Tick(new TickInput(Fire: true));
+
+        var expected = Vector2.Normalize(aim);
+        logic.Bullets[^1].Dir.X.ShouldBe(expected.X, 0.001f);
+        logic.Bullets[^1].Dir.Y.ShouldBe(expected.Y, 0.001f);
     }
 
     // ---- ドッジ ----
@@ -334,98 +488,5 @@ public class BattleLogicTest
         logic.Tick(new TickInput(new Vector2(0f, 1f), Dodge: true));
 
         logic.PlayerAction.ShouldBe(PlayerAction.Dodge);
-    }
-
-    // ---- 敵 FSM ----
-
-    /// <summary>敵がすぐ攻撃してくる配置(隣接・攻撃範囲は部屋全体)。</summary>
-    private static BattleConfig AggressiveAdjacentEnemy() =>
-        new()
-        {
-            PlayerSpawn = new Vector2(100f, 90f),
-            EnemySpawn = new Vector2(110f, 90f),
-            EnemyAggroRange = 1000f,
-            EnemyAttackRange = 1000f,
-            EnemyWindupTicks = 3,
-            EnemyRecoveryTicks = 5,
-        };
-
-    [Fact]
-    public void Tick_プレイヤーがアグロ範囲外_Idleのまま動かない()
-    {
-        var logic = Create(); // 既定: 距離 160 > アグロ 100
-        var before = logic.EnemyPos;
-
-        logic.Tick(TickInput.None);
-
-        logic.EnemyAction.ShouldBe(EnemyAction.Idle);
-        logic.EnemyPos.ShouldBe(before);
-    }
-
-    [Fact]
-    public void Tick_プレイヤーがアグロ範囲内_Chaseになり接近する()
-    {
-        var logic = Create(new BattleConfig { EnemyAggroRange = 1000f });
-        var beforeDistance = (logic.EnemyPos - logic.PlayerPos).Length();
-
-        logic.Tick(TickInput.None);
-        logic.Tick(TickInput.None);
-
-        logic.EnemyAction.ShouldBe(EnemyAction.Chase);
-        (logic.EnemyPos - logic.PlayerPos).Length().ShouldBeLessThan(beforeDistance);
-    }
-
-    [Fact]
-    public void Tick_攻撃レンジ内_Windupに遷移する()
-    {
-        var logic = Create(AggressiveAdjacentEnemy());
-
-        TickUntil(logic, () => logic.EnemyAction == EnemyAction.Windup, 10);
-
-        logic.EnemyAction.ShouldBe(EnemyAction.Windup);
-    }
-
-    [Fact]
-    public void Tick_Windup完了時にプレイヤーが範囲内_ダメージを与えRecoveryへ遷移する()
-    {
-        var logic = Create(AggressiveAdjacentEnemy());
-
-        TickUntil(logic, () => logic.EnemyAction == EnemyAction.Recovery, 20);
-
-        logic.PlayerHp.ShouldBe(logic.Config.PlayerMaxHp - logic.Config.EnemyAttackDamage);
-    }
-
-    [Fact]
-    public void Tick_Windup完了時にプレイヤーがドッジ中_ダメージを受けない()
-    {
-        var logic = Create(AggressiveAdjacentEnemy() with { DodgeTicks = 30 });
-        TickUntil(logic, () => logic.EnemyAction == EnemyAction.Windup, 10);
-
-        logic.Tick(new TickInput(new Vector2(0f, 1f), Dodge: true)); // Windup 中にドッジ開始(30 tick 無敵)
-        TickUntil(logic, () => logic.EnemyAction == EnemyAction.Recovery, 20);
-
-        logic.PlayerHp.ShouldBe(logic.Config.PlayerMaxHp);
-    }
-
-    [Fact]
-    public void Tick_Recovery完了_Chaseに戻る()
-    {
-        var logic = Create(AggressiveAdjacentEnemy());
-        TickUntil(logic, () => logic.EnemyAction == EnemyAction.Recovery, 20);
-
-        TickUntil(logic, () => logic.EnemyAction != EnemyAction.Recovery, 20);
-
-        logic.EnemyAction.ShouldBe(EnemyAction.Chase);
-    }
-
-    [Fact]
-    public void Tick_プレイヤーHPが0になる_DefeatになりプレイヤーはDeadになる()
-    {
-        var logic = Create(AggressiveAdjacentEnemy() with { PlayerMaxHp = 1 });
-
-        TickUntil(logic, () => logic.PlayerHp == 0, 60);
-
-        logic.Phase.ShouldBe(BattlePhase.Defeat);
-        logic.PlayerAction.ShouldBe(PlayerAction.Dead);
     }
 }

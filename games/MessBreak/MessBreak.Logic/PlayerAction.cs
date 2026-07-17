@@ -5,5 +5,4 @@ public enum PlayerAction
 {
     Free,
     Dodge,
-    Dead,
 }
