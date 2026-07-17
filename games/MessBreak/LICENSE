@@ -1,0 +1,39 @@
+MessBreak License (Source-Available, All Rights Reserved)
+
+Copyright (c) 2026 naninunenoy. All rights reserved.
+
+本ディレクトリ(games/MessBreak/)以下のすべてのファイル(ソースコード・
+ドキュメント・画像・音声・その他のアセットを含む)は、リポジトリのルートの
+MIT License の適用対象外であり、著作権者がすべての権利を留保します。
+
+許可されること:
+- このリポジトリを通じて内容を閲覧・参照すること(学習目的の参照を含む)
+
+許可されないこと(著作権者の書面による事前の許諾がない限り):
+- 複製、再配布、公衆送信
+- 改変および改変物の利用・頒布
+- 商用・非商用を問わず、ゲームまたはその一部(コード・アセット)を
+  自身のプロジェクトに組み込むこと
+
+本ソフトウェアは現状有姿で提供され、いかなる保証もありません。
+
+---
+
+MessBreak License (Source-Available, All Rights Reserved)
+
+All files under this directory (games/MessBreak/), including source code,
+documentation, images, audio, and other assets, are NOT covered by the MIT
+License at the repository root. All rights are reserved by the copyright
+holder.
+
+You may:
+- View and reference the contents via this repository (including for
+  learning purposes)
+
+You may NOT, without prior written permission from the copyright holder:
+- Copy, redistribute, or publicly transmit the contents
+- Modify the contents or use/distribute derivative works
+- Incorporate the game or any part of it (code or assets) into your own
+  projects, whether commercial or non-commercial
+
+This software is provided "as is", without warranty of any kind.
