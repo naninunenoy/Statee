@@ -144,17 +144,34 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                     return;
                 }
                 Move(input.MoveDir, input.Sprint ? Config.SprintSpeed : Config.PlayerSpeed);
+                if (
+                    input.SwitchTo is { } switchTo
+                    && switchTo != ActiveCharacter
+                    && SwitchCooldown == 0
+                )
+                {
+                    ActiveCharacter = switchTo;
+                    SwitchCooldown = Config.SwitchCooldownTicks;
+                    _events.Add(new BattleEvent(BattleEventKind.CharacterSwitched, PlayerPos));
+                }
                 if (input.Skill && SkillCooldown == 0)
                 {
                     _skillCooldowns[(int)ActiveCharacter] = Config.SkillCooldownTicks;
                     var center = SkillCenter(input.AimPoint);
                     _events.Add(new BattleEvent(BattleEventKind.SkillBurst, center));
-                    if (
+                    var inRange =
                         TargetHp > 0
-                        && (TargetPos - center).Length() <= Config.SkillRadius + Config.TargetRadius
-                    )
+                        && (TargetPos - center).Length()
+                            <= Config.SkillRadius + Config.TargetRadius;
+                    if (inRange && ActiveCharacter == CharacterId.Attacker)
                     {
                         ApplyTargetDamage(Config.SkillDamage, TargetPos);
+                    }
+                    else if (inRange)
+                    {
+                        // デバッファー: ダメージなしで被ダメージ増幅デバフを付与
+                        TargetDebuffTicks = Config.DebuffDurationTicks;
+                        _events.Add(new BattleEvent(BattleEventKind.TargetDebuffed, TargetPos));
                     }
                 }
                 if (input.Fire && FireCooldown == 0)
@@ -262,6 +279,10 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>的へのダメージ適用と撃破処理(弾・スキル共通)。命中統計は呼び出し側で数える。</summary>
     private void ApplyTargetDamage(int damage, Vector2 hitPos)
     {
+        if (TargetDebuffTicks > 0)
+        {
+            damage *= Config.DebuffDamageMultiplier;
+        }
         TargetHp = Math.Max(0, TargetHp - damage);
         _events.Add(new BattleEvent(BattleEventKind.TargetHit, hitPos));
         if (TargetHp == 0)
@@ -284,6 +305,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         {
             TargetHp = Config.TargetMaxHp;
             TargetPos = NextSpawnPos();
+            TargetDebuffTicks = 0; // 新しい的はデバフを引き継がない
         }
     }
 

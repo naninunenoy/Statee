@@ -189,11 +189,35 @@ public partial class Main : Node2D
                     ? new Color(1f, 1f, 1f)
                     : new Color(0.55f, 0.25f, 0.6f) * hpRatio + new Color(0.3f, 0.15f, 0.3f);
             DrawCircle(ToScreen(_logic.TargetPos), config.TargetRadius * ScaleFactor, targetColor);
+            // デバフ中は的の周りに紫のリングを出す(コンボの好機を可視化)
+            if (_logic.TargetDebuffTicks > 0)
+            {
+                DrawArc(
+                    ToScreen(_logic.TargetPos),
+                    (config.TargetRadius + 4f) * ScaleFactor,
+                    0f,
+                    Mathf.Tau,
+                    32,
+                    new Color(0.8f, 0.4f, 1f, 0.9f),
+                    width: 3f
+                );
+            }
         }
 
         // プレイヤー(ドッジ中は半透明)。向き=エイム方向は銃身と細い照準線で見せる
+        // キャラの見分け: アタッカーは素のスプライト、デバッファーは青緑がかったティント
+        // (専用スプライトができるまでの色違い)
+        var characterTint =
+            _logic.ActiveCharacter == CharacterId.Debuffer
+                ? new Color(0.55f, 0.9f, 1f)
+                : Colors.White;
         var playerTint =
-            _logic.PlayerAction == PlayerAction.Dodge ? new Color(1f, 1f, 1f, 0.5f) : Colors.White;
+            _logic.PlayerAction == PlayerAction.Dodge
+                ? characterTint with
+                {
+                    A = 0.5f,
+                }
+                : characterTint;
         var displayFacing = new System.Numerics.Vector2(
             MathF.Cos(_displayFacingAngle),
             MathF.Sin(_displayFacingAngle)
@@ -268,14 +292,12 @@ public partial class Main : Node2D
 
         // HUD(命中統計。「当たる感」検証の指標)
         var accuracy = _logic.ShotCount == 0 ? 0f : 100f * _logic.HitCount / _logic.ShotCount;
-        var skillText =
-            _logic.SkillCooldown == 0
-                ? "READY"
-                : $"{_logic.SkillCooldown / (float)config.TicksPerSecond:0.0}s";
+        var characterText =
+            _logic.ActiveCharacter == CharacterId.Attacker ? "アタッカー" : "デバッファー";
         DrawString(
             ThemeDB.FallbackFont,
             new Vector2(16, 32),
-            $"shots={_logic.ShotCount}  hits={_logic.HitCount}  kills={_logic.KillCount}  acc={accuracy:0.#}%  skill={skillText}  tick={_logic.TickCount}",
+            $"[{characterText}]  skill1={CooldownText(_logic.SkillCooldownOf(CharacterId.Attacker))}  skill2={CooldownText(_logic.SkillCooldownOf(CharacterId.Debuffer))}  shots={_logic.ShotCount}  hits={_logic.HitCount}  kills={_logic.KillCount}  acc={accuracy:0.#}%  tick={_logic.TickCount}",
             fontSize: 20
         );
     }
@@ -361,7 +383,10 @@ public partial class Main : Node2D
             Dodge: Input.IsPhysicalKeyPressed(Key.Space),
             Sprint: Input.IsPhysicalKeyPressed(Key.Shift),
             Skill: Input.IsPhysicalKeyPressed(Key.E) || Input.IsPhysicalKeyPressed(Key.Q),
-            AimPoint: ToLogic(GetGlobalMousePosition()) // マウスにはレティクル位置が常にある
+            AimPoint: ToLogic(GetGlobalMousePosition()), // マウスにはレティクル位置が常にある
+            SwitchTo: Input.IsPhysicalKeyPressed(Key.Key1) ? CharacterId.Attacker
+                : Input.IsPhysicalKeyPressed(Key.Key2) ? CharacterId.Debuffer
+                : null
         );
     }
 
@@ -416,6 +441,10 @@ public partial class Main : Node2D
             DrawCircle(pos, 1.5f, new Color(1f, 1f, 1f, 0.5f));
         }
     }
+
+    /// <summary>スキルクールダウンの HUD 表記(READY か残り秒数)。</summary>
+    private string CooldownText(int ticks) =>
+        ticks == 0 ? "READY" : $"{ticks / (float)_logic.Config.TicksPerSecond:0.0}s";
 
     /// <summary>中心から向きを示す短い銃身(ノーズ)を描く。円だけでは向きが分からない対策。</summary>
     private void DrawNose(
@@ -549,6 +578,7 @@ public partial class Main : Node2D
         var dodge = false;
         var sprint = false;
         var skill = false;
+        CharacterId? switchTo = null;
         foreach (var token in tokens.Split('+', StringSplitOptions.RemoveEmptyEntries))
         {
             switch (token.Trim().ToLowerInvariant())
@@ -579,12 +609,18 @@ public partial class Main : Node2D
                 case "skill":
                     skill = true;
                     break;
+                case "char1":
+                    switchTo = CharacterId.Attacker;
+                    break;
+                case "char2":
+                    switchTo = CharacterId.Debuffer;
+                    break;
                 default:
                     throw new ArgumentException(
-                        $"未知の入力トークン '{token}'(left/right/up/down/fire/dodge/sprint/skill)"
+                        $"未知の入力トークン '{token}'(left/right/up/down/fire/dodge/sprint/skill/char1/char2)"
                     );
             }
         }
-        return new TickInput(dir, aim, fire, dodge, sprint, skill, aimPoint);
+        return new TickInput(dir, aim, fire, dodge, sprint, skill, aimPoint, switchTo);
     }
 }

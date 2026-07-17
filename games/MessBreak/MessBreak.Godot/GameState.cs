@@ -21,12 +21,16 @@ public partial class GameState
         string PlayerAction,
         int DodgeCooldown,
         int FireCooldown,
-        int SkillCooldown,
+        string ActiveCharacter,
+        int SwitchCooldown,
+        int AttackerSkillCooldown,
+        int DebufferSkillCooldown,
         int BulletCount,
         float TargetX,
         float TargetY,
         int TargetHp,
         int TargetRespawnCooldown,
+        int TargetDebuffTicks,
         int ShotCount,
         int HitCount,
         int KillCount
@@ -42,10 +46,14 @@ public partial class GameState
         "",
         0,
         0,
+        "",
+        0,
+        0,
         0,
         0,
         0f,
         0f,
+        0,
         0,
         0,
         0,
@@ -81,7 +89,16 @@ public partial class GameState
     public int FireCooldown => _current.FireCooldown;
 
     [StateeField]
-    public int SkillCooldown => _current.SkillCooldown;
+    public string ActiveCharacter => _current.ActiveCharacter;
+
+    [StateeField]
+    public int SwitchCooldown => _current.SwitchCooldown;
+
+    [StateeField]
+    public int AttackerSkillCooldown => _current.AttackerSkillCooldown;
+
+    [StateeField]
+    public int DebufferSkillCooldown => _current.DebufferSkillCooldown;
 
     [StateeField]
     public int BulletCount => _current.BulletCount;
@@ -97,6 +114,9 @@ public partial class GameState
 
     [StateeField]
     public int TargetRespawnCooldown => _current.TargetRespawnCooldown;
+
+    [StateeField]
+    public int TargetDebuffTicks => _current.TargetDebuffTicks;
 
     [StateeField]
     public int ShotCount => _current.ShotCount;
@@ -120,12 +140,16 @@ public partial class GameState
             logic.PlayerAction.ToString(),
             logic.DodgeCooldown,
             logic.FireCooldown,
-            logic.SkillCooldown,
+            logic.ActiveCharacter.ToString(),
+            logic.SwitchCooldown,
+            logic.SkillCooldownOf(CharacterId.Attacker),
+            logic.SkillCooldownOf(CharacterId.Debuffer),
             logic.Bullets.Count,
             logic.TargetPos.X,
             logic.TargetPos.Y,
             logic.TargetHp,
             logic.TargetRespawnCooldown,
+            logic.TargetDebuffTicks,
             logic.ShotCount,
             logic.HitCount,
             logic.KillCount
