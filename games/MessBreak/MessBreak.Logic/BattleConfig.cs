@@ -35,19 +35,13 @@ public sealed record BattleConfig
     // キャラ切り替え(スキルセットの差し替え。スキルクールダウンはキャラごとに独立)
     public int SwitchCooldownTicks { get; init; } = 30;
 
-    // デバッファーのスキル(範囲内の的に被ダメージ増幅デバフを付与。ダメージなし)
-    public int DebuffDurationTicks { get; init; } = 300;
-    public int DebuffDamageMultiplier { get; init; } = 2;
+    // キャラごとのバランス値(スキル CD・範囲・効果量は CharacterConfig で個別調整)
+    public CharacterConfig Attacker { get; init; } = new();
+    public CharacterConfig Debuffer { get; init; } = new();
 
-    // スキル(レティクル位置を爆心に範囲効果。倒す主役=高ダメージ)
-    public int SkillCooldownTicks { get; init; } = 180;
-
-    /// <summary>爆発中心のプレイヤーからの距離(向いている方向)。</summary>
-    public float SkillRange { get; init; } = 80f;
-
-    /// <summary>爆発の半径。</summary>
-    public float SkillRadius { get; init; } = 40f;
-    public int SkillDamage { get; init; } = 3;
+    /// <summary>指定キャラのバランス値を返す。</summary>
+    public CharacterConfig CharacterOf(CharacterId id) =>
+        id == CharacterId.Attacker ? Attacker : Debuffer;
 
     // ドッジ(向いている方向に高速移動・全区間無敵)
     public int DodgeTicks { get; init; } = 12;

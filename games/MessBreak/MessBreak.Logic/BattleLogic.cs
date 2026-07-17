@@ -54,6 +54,9 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>的のデバフ(被ダメージ増幅)の残り tick 数(0 なら未付与)。</summary>
     public int TargetDebuffTicks { get; private set; }
 
+    /// <summary>付与中デバフの倍率(付与したデバッファーの設定値を保持)。</summary>
+    private int _debuffMultiplier = 1;
+
     // 命中統計(「当たる感」の検証指標)
     public int ShotCount { get; private set; }
     public int HitCount { get; private set; }
@@ -156,21 +159,23 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                 }
                 if (input.Skill && SkillCooldown == 0)
                 {
-                    _skillCooldowns[(int)ActiveCharacter] = Config.SkillCooldownTicks;
-                    var center = SkillCenter(input.AimPoint);
+                    var character = Config.CharacterOf(ActiveCharacter);
+                    _skillCooldowns[(int)ActiveCharacter] = character.SkillCooldownTicks;
+                    var center = SkillCenter(input.AimPoint, character.SkillRange);
                     _events.Add(new BattleEvent(BattleEventKind.SkillBurst, center));
                     var inRange =
                         TargetHp > 0
                         && (TargetPos - center).Length()
-                            <= Config.SkillRadius + Config.TargetRadius;
+                            <= character.SkillRadius + Config.TargetRadius;
                     if (inRange && ActiveCharacter == CharacterId.Attacker)
                     {
-                        ApplyTargetDamage(Config.SkillDamage, TargetPos);
+                        ApplyTargetDamage(character.SkillDamage, TargetPos);
                     }
                     else if (inRange)
                     {
                         // デバッファー: ダメージなしで被ダメージ増幅デバフを付与
-                        TargetDebuffTicks = Config.DebuffDurationTicks;
+                        TargetDebuffTicks = character.DebuffDurationTicks;
+                        _debuffMultiplier = character.DebuffDamageMultiplier;
                         _events.Add(new BattleEvent(BattleEventKind.TargetDebuffed, TargetPos));
                     }
                 }
@@ -262,18 +267,18 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// スキルの爆心。照準点(レティクル位置)があればそこ(射程上限でクランプ)、
     /// なければ向いている方向の射程いっぱい(ゲームパッド等のフォールバック)。
     /// </summary>
-    private Vector2 SkillCenter(Vector2? aimPoint)
+    private Vector2 SkillCenter(Vector2? aimPoint, float range)
     {
         if (aimPoint is not { } point)
         {
-            return PlayerPos + PlayerFacing * Config.SkillRange;
+            return PlayerPos + PlayerFacing * range;
         }
         var toPoint = point - PlayerPos;
-        if (toPoint.Length() <= Config.SkillRange)
+        if (toPoint.Length() <= range)
         {
             return point;
         }
-        return PlayerPos + Vector2.Normalize(toPoint) * Config.SkillRange;
+        return PlayerPos + Vector2.Normalize(toPoint) * range;
     }
 
     /// <summary>的へのダメージ適用と撃破処理(弾・スキル共通)。命中統計は呼び出し側で数える。</summary>
@@ -281,7 +286,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     {
         if (TargetDebuffTicks > 0)
         {
-            damage *= Config.DebuffDamageMultiplier;
+            damage *= _debuffMultiplier;
         }
         TargetHp = Math.Max(0, TargetHp - damage);
         _events.Add(new BattleEvent(BattleEventKind.TargetHit, hitPos));

@@ -382,7 +382,7 @@ public class BattleLogicTest
 
     /// <summary>初期の向き(1,0)の SkillRange 先=爆心に的がいる配置。</summary>
     private static BattleConfig TargetAtSkillCenter() =>
-        new() { TargetSpawn = new Vector2(160f + 80f, 180f), SkillRange = 80f };
+        new() { TargetSpawn = new Vector2(160f + 80f, 180f) }; // 既定の SkillRange は 80
 
     [Fact]
     public void Tick_スキル入力_範囲内の的にスキルダメージが入る()
@@ -391,7 +391,9 @@ public class BattleLogicTest
 
         logic.Tick(new TickInput(Skill: true));
 
-        logic.TargetHp.ShouldBe(Math.Max(0, logic.Config.TargetMaxHp - logic.Config.SkillDamage));
+        logic.TargetHp.ShouldBe(
+            Math.Max(0, logic.Config.TargetMaxHp - logic.Config.Attacker.SkillDamage)
+        );
     }
 
     [Fact]
@@ -411,7 +413,7 @@ public class BattleLogicTest
 
         logic.Tick(new TickInput(Skill: true));
 
-        var center = logic.PlayerPos + logic.PlayerFacing * logic.Config.SkillRange;
+        var center = logic.PlayerPos + logic.PlayerFacing * logic.Config.Attacker.SkillRange;
         logic.Events.ShouldContain(new BattleEvent(BattleEventKind.SkillBurst, center));
     }
 
@@ -434,7 +436,7 @@ public class BattleLogicTest
 
         logic.Tick(new TickInput(Skill: true, AimPoint: point));
 
-        var expected = logic.PlayerPos + new Vector2(0.6f, 0.8f) * logic.Config.SkillRange;
+        var expected = logic.PlayerPos + new Vector2(0.6f, 0.8f) * logic.Config.Attacker.SkillRange;
         var burst = logic.Events.Single(e => e.Kind == BattleEventKind.SkillBurst);
         burst.Pos.X.ShouldBe(expected.X, 0.001f);
         burst.Pos.Y.ShouldBe(expected.Y, 0.001f);
@@ -449,14 +451,16 @@ public class BattleLogicTest
 
         logic.Tick(new TickInput(Skill: true));
 
-        logic.SkillCooldown.ShouldBe(logic.Config.SkillCooldownTicks - 1);
+        logic.SkillCooldown.ShouldBe(logic.Config.Attacker.SkillCooldownTicks - 1);
         logic.TargetHp.ShouldBe(hpAfterFirst); // 2 発目は不発
     }
 
     [Fact]
     public void Tick_クールダウン経過後_スキルを再発動できる()
     {
-        var logic = Create(new BattleConfig { SkillCooldownTicks = 5 });
+        var logic = Create(
+            new BattleConfig { Attacker = new CharacterConfig { SkillCooldownTicks = 5 } }
+        );
         logic.Tick(new TickInput(Skill: true));
         TickUntil(logic, () => logic.SkillCooldown == 0, 10);
 
@@ -563,6 +567,26 @@ public class BattleLogicTest
     }
 
     [Fact]
+    public void Tick_キャラごとに異なるスキルクールダウンを設定できる()
+    {
+        var logic = Create(
+            new BattleConfig
+            {
+                SwitchCooldownTicks = 1,
+                Attacker = new CharacterConfig { SkillCooldownTicks = 100 },
+                Debuffer = new CharacterConfig { SkillCooldownTicks = 50 },
+            }
+        );
+
+        logic.Tick(new TickInput(Skill: true)); // アタッカーで発動
+        logic.Tick(new TickInput(SwitchTo: CharacterId.Debuffer));
+        logic.Tick(new TickInput(Skill: true)); // デバッファーで発動
+
+        logic.SkillCooldownOf(CharacterId.Attacker).ShouldBe(98); // 100 から 2 tick 経過
+        logic.SkillCooldownOf(CharacterId.Debuffer).ShouldBe(50);
+    }
+
+    [Fact]
     public void Tick_デバッファースキル_的にデバフが付きダメージは入らない()
     {
         var logic = Create(TargetAtSkillCenter() with { SwitchCooldownTicks = 1 });
@@ -570,7 +594,7 @@ public class BattleLogicTest
 
         logic.Tick(new TickInput(Skill: true));
 
-        logic.TargetDebuffTicks.ShouldBe(logic.Config.DebuffDurationTicks);
+        logic.TargetDebuffTicks.ShouldBe(logic.Config.Debuffer.DebuffDurationTicks);
         logic.TargetHp.ShouldBe(logic.Config.TargetMaxHp);
         logic.Events.ShouldContain(
             new BattleEvent(BattleEventKind.TargetDebuffed, logic.TargetPos)
@@ -600,7 +624,7 @@ public class BattleLogicTest
 
         var expected =
             logic.Config.TargetMaxHp
-            - logic.Config.BulletDamage * logic.Config.DebuffDamageMultiplier;
+            - logic.Config.BulletDamage * logic.Config.Debuffer.DebuffDamageMultiplier;
         logic.TargetHp.ShouldBe(expected);
     }
 
@@ -611,7 +635,7 @@ public class BattleLogicTest
             TargetAtSkillCenter() with
             {
                 SwitchCooldownTicks = 1,
-                DebuffDurationTicks = 5,
+                Debuffer = new CharacterConfig { DebuffDurationTicks = 5 },
             }
         );
         logic.Tick(new TickInput(SwitchTo: CharacterId.Debuffer));

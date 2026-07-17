@@ -67,7 +67,8 @@ public partial class Main : Node2D
     private int _hitstopFrames;
     private int _targetFlashFrames;
     private readonly List<(System.Numerics.Vector2 Pos, int Frames)> _hitMarkers = [];
-    private readonly List<(System.Numerics.Vector2 Pos, int Frames)> _burstMarkers = [];
+    private readonly List<(System.Numerics.Vector2 Pos, int Frames, float Radius)> _burstMarkers =
+    [];
 
     /// <summary>スキル爆発リングの表示フレーム数。</summary>
     private const int BurstMarkerFrames = 18;
@@ -252,12 +253,12 @@ public partial class Main : Node2D
         }
 
         // スキル爆発(爆心に半径いっぱいまで広がるリング)
-        foreach (var (pos, frames) in _burstMarkers)
+        foreach (var (pos, frames, radius) in _burstMarkers)
         {
             var t = 1f - frames / (float)BurstMarkerFrames;
             DrawArc(
                 ToScreen(pos),
-                config.SkillRadius * t * ScaleFactor,
+                radius * t * ScaleFactor,
                 0f,
                 Mathf.Tau,
                 48,
@@ -498,7 +499,13 @@ public partial class Main : Node2D
                     _hitstopFrames = 6;
                     break;
                 case BattleEventKind.SkillBurst:
-                    _burstMarkers.Add((battleEvent.Pos, BurstMarkerFrames));
+                    _burstMarkers.Add(
+                        (
+                            battleEvent.Pos,
+                            BurstMarkerFrames,
+                            _logic.Config.CharacterOf(_logic.ActiveCharacter).SkillRadius
+                        )
+                    );
                     _skillPlayer.Play();
                     break;
             }
