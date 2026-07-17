@@ -416,6 +416,31 @@ public class BattleLogicTest
     }
 
     [Fact]
+    public void Tick_AimPointつきスキル_射程内ならその位置が爆心になる()
+    {
+        var logic = Create();
+        var point = logic.PlayerPos + new Vector2(30f, -40f); // 距離 50 ≤ 射程 80
+
+        logic.Tick(new TickInput(Skill: true, AimPoint: point));
+
+        logic.Events.ShouldContain(new BattleEvent(BattleEventKind.SkillBurst, point));
+    }
+
+    [Fact]
+    public void Tick_射程外のAimPoint_その方向の射程上限が爆心になる()
+    {
+        var logic = Create();
+        var point = logic.PlayerPos + new Vector2(300f, 400f); // 距離 500 > 射程 80
+
+        logic.Tick(new TickInput(Skill: true, AimPoint: point));
+
+        var expected = logic.PlayerPos + new Vector2(0.6f, 0.8f) * logic.Config.SkillRange;
+        var burst = logic.Events.Single(e => e.Kind == BattleEventKind.SkillBurst);
+        burst.Pos.X.ShouldBe(expected.X, 0.001f);
+        burst.Pos.Y.ShouldBe(expected.Y, 0.001f);
+    }
+
+    [Fact]
     public void Tick_スキル発動後_クールダウンが始まり連発できない()
     {
         var logic = Create(TargetAtSkillCenter());
