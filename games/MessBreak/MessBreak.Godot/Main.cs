@@ -360,7 +360,8 @@ public partial class Main : Node2D
             Fire: fire,
             Dodge: Input.IsPhysicalKeyPressed(Key.Space),
             Sprint: Input.IsPhysicalKeyPressed(Key.Shift),
-            Skill: Input.IsPhysicalKeyPressed(Key.E) || Input.IsPhysicalKeyPressed(Key.Q)
+            Skill: Input.IsPhysicalKeyPressed(Key.E) || Input.IsPhysicalKeyPressed(Key.Q),
+            AimPoint: ToLogic(GetGlobalMousePosition()) // マウスにはレティクル位置が常にある
         );
     }
 
@@ -496,7 +497,14 @@ public partial class Main : Node2D
                     ParseFloat(args.GetString("aimx")),
                     ParseFloat(args.GetString("aimy"))
                 );
-                var input = ParseInput(args.GetString("input") ?? "", aim);
+                // skillx/skilly はスキル爆心の絶対座標(省略時は向いている方向の射程いっぱい)
+                var skillX = args.GetString("skillx");
+                var skillY = args.GetString("skilly");
+                System.Numerics.Vector2? aimPoint =
+                    skillX is null && skillY is null
+                        ? null
+                        : new System.Numerics.Vector2(ParseFloat(skillX), ParseFloat(skillY));
+                var input = ParseInput(args.GetString("input") ?? "", aim, aimPoint);
                 for (var i = 0; i < frames; i++)
                 {
                     _logic.Tick(input);
@@ -530,7 +538,11 @@ public partial class Main : Node2D
         value is null ? 0f : float.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>"right+fire" のような + 区切りトークンと aim を TickInput へ写す。</summary>
-    private static TickInput ParseInput(string tokens, System.Numerics.Vector2 aim)
+    private static TickInput ParseInput(
+        string tokens,
+        System.Numerics.Vector2 aim,
+        System.Numerics.Vector2? aimPoint
+    )
     {
         var dir = System.Numerics.Vector2.Zero;
         var fire = false;
@@ -573,6 +585,6 @@ public partial class Main : Node2D
                     );
             }
         }
-        return new TickInput(dir, aim, fire, dodge, sprint, skill);
+        return new TickInput(dir, aim, fire, dodge, sprint, skill, aimPoint);
     }
 }

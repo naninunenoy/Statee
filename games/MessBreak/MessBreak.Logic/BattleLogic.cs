@@ -122,7 +122,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                 if (input.Skill && SkillCooldown == 0)
                 {
                     SkillCooldown = Config.SkillCooldownTicks;
-                    var center = PlayerPos + PlayerFacing * Config.SkillRange;
+                    var center = SkillCenter(input.AimPoint);
                     _events.Add(new BattleEvent(BattleEventKind.SkillBurst, center));
                     if (
                         TargetHp > 0
@@ -214,6 +214,24 @@ public sealed class BattleLogic(BattleConfig config, int seed)
             }
             _bullets[i] = bullet with { Pos = pos };
         }
+    }
+
+    /// <summary>
+    /// スキルの爆心。照準点(レティクル位置)があればそこ(射程上限でクランプ)、
+    /// なければ向いている方向の射程いっぱい(ゲームパッド等のフォールバック)。
+    /// </summary>
+    private Vector2 SkillCenter(Vector2? aimPoint)
+    {
+        if (aimPoint is not { } point)
+        {
+            return PlayerPos + PlayerFacing * Config.SkillRange;
+        }
+        var toPoint = point - PlayerPos;
+        if (toPoint.Length() <= Config.SkillRange)
+        {
+            return point;
+        }
+        return PlayerPos + Vector2.Normalize(toPoint) * Config.SkillRange;
     }
 
     /// <summary>的へのダメージ適用と撃破処理(弾・スキル共通)。命中統計は呼び出し側で数える。</summary>
