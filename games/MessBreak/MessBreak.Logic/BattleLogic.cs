@@ -43,6 +43,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     public int KillCount { get; private set; }
 
     private readonly List<Bullet> _bullets = [];
+    private readonly Random _rng = new(seed);
     private int _nextBulletId = 1;
 
     /// <summary>ドッジの残り無敵 tick 数。</summary>
@@ -65,8 +66,9 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         }
         Aim(input);
         TickPlayer(input);
-        TickBullets();
+        // 撃破と同じ tick でカウントダウンが進まないよう、弾処理より先に行う
         TickTargetRespawn();
+        TickBullets();
     }
 
     /// <summary>
@@ -107,6 +109,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                 {
                     _bullets.Add(new Bullet(_nextBulletId++, PlayerPos, AssistDir(PlayerFacing)));
                     FireCooldown = Config.FireCooldownTicks;
+                    ShotCount++;
                 }
                 return;
 
@@ -116,8 +119,25 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         }
     }
 
-    /// <summary>エイムアシスト。スケルトン段階では補正しない。</summary>
-    private Vector2 AssistDir(Vector2 facing) => facing;
+    /// <summary>
+    /// エイムアシスト。発射方向と的の中心の角度差が吸着角以内なら的の中心へ吸わせる。
+    /// 的がリスポーン待ちの間は補正しない。
+    /// </summary>
+    private Vector2 AssistDir(Vector2 facing)
+    {
+        if (TargetHp <= 0 || Config.AimAssistDegrees <= 0f)
+        {
+            return facing;
+        }
+        var toTarget = TargetPos - PlayerPos;
+        if (toTarget == Vector2.Zero)
+        {
+            return facing;
+        }
+        var unit = Vector2.Normalize(toTarget);
+        var cosLimit = MathF.Cos(Config.AimAssistDegrees * MathF.PI / 180f);
+        return Vector2.Dot(facing, unit) >= cosLimit ? unit : facing;
+    }
 
     private void Move(Vector2 dir, float speed)
     {
@@ -155,6 +175,12 @@ public sealed class BattleLogic(BattleConfig config, int seed)
             )
             {
                 TargetHp = Math.Max(0, TargetHp - Config.BulletDamage);
+                HitCount++;
+                if (TargetHp == 0)
+                {
+                    KillCount++;
+                    TargetRespawnCooldown = Config.TargetRespawnTicks;
+                }
                 _bullets.RemoveAt(i);
                 continue;
             }
@@ -167,8 +193,42 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         }
     }
 
-    /// <summary>撃破された的のリスポーン。スケルトン段階では復活しない。</summary>
-    private void TickTargetRespawn() { }
+    /// <summary>撃破された的のリスポーン。待ちが明けたら HP 全快・乱数位置で復活する。</summary>
+    private void TickTargetRespawn()
+    {
+        if (TargetHp > 0 || TargetRespawnCooldown == 0)
+        {
+            return;
+        }
+        TargetRespawnCooldown--;
+        if (TargetRespawnCooldown == 0)
+        {
+            TargetHp = Config.TargetMaxHp;
+            TargetPos = NextSpawnPos();
+        }
+    }
+
+    /// <summary>
+    /// 次のリスポーン位置。壁からマージンを取った矩形内の乱数で、プレイヤーの
+    /// 至近距離を避ける(seed 由来なので決定論)。避けきれない場合は最後の候補を使う。
+    /// </summary>
+    private Vector2 NextSpawnPos()
+    {
+        var margin = Config.TargetSpawnMargin;
+        var pos = TargetPos;
+        for (var i = 0; i < 16; i++)
+        {
+            pos = new Vector2(
+                margin + (float)_rng.NextDouble() * (Config.RoomWidth - 2f * margin),
+                margin + (float)_rng.NextDouble() * (Config.RoomHeight - 2f * margin)
+            );
+            if ((pos - PlayerPos).Length() >= Config.TargetMinPlayerDistance)
+            {
+                break;
+            }
+        }
+        return pos;
+    }
 
     private Vector2 ClampToRoom(Vector2 pos, float radius) =>
         new(
