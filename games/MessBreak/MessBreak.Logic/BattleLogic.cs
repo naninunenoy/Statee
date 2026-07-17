@@ -64,19 +64,30 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         {
             FireCooldown--;
         }
-        Aim(input.AimDir);
+        Aim(input);
         TickPlayer(input);
         TickBullets();
         TickEnemy();
         TickPhase();
     }
 
-    /// <summary>照準は移動と独立に更新する(ツインスティック)。零入力なら前回を維持。</summary>
-    private void Aim(Vector2 aimDir)
+    /// <summary>
+    /// 向きの更新。エイム入力があればその方向(構え=ストレイフ)、
+    /// なければ移動方向(非構え)。どちらもなければ前回を維持(docs/DESIGN.md「向き(構え)の仕様」)。
+    /// </summary>
+    private void Aim(TickInput input)
     {
-        if (PlayerAction != PlayerAction.Dead && aimDir != Vector2.Zero)
+        if (PlayerAction == PlayerAction.Dead)
         {
-            PlayerFacing = Vector2.Normalize(aimDir);
+            return;
+        }
+        if (input.AimDir != Vector2.Zero)
+        {
+            PlayerFacing = Vector2.Normalize(input.AimDir);
+        }
+        else if (input.MoveDir != Vector2.Zero)
+        {
+            PlayerFacing = Vector2.Normalize(input.MoveDir);
         }
     }
 
