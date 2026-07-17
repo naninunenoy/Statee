@@ -29,8 +29,11 @@ public partial class Main : Node2D
     private static readonly Vector2 ScreenCenter = new(480f, 270f);
 
     /// <summary>カメラをプレイヤーからカーソル側へ寄せる割合(非構え / 構え)。</summary>
-    private const float LookAheadWeight = 0.25f;
-    private const float LookAheadWeightAds = 0.45f;
+    private const float LookAheadWeight = 0.12f;
+    private const float LookAheadWeightAds = 0.3f;
+
+    /// <summary>カメラ位置の追従率(毎フレーム)。小さいほどゆっくり=揺れにくい。</summary>
+    private const float CameraLerp = 0.06f;
 
     /// <summary>構え(右クリック)中のズーム倍率。覗き込みの 2D 翻訳。</summary>
     private const float AdsZoom = 1.15f;
@@ -62,6 +65,9 @@ public partial class Main : Node2D
     {
         // freeze 中も Statee のコマンド処理(Pump)を動かし続ける
         ProcessMode = ProcessModeEnum.Always;
+
+        // OS カーソルは隠し、_Draw で自前のレティクルを描く
+        Input.MouseMode = Input.MouseModeEnum.Hidden;
 
         var buffer = new LogBuffer(1024);
         _loggerFactory = StateeLogging.CreateLoggerFactory(buffer);
@@ -131,7 +137,7 @@ public partial class Main : Node2D
             Math.Clamp(desired.X, halfW, config.RoomWidth - halfW),
             Math.Clamp(desired.Y, halfH, config.RoomHeight - halfH)
         );
-        _camPos += (desired - _camPos) * 0.12f;
+        _camPos += (desired - _camPos) * CameraLerp;
     }
 
     public override void _Draw()
@@ -207,6 +213,15 @@ public partial class Main : Node2D
             );
         }
 
+        // 画面外の的の方向インジケーター(画面端の三角矢印)
+        if (_logic.TargetHp > 0)
+        {
+            DrawOffscreenIndicator(ToScreen(_logic.TargetPos));
+        }
+
+        // レティクル(OS カーソルの代わり)。構え中は引き締まった十字、非構えは薄めのリング
+        DrawReticle(GetGlobalMousePosition(), Input.IsMouseButtonPressed(MouseButton.Right));
+
         // HUD(命中統計。「当たる感」検証の指標)
         var accuracy = _logic.ShotCount == 0 ? 0f : 100f * _logic.HitCount / _logic.ShotCount;
         DrawString(
@@ -277,6 +292,58 @@ public partial class Main : Node2D
             Dodge: Input.IsPhysicalKeyPressed(Key.Space),
             Sprint: Input.IsPhysicalKeyPressed(Key.Shift)
         );
+    }
+
+    /// <summary>
+    /// 的が画面外にいるとき、画面端に的の方向を指す三角矢印を描く。画面内なら何もしない。
+    /// </summary>
+    private void DrawOffscreenIndicator(Vector2 targetScreen)
+    {
+        const float Margin = 28f;
+        var viewport = GetViewportRect();
+        if (viewport.HasPoint(targetScreen))
+        {
+            return;
+        }
+        var toTarget = targetScreen - ScreenCenter;
+        if (toTarget == Vector2.Zero)
+        {
+            return;
+        }
+        // 画面中心から的への半直線と、マージン分内側の矩形との交点に矢印を置く
+        var scaleX =
+            toTarget.X == 0 ? float.MaxValue : (ScreenCenter.X - Margin) / Math.Abs(toTarget.X);
+        var scaleY =
+            toTarget.Y == 0 ? float.MaxValue : (ScreenCenter.Y - Margin) / Math.Abs(toTarget.Y);
+        var edge = ScreenCenter + toTarget * Math.Min(scaleX, scaleY);
+
+        var dir = toTarget.Normalized();
+        var perp = new Vector2(-dir.Y, dir.X);
+        DrawPolygon(
+            [edge + dir * 12f, edge - dir * 4f + perp * 8f, edge - dir * 4f - perp * 8f],
+            [new Color(1f, 0.6f, 0.9f, 0.9f)]
+        );
+    }
+
+    /// <summary>マウス位置にレティクルを描く。構え中は十字+小円、非構えは薄いリング。</summary>
+    private void DrawReticle(Vector2 pos, bool ads)
+    {
+        if (ads)
+        {
+            var color = new Color(1f, 1f, 1f, 0.9f);
+            const float Gap = 4f;
+            const float Arm = 8f;
+            DrawLine(pos + new Vector2(Gap, 0), pos + new Vector2(Gap + Arm, 0), color, 1.5f);
+            DrawLine(pos - new Vector2(Gap, 0), pos - new Vector2(Gap + Arm, 0), color, 1.5f);
+            DrawLine(pos + new Vector2(0, Gap), pos + new Vector2(0, Gap + Arm), color, 1.5f);
+            DrawLine(pos - new Vector2(0, Gap), pos - new Vector2(0, Gap + Arm), color, 1.5f);
+            DrawCircle(pos, 1.5f, color);
+        }
+        else
+        {
+            DrawArc(pos, 7f, 0f, Mathf.Tau, 24, new Color(1f, 1f, 1f, 0.5f), width: 1.5f);
+            DrawCircle(pos, 1.5f, new Color(1f, 1f, 1f, 0.5f));
+        }
     }
 
     /// <summary>中心から向きを示す短い銃身(ノーズ)を描く。円だけでは向きが分からない対策。</summary>
