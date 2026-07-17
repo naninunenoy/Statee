@@ -278,17 +278,22 @@ public partial class Main : Node2D
         {
             dir.Y += 1f;
         }
-        // 構え(右クリック保持)中だけマウスカーソル方向を AimDir として送る。
-        // 非構えは零を送り、ロジック側で移動方向を向く(docs/DESIGN.md「向き(構え)の仕様」)
-        var aim = Input.IsMouseButtonPressed(MouseButton.Right)
-            ? ToLogic(GetGlobalMousePosition()) - _logic.PlayerPos
-            : System.Numerics.Vector2.Zero;
+        // AimDir を送るのは「構え(右クリック保持)中」か「射撃中」。
+        // 構え=精密モード(ストレイフ+ズーム)、非構えの左クリック=カーソル位置への
+        // クイックショット。どちらでもないときは零を送り、ロジック側で移動方向を向く
+        // (docs/DESIGN.md「向き(構え)の仕様」「左クリックの役割」)
+        var fire =
+            Input.IsMouseButtonPressed(MouseButton.Left)
+            || Input.IsPhysicalKeyPressed(Key.Z)
+            || Input.IsPhysicalKeyPressed(Key.J);
+        var aim =
+            Input.IsMouseButtonPressed(MouseButton.Right) || fire
+                ? ToLogic(GetGlobalMousePosition()) - _logic.PlayerPos
+                : System.Numerics.Vector2.Zero;
         return new TickInput(
             dir,
             aim,
-            Fire: Input.IsMouseButtonPressed(MouseButton.Left)
-                || Input.IsPhysicalKeyPressed(Key.Z)
-                || Input.IsPhysicalKeyPressed(Key.J),
+            Fire: fire,
             Dodge: Input.IsPhysicalKeyPressed(Key.Space),
             Sprint: Input.IsPhysicalKeyPressed(Key.Shift)
         );
