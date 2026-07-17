@@ -60,6 +60,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>1 tick 進める。</summary>
     public void Tick(TickInput input)
     {
+        _events.Clear();
         TickCount++;
         if (DodgeCooldown > 0)
         {
@@ -115,6 +116,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                     _bullets.Add(new Bullet(_nextBulletId++, PlayerPos, AssistDir(PlayerFacing)));
                     FireCooldown = Config.FireCooldownTicks;
                     ShotCount++;
+                    _events.Add(new BattleEvent(BattleEventKind.BulletFired, PlayerPos));
                 }
                 return;
 
@@ -181,10 +183,12 @@ public sealed class BattleLogic(BattleConfig config, int seed)
             {
                 TargetHp = Math.Max(0, TargetHp - Config.BulletDamage);
                 HitCount++;
+                _events.Add(new BattleEvent(BattleEventKind.TargetHit, pos));
                 if (TargetHp == 0)
                 {
                     KillCount++;
                     TargetRespawnCooldown = Config.TargetRespawnTicks;
+                    _events.Add(new BattleEvent(BattleEventKind.TargetKilled, TargetPos));
                 }
                 _bullets.RemoveAt(i);
                 continue;

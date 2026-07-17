@@ -9,9 +9,9 @@ public sealed record BattleConfig
     /// <summary>1 秒あたりの tick 数。速度(毎秒)を 1 tick の移動量に換算する基準。</summary>
     public int TicksPerSecond { get; init; } = 60;
 
-    // 部屋(原点 (0,0) 起点の矩形)
-    public float RoomWidth { get; init; } = 320f;
-    public float RoomHeight { get; init; } = 180f;
+    // 部屋(原点 (0,0) 起点の矩形)。画面(320x180 の窓)より広く、カメラワークの余地を作る
+    public float RoomWidth { get; init; } = 640f;
+    public float RoomHeight { get; init; } = 360f;
 
     // プレイヤー
     public float PlayerRadius { get; init; } = 6f;
@@ -51,6 +51,6 @@ public sealed record BattleConfig
     public float TargetMinPlayerDistance { get; init; } = 60f;
 
     // 初期配置
-    public System.Numerics.Vector2 PlayerSpawn { get; init; } = new(80f, 90f);
-    public System.Numerics.Vector2 TargetSpawn { get; init; } = new(240f, 90f);
+    public System.Numerics.Vector2 PlayerSpawn { get; init; } = new(160f, 180f);
+    public System.Numerics.Vector2 TargetSpawn { get; init; } = new(480f, 180f);
 }

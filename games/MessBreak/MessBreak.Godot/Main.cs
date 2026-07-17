@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using MessBreak.Logic;
 using Microsoft.Extensions.Logging;
@@ -21,8 +22,21 @@ public partial class Main : Node2D
     /// <summary>tick コマンド1回で進められる上限(暴走防止。60Hz の1分ぶん)。</summary>
     private const int MaxTickFrames = 3600;
 
-    /// <summary>論理座標(320x180)→描画座標(960x540)の倍率。</summary>
+    /// <summary>論理座標→描画座標の基本倍率(カメラズーム 1.0 のとき)。</summary>
     private const float Zoom = 3f;
+
+    /// <summary>画面中心の描画座標(ウィンドウ 960x540)。</summary>
+    private static readonly Vector2 ScreenCenter = new(480f, 270f);
+
+    /// <summary>カメラをプレイヤーからカーソル側へ寄せる割合(非構え / 構え)。</summary>
+    private const float LookAheadWeight = 0.25f;
+    private const float LookAheadWeightAds = 0.45f;
+
+    /// <summary>構え(右クリック)中のズーム倍率。覗き込みの 2D 翻訳。</summary>
+    private const float AdsZoom = 1.15f;
+
+    /// <summary>ヒットマーカーの表示フレーム数。</summary>
+    private const int HitMarkerFrames = 12;
 
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly TimeControl _time = new();
@@ -35,8 +49,14 @@ public partial class Main : Node2D
     private Texture2D _playerTexture = null!;
     private AudioStreamPlayer _shotPlayer = null!;
 
-    /// <summary>効果音の発火検出用。これより大きい Id の弾が現れたら発射音を鳴らす。</summary>
-    private int _lastBulletId;
+    // カメラ(論理座標系。エイム側へ寄り、構えで少し拡大する)
+    private System.Numerics.Vector2 _camPos;
+    private float _camZoom = 1f;
+
+    // ヒット演出(すべて表現なので Godot 層に置く。ロジックの Events から駆動する)
+    private int _hitstopFrames;
+    private int _targetFlashFrames;
+    private readonly List<(System.Numerics.Vector2 Pos, int Frames)> _hitMarkers = [];
 
     public override void _Ready()
     {
@@ -48,6 +68,7 @@ public partial class Main : Node2D
         _logger = _loggerFactory.CreateLogger<Main>();
 
         _logic = new BattleLogic(new BattleConfig(), CmdlineArgs.ParseInt("--seed=", DefaultSeed));
+        _camPos = _logic.PlayerPos;
 
         LoadAssets();
         RefreshView();
@@ -58,12 +79,29 @@ public partial class Main : Node2D
     public override void _Process(double delta)
     {
         _dispatcher.Pump();
+        UpdateCamera();
+        QueueRedraw();
     }
 
     public override void _PhysicsProcess(double delta)
     {
+        for (var i = 0; i < _hitMarkers.Count; i++)
+        {
+            _hitMarkers[i] = _hitMarkers[i] with { Frames = _hitMarkers[i].Frames - 1 };
+        }
+        _hitMarkers.RemoveAll(m => m.Frames <= 0);
+        if (_targetFlashFrames > 0)
+        {
+            _targetFlashFrames--;
+        }
         if (_time.IsFrozen)
         {
+            return;
+        }
+        // ヒットストップ(命中の重み付け)。論理を数フレーム止めるだけの演出
+        if (_hitstopFrames > 0)
+        {
+            _hitstopFrames--;
             return;
         }
         _logic.Tick(ReadHumanInput());
@@ -71,25 +109,54 @@ public partial class Main : Node2D
         RefreshView();
     }
 
+    /// <summary>
+    /// カメラをプレイヤーとカーソルの間へ置き、エイムした方へ視界が伸びるようにする。
+    /// 構え(右クリック)中は寄りを強め、わずかにズームイン(TPS の覗き込みの 2D 翻訳)。
+    /// </summary>
+    private void UpdateCamera()
+    {
+        var config = _logic.Config;
+        var ads = Input.IsMouseButtonPressed(MouseButton.Right);
+        var aimPoint = ToLogic(GetGlobalMousePosition());
+        var weight = ads ? LookAheadWeightAds : LookAheadWeight;
+        var desired = _logic.PlayerPos + (aimPoint - _logic.PlayerPos) * weight;
+
+        var zoomTarget = ads ? AdsZoom : 1f;
+        _camZoom += (zoomTarget - _camZoom) * 0.1f;
+
+        // 画面が部屋の外を映さない範囲にクランプ
+        var halfW = ScreenCenter.X / ScaleFactor;
+        var halfH = ScreenCenter.Y / ScaleFactor;
+        desired = new System.Numerics.Vector2(
+            Math.Clamp(desired.X, halfW, config.RoomWidth - halfW),
+            Math.Clamp(desired.Y, halfH, config.RoomHeight - halfH)
+        );
+        _camPos += (desired - _camPos) * 0.12f;
+    }
+
     public override void _Draw()
     {
         var config = _logic.Config;
 
         // 部屋
+        var roomTopLeft = ToScreen(System.Numerics.Vector2.Zero);
         DrawRect(
-            new Rect2(0, 0, config.RoomWidth * Zoom, config.RoomHeight * Zoom),
+            new Rect2(
+                roomTopLeft,
+                new Vector2(config.RoomWidth * ScaleFactor, config.RoomHeight * ScaleFactor)
+            ),
             new Color(0.12f, 0.10f, 0.14f)
         );
 
-        // 的(残 HP で色を濃くする。リスポーン待ち中は非表示)
+        // 的(残 HP で色を濃くする。被弾直後は白フラッシュ。リスポーン待ち中は非表示)
         if (_logic.TargetHp > 0)
         {
             var hpRatio = _logic.TargetHp / (float)config.TargetMaxHp;
-            DrawCircle(
-                ToScreen(_logic.TargetPos),
-                config.TargetRadius * Zoom,
-                new Color(0.55f, 0.25f, 0.6f) * hpRatio + new Color(0.3f, 0.15f, 0.3f)
-            );
+            var targetColor =
+                _targetFlashFrames > 0
+                    ? new Color(1f, 1f, 1f)
+                    : new Color(0.55f, 0.25f, 0.6f) * hpRatio + new Color(0.3f, 0.15f, 0.3f);
+            DrawCircle(ToScreen(_logic.TargetPos), config.TargetRadius * ScaleFactor, targetColor);
         }
 
         // プレイヤー(ドッジ中は半透明)。向き=エイム方向は銃身と細い照準線で見せる
@@ -101,7 +168,7 @@ public partial class Main : Node2D
             new Color(1f, 1f, 1f, 0.15f),
             width: 1f
         );
-        var spriteSize = _playerTexture.GetSize() * Zoom;
+        var spriteSize = _playerTexture.GetSize() * ScaleFactor;
         DrawTextureRect(
             _playerTexture,
             new Rect2(ToScreen(_logic.PlayerPos) - spriteSize / 2f, spriteSize),
@@ -120,8 +187,23 @@ public partial class Main : Node2D
         {
             DrawCircle(
                 ToScreen(bullet.Pos),
-                config.BulletRadius * Zoom,
+                config.BulletRadius * ScaleFactor,
                 new Color(1f, 0.85f, 0.4f)
+            );
+        }
+
+        // ヒットマーカー(命中位置に広がって消えるリング)
+        foreach (var (pos, frames) in _hitMarkers)
+        {
+            var t = 1f - frames / (float)HitMarkerFrames;
+            DrawArc(
+                ToScreen(pos),
+                (4f + 8f * t) * ScaleFactor,
+                0f,
+                Mathf.Tau,
+                24,
+                new Color(1f, 1f, 1f, 1f - t),
+                width: 2f
             );
         }
 
@@ -213,23 +295,41 @@ public partial class Main : Node2D
         );
     }
 
-    /// <summary>描画座標を論理座標へ写す(マウス位置の変換用)。</summary>
-    private static System.Numerics.Vector2 ToLogic(Vector2 screen) =>
-        new(screen.X / Zoom, screen.Y / Zoom);
+    /// <summary>論理座標→描画座標の実効倍率(基本倍率 × カメラズーム)。</summary>
+    private float ScaleFactor => Zoom * _camZoom;
 
-    /// <summary>論理座標(320x180・左上原点)を描画座標へ写す。</summary>
-    private static Vector2 ToScreen(System.Numerics.Vector2 position) =>
-        new(position.X * Zoom, position.Y * Zoom);
+    /// <summary>描画座標を論理座標へ写す(マウス位置の変換用)。カメラを考慮する。</summary>
+    private System.Numerics.Vector2 ToLogic(Vector2 screen) =>
+        new(
+            (screen.X - ScreenCenter.X) / ScaleFactor + _camPos.X,
+            (screen.Y - ScreenCenter.Y) / ScaleFactor + _camPos.Y
+        );
 
-    /// <summary>tick 後の状態を State と描画へ反映し、新規の弾があれば発射音を鳴らす。</summary>
+    /// <summary>論理座標(左上原点)を描画座標へ写す。カメラを考慮する。</summary>
+    private Vector2 ToScreen(System.Numerics.Vector2 position) =>
+        new(
+            (position.X - _camPos.X) * ScaleFactor + ScreenCenter.X,
+            (position.Y - _camPos.Y) * ScaleFactor + ScreenCenter.Y
+        );
+
+    /// <summary>tick 後の状態を State と描画へ反映し、イベントを音・演出へ翻訳する。</summary>
     private void RefreshView()
     {
-        foreach (var bullet in _logic.Bullets)
+        foreach (var battleEvent in _logic.Events)
         {
-            if (bullet.Id > _lastBulletId)
+            switch (battleEvent.Kind)
             {
-                _lastBulletId = bullet.Id;
-                _shotPlayer.Play();
+                case BattleEventKind.BulletFired:
+                    _shotPlayer.Play();
+                    break;
+                case BattleEventKind.TargetHit:
+                    _hitMarkers.Add((battleEvent.Pos, HitMarkerFrames));
+                    _targetFlashFrames = 4;
+                    _hitstopFrames = 2;
+                    break;
+                case BattleEventKind.TargetKilled:
+                    _hitstopFrames = 6;
+                    break;
             }
         }
         _state.Update(_logic);
