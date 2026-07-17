@@ -32,6 +32,12 @@ public partial class Main : Node2D
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
 
+    private Texture2D _playerTexture = null!;
+    private AudioStreamPlayer _shotPlayer = null!;
+
+    /// <summary>効果音の発火検出用。これより大きい Id の弾が現れたら発射音を鳴らす。</summary>
+    private int _lastBulletId;
+
     public override void _Ready()
     {
         // freeze 中も Statee のコマンド処理(Pump)を動かし続ける
@@ -43,6 +49,7 @@ public partial class Main : Node2D
 
         _logic = new BattleLogic(new BattleConfig(), CmdlineArgs.ParseInt("--seed=", DefaultSeed));
 
+        LoadAssets();
         RefreshView();
         StartStatee(buffer);
         _logger.ZLogInformation($"MessBreak 起動 seed={_logic.Seed}");
@@ -98,17 +105,21 @@ public partial class Main : Node2D
         }
 
         // プレイヤー(ドッジ中は半透明)。向き=エイム方向は銃身と細い照準線で見せる
-        var playerColor =
-            _logic.PlayerAction == PlayerAction.Dodge
-                ? new Color(0.85f, 0.29f, 0.37f, 0.5f)
-                : new Color(0.85f, 0.29f, 0.37f);
+        var playerTint =
+            _logic.PlayerAction == PlayerAction.Dodge ? new Color(1f, 1f, 1f, 0.5f) : Colors.White;
         DrawLine(
             ToScreen(_logic.PlayerPos),
             ToScreen(_logic.PlayerPos + _logic.PlayerFacing * 60f),
             new Color(1f, 1f, 1f, 0.15f),
             width: 1f
         );
-        DrawCircle(ToScreen(_logic.PlayerPos), config.PlayerRadius * Zoom, playerColor);
+        var spriteSize = _playerTexture.GetSize() * Zoom;
+        DrawTextureRect(
+            _playerTexture,
+            new Rect2(ToScreen(_logic.PlayerPos) - spriteSize / 2f, spriteSize),
+            tile: false,
+            playerTint
+        );
         DrawNose(
             _logic.PlayerPos,
             _logic.PlayerFacing,
@@ -145,6 +156,26 @@ public partial class Main : Node2D
     {
         StopStateeServer();
         _loggerFactory?.Dispose();
+    }
+
+    /// <summary>
+    /// スプライトと効果音を実行時ロードする。定義テキスト(art/*.sprite.txt, audio/*.sfx.txt)が
+    /// 単一ソースで、生成物をゲームディレクトリから直接読む(Godot の import 経路を使わない)。
+    /// </summary>
+    private void LoadAssets()
+    {
+        // ドット絵は最近傍拡大で描く(にじみ防止)
+        TextureFilter = TextureFilterEnum.Nearest;
+        _playerTexture = ImageTexture.CreateFromImage(
+            Image.LoadFromFile(ProjectSettings.GlobalizePath("res://../art/attacker.png"))
+        );
+        _shotPlayer = new AudioStreamPlayer
+        {
+            Stream = AudioStreamWav.LoadFromFile(
+                ProjectSettings.GlobalizePath("res://../audio/shot.wav")
+            ),
+        };
+        AddChild(_shotPlayer);
     }
 
     /// <summary>人間プレイの入力(押されているキーの集合)を TickInput へ写す。</summary>
@@ -207,9 +238,17 @@ public partial class Main : Node2D
     private static Vector2 ToScreen(System.Numerics.Vector2 position) =>
         new(position.X * Zoom, position.Y * Zoom);
 
-    /// <summary>tick 後の状態を State と描画へ反映する。</summary>
+    /// <summary>tick 後の状態を State と描画へ反映し、新規の弾があれば発射音を鳴らす。</summary>
     private void RefreshView()
     {
+        foreach (var bullet in _logic.Bullets)
+        {
+            if (bullet.Id > _lastBulletId)
+            {
+                _lastBulletId = bullet.Id;
+                _shotPlayer.Play();
+            }
+        }
         _state.Update(_logic);
         QueueRedraw();
     }
