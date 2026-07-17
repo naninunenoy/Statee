@@ -41,6 +41,12 @@ public partial class Main : Node2D
     /// <summary>ヒットマーカーの表示フレーム数。</summary>
     private const int HitMarkerFrames = 12;
 
+    /// <summary>射撃・構えをやめてからカーソルを向き続けるフレーム数(向きの瞬間反転防止)。</summary>
+    private const int AimLingerFrames = 20;
+
+    /// <summary>描画上の向きの追従率。ロジックの向きは即時で、見た目だけ滑らかに回す。</summary>
+    private const float FacingLerp = 0.35f;
+
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly TimeControl _time = new();
     private readonly GameState _state = new();
@@ -60,6 +66,10 @@ public partial class Main : Node2D
     private int _hitstopFrames;
     private int _targetFlashFrames;
     private readonly List<(System.Numerics.Vector2 Pos, int Frames)> _hitMarkers = [];
+
+    // 向きの表現(ロジックの PlayerFacing は即時。見た目だけ滑らかにする)
+    private int _aimLingerFrames;
+    private float _displayFacingAngle;
 
     public override void _Ready()
     {
@@ -86,6 +96,12 @@ public partial class Main : Node2D
     {
         _dispatcher.Pump();
         UpdateCamera();
+        // 見た目の向きは最短弧で滑らかに追従(ロジックの向きは即時)
+        _displayFacingAngle = Mathf.LerpAngle(
+            _displayFacingAngle,
+            MathF.Atan2(_logic.PlayerFacing.Y, _logic.PlayerFacing.X),
+            FacingLerp
+        );
         QueueRedraw();
     }
 
@@ -168,9 +184,13 @@ public partial class Main : Node2D
         // プレイヤー(ドッジ中は半透明)。向き=エイム方向は銃身と細い照準線で見せる
         var playerTint =
             _logic.PlayerAction == PlayerAction.Dodge ? new Color(1f, 1f, 1f, 0.5f) : Colors.White;
+        var displayFacing = new System.Numerics.Vector2(
+            MathF.Cos(_displayFacingAngle),
+            MathF.Sin(_displayFacingAngle)
+        );
         DrawLine(
             ToScreen(_logic.PlayerPos),
-            ToScreen(_logic.PlayerPos + _logic.PlayerFacing * 60f),
+            ToScreen(_logic.PlayerPos + displayFacing * 60f),
             new Color(1f, 1f, 1f, 0.15f),
             width: 1f
         );
@@ -181,12 +201,7 @@ public partial class Main : Node2D
             tile: false,
             playerTint
         );
-        DrawNose(
-            _logic.PlayerPos,
-            _logic.PlayerFacing,
-            config.PlayerRadius,
-            new Color(1f, 0.9f, 0.75f)
-        );
+        DrawNose(_logic.PlayerPos, displayFacing, config.PlayerRadius, new Color(1f, 0.9f, 0.75f));
 
         // 弾
         foreach (var bullet in _logic.Bullets)
@@ -286,8 +301,17 @@ public partial class Main : Node2D
             Input.IsMouseButtonPressed(MouseButton.Left)
             || Input.IsPhysicalKeyPressed(Key.Z)
             || Input.IsPhysicalKeyPressed(Key.J);
+        // 離した直後もしばらくカーソルを向き続ける(余韻)。連打時のかくつき防止
+        if (Input.IsMouseButtonPressed(MouseButton.Right) || fire)
+        {
+            _aimLingerFrames = AimLingerFrames;
+        }
+        else if (_aimLingerFrames > 0)
+        {
+            _aimLingerFrames--;
+        }
         var aim =
-            Input.IsMouseButtonPressed(MouseButton.Right) || fire
+            _aimLingerFrames > 0
                 ? ToLogic(GetGlobalMousePosition()) - _logic.PlayerPos
                 : System.Numerics.Vector2.Zero;
         return new TickInput(
