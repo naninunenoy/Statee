@@ -468,7 +468,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_スキルで撃破_KillCountが増えリスポーン待ちが始まる()
     {
-        var logic = Create(TargetAtSkillCenter()); // SkillDamage 3 = TargetMaxHp
+        var logic = Create(TargetAtSkillCenter() with { TargetMaxHp = 3 }); // SkillDamage 3 で一撃
 
         logic.Tick(new TickInput(Skill: true));
 
@@ -498,6 +498,146 @@ public class BattleLogicTest
 
         logic.TargetHp.ShouldBe(logic.Config.TargetMaxHp);
         logic.SkillCooldown.ShouldBe(0);
+    }
+
+    // ---- キャラ切り替えとデバフ ----
+
+    [Fact]
+    public void Tick_切り替え入力_デバッファーに切り替わりイベントが出る()
+    {
+        var logic = Create();
+
+        logic.Tick(new TickInput(Switch: true));
+
+        logic.ActiveCharacter.ShouldBe(CharacterId.Debuffer);
+        logic.Events.ShouldContain(
+            new BattleEvent(BattleEventKind.CharacterSwitched, logic.PlayerPos)
+        );
+    }
+
+    [Fact]
+    public void Tick_切り替えクールダウン中_切り替わらない()
+    {
+        var logic = Create();
+        logic.Tick(new TickInput(Switch: true));
+
+        logic.Tick(new TickInput(Switch: true));
+
+        logic.ActiveCharacter.ShouldBe(CharacterId.Debuffer); // 2 回目は不発
+    }
+
+    [Fact]
+    public void Tick_クールダウン経過後_再切り替えでアタッカーに戻る()
+    {
+        var logic = Create(new BattleConfig { SwitchCooldownTicks = 5 });
+        logic.Tick(new TickInput(Switch: true));
+        TickUntil(logic, () => logic.SwitchCooldown == 0, 10);
+
+        logic.Tick(new TickInput(Switch: true));
+
+        logic.ActiveCharacter.ShouldBe(CharacterId.Attacker);
+    }
+
+    [Fact]
+    public void Tick_スキルクールダウンはキャラごとに独立している()
+    {
+        var logic = Create();
+        logic.Tick(new TickInput(Skill: true)); // アタッカーのスキルを消費
+
+        logic.Tick(new TickInput(Switch: true));
+
+        logic.SkillCooldown.ShouldBe(0); // デバッファー側は未消費
+        logic.SkillCooldownOf(CharacterId.Attacker).ShouldBeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Tick_デバッファースキル_的にデバフが付きダメージは入らない()
+    {
+        var logic = Create(TargetAtSkillCenter() with { SwitchCooldownTicks = 1 });
+        logic.Tick(new TickInput(Switch: true));
+
+        logic.Tick(new TickInput(Skill: true));
+
+        logic.TargetDebuffTicks.ShouldBe(logic.Config.DebuffDurationTicks);
+        logic.TargetHp.ShouldBe(logic.Config.TargetMaxHp);
+        logic.Events.ShouldContain(
+            new BattleEvent(BattleEventKind.TargetDebuffed, logic.TargetPos)
+        );
+    }
+
+    [Fact]
+    public void Tick_範囲外のデバッファースキル_デバフは付かない()
+    {
+        var logic = Create(new BattleConfig { SwitchCooldownTicks = 1 }); // 的は 320 先
+        logic.Tick(new TickInput(Switch: true));
+
+        logic.Tick(new TickInput(Skill: true));
+
+        logic.TargetDebuffTicks.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Tick_デバフ中の被弾_ダメージが倍率分になる()
+    {
+        var logic = Create(TargetAtSkillCenter() with { SwitchCooldownTicks = 1 });
+        logic.Tick(new TickInput(Switch: true));
+        logic.Tick(new TickInput(Skill: true)); // デバフ付与
+
+        logic.Tick(new TickInput(AimDir: logic.TargetPos - logic.PlayerPos, Fire: true));
+        TickUntil(logic, () => logic.HitCount == 1, 120);
+
+        var expected =
+            logic.Config.TargetMaxHp
+            - logic.Config.BulletDamage * logic.Config.DebuffDamageMultiplier;
+        logic.TargetHp.ShouldBe(expected);
+    }
+
+    [Fact]
+    public void Tick_デバフ_持続時間が切れると等倍に戻る()
+    {
+        var logic = Create(
+            TargetAtSkillCenter() with
+            {
+                SwitchCooldownTicks = 1,
+                DebuffDurationTicks = 5,
+            }
+        );
+        logic.Tick(new TickInput(Switch: true));
+        logic.Tick(new TickInput(Skill: true));
+        TickUntil(logic, () => logic.TargetDebuffTicks == 0, 10);
+
+        logic.Tick(new TickInput(AimDir: logic.TargetPos - logic.PlayerPos, Fire: true));
+        TickUntil(logic, () => logic.HitCount == 1, 120);
+
+        logic.TargetHp.ShouldBe(logic.Config.TargetMaxHp - logic.Config.BulletDamage);
+    }
+
+    [Fact]
+    public void Tick_リスポーン後の的_デバフは引き継がない()
+    {
+        var logic = Create(TargetAtSkillCenter() with { SwitchCooldownTicks = 1 });
+        logic.Tick(new TickInput(Switch: true));
+        logic.Tick(new TickInput(Skill: true)); // デバフ付与
+        ShootUntilKilled(logic);
+
+        TickUntil(logic, () => logic.TargetHp > 0, logic.Config.TargetRespawnTicks + 1);
+
+        logic.TargetDebuffTicks.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Tick_コンボ_デバフから切り替えてアタッカースキルで満タンの的を一撃()
+    {
+        // TargetMaxHp 6 = SkillDamage 3 × DebuffDamageMultiplier 2。コンボでのみ一撃になる
+        var logic = Create(TargetAtSkillCenter() with { SwitchCooldownTicks = 1 });
+        logic.Tick(new TickInput(Switch: true)); // デバッファーへ
+        logic.Tick(new TickInput(Skill: true)); // デバフ付与
+        logic.Tick(new TickInput(Switch: true)); // アタッカーへ戻す
+
+        logic.Tick(new TickInput(Skill: true)); // 大技
+
+        logic.TargetHp.ShouldBe(0);
+        logic.KillCount.ShouldBe(1);
     }
 
     // ---- イベント(Godot 層が音・エフェクトに翻訳する) ----

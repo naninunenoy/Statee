@@ -32,7 +32,14 @@ public sealed record BattleConfig
     /// </summary>
     public float AimAssistDegrees { get; init; } = 10f;
 
-    // スキル(向いている方向の一定距離先に範囲爆発。倒す主役=高ダメージ)
+    // キャラ切り替え(スキルセットの差し替え。スキルクールダウンはキャラごとに独立)
+    public int SwitchCooldownTicks { get; init; } = 30;
+
+    // デバッファーのスキル(範囲内の的に被ダメージ増幅デバフを付与。ダメージなし)
+    public int DebuffDurationTicks { get; init; } = 300;
+    public int DebuffDamageMultiplier { get; init; } = 2;
+
+    // スキル(レティクル位置を爆心に範囲効果。倒す主役=高ダメージ)
     public int SkillCooldownTicks { get; init; } = 180;
 
     /// <summary>爆発中心のプレイヤーからの距離(向いている方向)。</summary>
@@ -49,7 +56,9 @@ public sealed record BattleConfig
 
     // 的(動かない・攻撃しない。撃破後にリスポーンする「当たる感」検証用ターゲット)
     public float TargetRadius { get; init; } = 8f;
-    public int TargetMaxHp { get; init; } = 3;
+
+    /// <summary>アタッカースキル単発(3)では倒れず、デバフ込みのコンボ(3×2)で一撃になる値。</summary>
+    public int TargetMaxHp { get; init; } = 6;
 
     /// <summary>撃破からリスポーンまでの tick 数。</summary>
     public int TargetRespawnTicks { get; init; } = 30;

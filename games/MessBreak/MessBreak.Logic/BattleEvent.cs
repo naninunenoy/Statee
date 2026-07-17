@@ -13,6 +13,12 @@ public enum BattleEventKind
 
     /// <summary>スキルの範囲爆発が発生した(Pos = 爆発中心)。</summary>
     SkillBurst,
+
+    /// <summary>キャラクターを切り替えた(Pos = プレイヤー位置)。</summary>
+    CharacterSwitched,
+
+    /// <summary>的にデバフ(被ダメージ増幅)が付与された(Pos = 的の位置)。</summary>
+    TargetDebuffed,
 }
 
 /// <summary>

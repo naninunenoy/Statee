@@ -27,8 +27,19 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>次の発射まで待つ残り tick 数。</summary>
     public int FireCooldown { get; private set; }
 
-    /// <summary>スキルの残りクールダウン tick 数。</summary>
-    public int SkillCooldown { get; private set; }
+    /// <summary>操作中のキャラクター。</summary>
+    public CharacterId ActiveCharacter { get; private set; } = CharacterId.Attacker;
+
+    /// <summary>次の切り替えまで待つ残り tick 数。</summary>
+    public int SwitchCooldown { get; private set; }
+
+    /// <summary>操作中キャラのスキルの残りクールダウン tick 数。</summary>
+    public int SkillCooldown => SkillCooldownOf(ActiveCharacter);
+
+    /// <summary>指定キャラのスキルの残りクールダウン tick 数(キャラごとに独立)。</summary>
+    public int SkillCooldownOf(CharacterId id) => _skillCooldowns[(int)id];
+
+    private readonly int[] _skillCooldowns = new int[2];
 
     /// <summary>飛翔中のプレイヤーの弾。</summary>
     public IReadOnlyList<Bullet> Bullets => _bullets;
@@ -39,6 +50,9 @@ public sealed class BattleLogic(BattleConfig config, int seed)
 
     /// <summary>リスポーンまでの残り tick 数(0 なら的は生存中)。</summary>
     public int TargetRespawnCooldown { get; private set; }
+
+    /// <summary>的のデバフ(被ダメージ増幅)の残り tick 数(0 なら未付与)。</summary>
+    public int TargetDebuffTicks { get; private set; }
 
     // 命中統計(「当たる感」の検証指標)
     public int ShotCount { get; private set; }
@@ -73,9 +87,20 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         {
             FireCooldown--;
         }
-        if (SkillCooldown > 0)
+        for (var i = 0; i < _skillCooldowns.Length; i++)
         {
-            SkillCooldown--;
+            if (_skillCooldowns[i] > 0)
+            {
+                _skillCooldowns[i]--;
+            }
+        }
+        if (SwitchCooldown > 0)
+        {
+            SwitchCooldown--;
+        }
+        if (TargetDebuffTicks > 0)
+        {
+            TargetDebuffTicks--;
         }
         // 撃破(スキル=TickPlayer 内 / 弾=TickBullets 内)と同じ tick で
         // カウントダウンが進まないよう、リスポーン処理は最初に行う
@@ -121,7 +146,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                 Move(input.MoveDir, input.Sprint ? Config.SprintSpeed : Config.PlayerSpeed);
                 if (input.Skill && SkillCooldown == 0)
                 {
-                    SkillCooldown = Config.SkillCooldownTicks;
+                    _skillCooldowns[(int)ActiveCharacter] = Config.SkillCooldownTicks;
                     var center = SkillCenter(input.AimPoint);
                     _events.Add(new BattleEvent(BattleEventKind.SkillBurst, center));
                     if (
