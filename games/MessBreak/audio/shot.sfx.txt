@@ -1,0 +1,9 @@
+# 通常射撃「ピュン」— 高めの矩形波を素早く下降させるレーザー系
+wave: square
+duration: 0.15
+freq: 1400
+freq-slide: -6000
+duty: 0.4
+attack: 0.005
+decay: 0.1
+volume: 0.5
