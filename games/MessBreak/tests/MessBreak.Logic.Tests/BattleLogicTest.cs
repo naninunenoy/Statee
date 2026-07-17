@@ -89,13 +89,34 @@ public class BattleLogicTest
     }
 
     [Fact]
-    public void Tick_移動入力のみ_Facingは変わらない()
+    public void Tick_移動入力のみ_Facingは移動方向を向く()
     {
         var logic = Create(); // 初期 Facing は (1,0)
 
         logic.Tick(new TickInput(new Vector2(0f, 1f)));
 
-        logic.PlayerFacing.ShouldBe(new Vector2(1f, 0f));
+        logic.PlayerFacing.ShouldBe(new Vector2(0f, 1f));
+    }
+
+    [Fact]
+    public void Tick_移動しながらエイム入力_移動方向ではなくエイム方向を向く()
+    {
+        var logic = Create();
+
+        logic.Tick(new TickInput(new Vector2(0f, 1f), AimDir: new Vector2(-1f, 0f)));
+
+        logic.PlayerFacing.ShouldBe(new Vector2(-1f, 0f));
+    }
+
+    [Fact]
+    public void Tick_非構えで移動しながら射撃_移動方向へ弾が出る()
+    {
+        var logic = Create(); // 腰だめ: エイム入力なしでも撃てる
+
+        logic.Tick(new TickInput(new Vector2(0f, 1f), Fire: true));
+
+        logic.Bullets.Count.ShouldBe(1);
+        logic.Bullets[0].Dir.ShouldBe(new Vector2(0f, 1f));
     }
 
     [Fact]
@@ -268,13 +289,13 @@ public class BattleLogicTest
     }
 
     [Fact]
-    public void Tick_移動入力つきドッジ_移動方向に移動しエイムは維持される()
+    public void Tick_移動入力つきドッジ_移動方向に移動しエイム入力保持中は向きが維持される()
     {
         var logic = Create();
         logic.Tick(new TickInput(AimDir: new Vector2(1f, 0f)));
         var before = logic.PlayerPos;
 
-        logic.Tick(new TickInput(new Vector2(0f, 1f), Dodge: true));
+        logic.Tick(new TickInput(new Vector2(0f, 1f), AimDir: new Vector2(1f, 0f), Dodge: true));
 
         logic.PlayerPos.Y.ShouldBe(
             before.Y + logic.Config.DodgeSpeed / logic.Config.TicksPerSecond,
