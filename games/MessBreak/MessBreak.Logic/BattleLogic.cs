@@ -43,7 +43,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>ドッジの残り無敵 tick 数。</summary>
     private int _actionTicks;
 
-    /// <summary>ドッジの移動方向(開始時の移動入力、なければ Facing)。</summary>
+    /// <summary>ドッジの移動方向(開始時の移動入力。移動入力なしでは発動しない)。</summary>
     private Vector2 _dodgeDir;
 
     private int _enemyPhaseTicks;
@@ -98,15 +98,13 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         switch (PlayerAction)
         {
             case PlayerAction.Free:
-                if (input.Dodge && DodgeCooldown == 0)
+                // 移動入力がなければドッジは不発(その場ドッジ・向き頼りのドッジは作らない)
+                if (input.Dodge && DodgeCooldown == 0 && input.MoveDir != Vector2.Zero)
                 {
                     PlayerAction = PlayerAction.Dodge;
                     _actionTicks = Config.DodgeTicks;
                     DodgeCooldown = Config.DodgeCooldownTicks;
-                    _dodgeDir =
-                        input.MoveDir == Vector2.Zero
-                            ? PlayerFacing
-                            : Vector2.Normalize(input.MoveDir);
+                    _dodgeDir = Vector2.Normalize(input.MoveDir);
                     TickDodge();
                     return;
                 }
