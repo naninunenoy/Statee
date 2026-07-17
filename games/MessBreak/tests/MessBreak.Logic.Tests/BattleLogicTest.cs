@@ -273,19 +273,16 @@ public class BattleLogicTest
     // ---- ドッジ ----
 
     [Fact]
-    public void Tick_移動入力なしのドッジ_Dodge状態でFacing方向に高速移動する()
+    public void Tick_移動入力なしのドッジ入力_ドッジは発動しない()
     {
         var logic = Create();
-        logic.Tick(new TickInput(AimDir: new Vector2(1f, 0f)));
         var before = logic.PlayerPos;
 
         logic.Tick(new TickInput(Vector2.Zero, Dodge: true));
 
-        logic.PlayerAction.ShouldBe(PlayerAction.Dodge);
-        logic.PlayerPos.X.ShouldBe(
-            before.X + logic.Config.DodgeSpeed / logic.Config.TicksPerSecond,
-            0.001f
-        );
+        logic.PlayerAction.ShouldBe(PlayerAction.Free);
+        logic.PlayerPos.ShouldBe(before);
+        logic.DodgeCooldown.ShouldBe(0); // 不発ではクールダウンも消費しない
     }
 
     [Fact]
@@ -308,7 +305,7 @@ public class BattleLogicTest
     public void Tick_ドッジ中の発射入力_弾が出ない()
     {
         var logic = Create(new BattleConfig { DodgeTicks = 10 });
-        logic.Tick(new TickInput(Vector2.Zero, Dodge: true));
+        logic.Tick(new TickInput(new Vector2(0f, 1f), Dodge: true));
 
         logic.Tick(new TickInput(Fire: true));
 
@@ -319,10 +316,10 @@ public class BattleLogicTest
     public void Tick_ドッジ後のクールダウン中_再ドッジできない()
     {
         var logic = Create(new BattleConfig { DodgeTicks = 5, DodgeCooldownTicks = 100 });
-        logic.Tick(new TickInput(Vector2.Zero, Dodge: true));
+        logic.Tick(new TickInput(new Vector2(0f, 1f), Dodge: true));
         TickUntil(logic, () => logic.PlayerAction == PlayerAction.Free);
 
-        logic.Tick(new TickInput(Vector2.Zero, Dodge: true));
+        logic.Tick(new TickInput(new Vector2(0f, 1f), Dodge: true));
 
         logic.PlayerAction.ShouldBe(PlayerAction.Free);
     }
@@ -331,10 +328,10 @@ public class BattleLogicTest
     public void Tick_クールダウン経過後_再ドッジできる()
     {
         var logic = Create(new BattleConfig { DodgeTicks = 5, DodgeCooldownTicks = 8 });
-        logic.Tick(new TickInput(Vector2.Zero, Dodge: true));
+        logic.Tick(new TickInput(new Vector2(0f, 1f), Dodge: true));
         TickUntil(logic, () => logic.PlayerAction == PlayerAction.Free && logic.DodgeCooldown == 0);
 
-        logic.Tick(new TickInput(Vector2.Zero, Dodge: true));
+        logic.Tick(new TickInput(new Vector2(0f, 1f), Dodge: true));
 
         logic.PlayerAction.ShouldBe(PlayerAction.Dodge);
     }
@@ -404,7 +401,7 @@ public class BattleLogicTest
         var logic = Create(AggressiveAdjacentEnemy() with { DodgeTicks = 30 });
         TickUntil(logic, () => logic.EnemyAction == EnemyAction.Windup, 10);
 
-        logic.Tick(new TickInput(Vector2.Zero, Dodge: true)); // Windup 中にドッジ開始(30 tick 無敵)
+        logic.Tick(new TickInput(new Vector2(0f, 1f), Dodge: true)); // Windup 中にドッジ開始(30 tick 無敵)
         TickUntil(logic, () => logic.EnemyAction == EnemyAction.Recovery, 20);
 
         logic.PlayerHp.ShouldBe(logic.Config.PlayerMaxHp);
