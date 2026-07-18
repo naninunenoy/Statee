@@ -1,6 +1,7 @@
 # MessBreak 企画・設計
 
 MessBreak 固有の企画・設計・開発記録はこの `games/MessBreak/docs/` に置く。
+キャラ・敵・スキル・アイテム・ギミックのコンテンツ企画案は [SYSTEMS.md](SYSTEMS.md)。
 Statee(フレームワーク)側の `docs/adr/` には持ち込まない。
 Statee の ADR に書くのは、`src/` や repo 構成に波及する決定だけ。
 
