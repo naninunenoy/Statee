@@ -25,8 +25,24 @@ public partial class Main : Node2D
     /// <summary>論理座標→描画座標の基本倍率(カメラズーム 1.0 のとき)。</summary>
     private const float Zoom = 3f;
 
-    /// <summary>画面中心の描画座標(ウィンドウ 960x540)。</summary>
-    private static readonly Vector2 ScreenCenter = new(480f, 270f);
+    /// <summary>UI バー(画面下部)の高さ。ゲーム画面はウィンドウからこの帯を除いた領域。</summary>
+    private const float UiBarHeight = 96f;
+
+    /// <summary>
+    /// ゲーム画面領域(ウィンドウから下部 UI バーを除いた部分)。HUD はこの外に置く。
+    /// ストレッチは使わず、UI は実ピクセルで一定・ゲームはウィンドウが広いほど視界が広がる。
+    /// </summary>
+    private Rect2 GameRect
+    {
+        get
+        {
+            var window = GetViewportRect().Size;
+            return new Rect2(0f, 0f, window.X, window.Y - UiBarHeight);
+        }
+    }
+
+    /// <summary>ゲーム画面中心の描画座標。</summary>
+    private Vector2 ScreenCenter => GameRect.GetCenter();
 
     /// <summary>カメラをプレイヤーからカーソル側へ寄せる割合(非構え / 構え)。</summary>
     private const float LookAheadWeight = 0.12f;
@@ -50,6 +66,7 @@ public partial class Main : Node2D
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly TimeControl _time = new();
     private readonly GameState _state = new();
+    private readonly HudState _hudState = new();
 
     private BattleLogic _logic = null!;
     private ILoggerFactory? _loggerFactory;
@@ -77,6 +94,24 @@ public partial class Main : Node2D
     private int _aimLingerFrames;
     private float _displayFacingAngle;
 
+    // HUD(下部 UI バーと左上のミッションガイド)とポーズメニュー。表示だけの存在なので Godot 層に置く
+    private Label _missionLabel = null!;
+    private Panel _uiBar = null!;
+    private Label _hpLabel = null!;
+    private ColorRect _hpBack = null!;
+    private ColorRect _hpFill = null!;
+    private Label _char1Label = null!;
+    private Label _char2Label = null!;
+    private Label _switchLabel = null!;
+    private CanvasLayer _pauseLayer = null!;
+    private Button _resumeButton = null!;
+
+    /// <summary>HP バーの塗り部分の最大幅(実ピクセル)。</summary>
+    private const float HpBarWidth = 200f;
+
+    /// <summary>ポーズメニュー(Esc)で論理 tick を止めているか。Statee の freeze とは独立。</summary>
+    private bool _paused;
+
     public override void _Ready()
     {
         // freeze 中も Statee のコマンド処理(Pump)を動かし続ける
@@ -84,6 +119,12 @@ public partial class Main : Node2D
 
         // OS カーソルは隠し、_Draw で自前のレティクルを描く
         Input.MouseMode = Input.MouseModeEnum.Hidden;
+
+        // UI バーが画面を食い潰さない程度の下限(headless では Window が無いので触らない)
+        if (GetWindow() is { } window)
+        {
+            window.MinSize = new Vector2I(640, 360);
+        }
 
         var buffer = new LogBuffer(1024);
         _loggerFactory = StateeLogging.CreateLoggerFactory(buffer);
@@ -100,6 +141,8 @@ public partial class Main : Node2D
         }
 
         LoadAssets();
+        BuildHud();
+        BuildPauseMenu();
         RefreshView();
         StartStatee(buffer);
         _logger.ZLogInformation($"MessBreak 起動 seed={_logic.Seed}");
@@ -118,8 +161,21 @@ public partial class Main : Node2D
         QueueRedraw();
     }
 
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape })
+        {
+            TogglePause();
+        }
+    }
+
     public override void _PhysicsProcess(double delta)
     {
+        // ポーズ中は論理も演出タイマーも止める(Statee のコマンド処理だけ _Process で動き続ける)
+        if (_paused)
+        {
+            return;
+        }
         for (var i = 0; i < _hitMarkers.Count; i++)
         {
             _hitMarkers[i] = _hitMarkers[i] with { Frames = _hitMarkers[i].Frames - 1 };
@@ -164,15 +220,22 @@ public partial class Main : Node2D
         var zoomTarget = ads ? AdsZoom : 1f;
         _camZoom += (zoomTarget - _camZoom) * 0.1f;
 
-        // 画面が部屋の外を映さない範囲にクランプ
+        // 画面が部屋の外を映さない範囲にクランプ。
+        // 視界が部屋より広い(大きなウィンドウ)軸は部屋の中心に固定する
         var halfW = ScreenCenter.X / ScaleFactor;
         var halfH = ScreenCenter.Y / ScaleFactor;
         desired = new System.Numerics.Vector2(
-            Math.Clamp(desired.X, halfW, config.RoomWidth - halfW),
-            Math.Clamp(desired.Y, halfH, config.RoomHeight - halfH)
+            ClampCameraAxis(desired.X, halfW, config.RoomWidth),
+            ClampCameraAxis(desired.Y, halfH, config.RoomHeight)
         );
         _camPos += (desired - _camPos) * CameraLerp;
     }
+
+    /// <summary>カメラ中心の1軸クランプ。視界の半分が部屋の半分を超えるなら中心固定。</summary>
+    private static float ClampCameraAxis(float value, float halfView, float roomSize) =>
+        halfView * 2f >= roomSize
+            ? roomSize / 2f
+            : Math.Clamp(value, halfView, roomSize - halfView);
 
     public override void _Draw()
     {
@@ -337,26 +400,11 @@ public partial class Main : Node2D
             DrawOffscreenIndicator(ToScreen(enemy.Pos));
         }
 
-        // レティクル(OS カーソルの代わり)。構え中は引き締まった十字、非構えは薄めのリング
-        DrawReticle(GetGlobalMousePosition(), Input.IsMouseButtonPressed(MouseButton.Right));
-
-        // HUD(命中統計とミッション進行)
-        var accuracy = _logic.ShotCount == 0 ? 0f : 100f * _logic.HitCount / _logic.ShotCount;
-        var characterText =
-            _logic.ActiveCharacter == CharacterId.Attacker ? "アタッカー" : "デバッファー";
-        DrawString(
-            ThemeDB.FallbackFont,
-            new Vector2(16, 32),
-            $"[{characterText}]  skill1={CooldownText(_logic.SkillCooldownOf(CharacterId.Attacker))}  skill2={CooldownText(_logic.SkillCooldownOf(CharacterId.Debuffer))}  shots={_logic.ShotCount}  hits={_logic.HitCount}  kills={_logic.KillCount}  acc={accuracy:0.#}%  tick={_logic.TickCount}",
-            fontSize: 20
-        );
-        var missionText =
-            _logic.MissionCleared ? "ミッション達成!"
-            : !_logic.ZoneCaptured ? "雑魚を倒してエリアを制圧しよう"
-            : !_logic.TurretPlaced ? "スロット(緑枠)の近くで F: タレット設置"
-            : !_logic.BossAppeared ? "出現ポイント(赤菱形)の近くで F: 強敵を呼ぶ"
-            : "強敵を倒せ!(デバフ→大技のコンボが有効)";
-        DrawString(ThemeDB.FallbackFont, new Vector2(16, 60), missionText, fontSize: 18);
+        // レティクル(OS カーソルの代わり)。ポーズ中はメニュー操作用に OS カーソルを出すので消す
+        if (!_paused)
+        {
+            DrawReticle(GetGlobalMousePosition(), Input.IsMouseButtonPressed(MouseButton.Right));
+        }
     }
 
     public override void _ExitTree()
@@ -454,8 +502,7 @@ public partial class Main : Node2D
     private void DrawOffscreenIndicator(Vector2 targetScreen)
     {
         const float Margin = 28f;
-        var viewport = GetViewportRect();
-        if (viewport.HasPoint(targetScreen))
+        if (GameRect.HasPoint(targetScreen))
         {
             return;
         }
@@ -577,14 +624,226 @@ public partial class Main : Node2D
                     break;
             }
         }
-        _state.Update(_logic);
+        _state.Update(_logic, _paused);
+        UpdateHud();
         QueueRedraw();
+    }
+
+    /// <summary>
+    /// 下部 UI バーを組み立てる。ゲーム画面(GameRect)の外に置き、盤面へ被せない。
+    /// 内容は厳選: ミッションガイド / キャラ2枠(スキル CD)/ 切替 CD / 撃破・命中率。
+    /// 詳細な検証値(tick・shot 数等)は画面でなく State(game/messbreak)で見る。
+    /// </summary>
+    private void BuildHud()
+    {
+        var layer = new CanvasLayer();
+        AddChild(layer);
+
+        // バーはウィンドウ下端に実ピクセルでアンカー(リサイズしても高さ・文字サイズは一定)
+        var bar = new Panel();
+        _uiBar = bar;
+        bar.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+        bar.OffsetTop = -UiBarHeight;
+        var style = new StyleBoxFlat
+        {
+            BgColor = new Color(0.07f, 0.06f, 0.09f),
+            BorderColor = new Color(0.35f, 0.3f, 0.45f),
+            BorderWidthTop = 2,
+        };
+        bar.AddThemeStyleboxOverride("panel", style);
+        layer.AddChild(bar);
+
+        // プレイヤー HP(数値+バー)。バーは背景の上に残量ぶんの塗りを重ねる
+        _hpLabel = MakeLabel(bar, new Vector2(24f, 14f), 18, new Color(0.6f, 1f, 0.65f));
+        _hpBack = new ColorRect
+        {
+            Position = new Vector2(24f, 52f),
+            Size = new Vector2(HpBarWidth, 14f),
+            Color = new Color(0.2f, 0.22f, 0.2f),
+        };
+        bar.AddChild(_hpBack);
+        _hpFill = new ColorRect
+        {
+            Size = new Vector2(HpBarWidth, 14f),
+            Color = new Color(0.35f, 0.85f, 0.45f),
+        };
+        _hpBack.AddChild(_hpFill);
+
+        // ミッションガイドはゲーム領域の左上に重ねる(視線移動を減らす)。縁取りで盤面から浮かせる
+        var overlay = new CanvasLayer();
+        AddChild(overlay);
+        _missionLabel = new Label { Position = new Vector2(16f, 12f) };
+        _missionLabel.AddThemeFontSizeOverride("font_size", 18);
+        _missionLabel.AddThemeColorOverride("font_color", new Color(1f, 0.95f, 0.8f));
+        _missionLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
+        _missionLabel.AddThemeConstantOverride("outline_size", 6);
+        overlay.AddChild(_missionLabel);
+
+        // キャラ枠と切替 CD はバーの水平中央に追従させる
+        _char1Label = MakeLabel(bar, new Vector2(0f, 14f), 18, Colors.White);
+        _char2Label = MakeLabel(bar, new Vector2(0f, 50f), 18, Colors.White);
+        _switchLabel = MakeLabel(bar, new Vector2(0f, 32f), 14, new Color(1f, 1f, 1f, 0.6f));
+        AnchorToBarCenter(_char1Label, -120f);
+        AnchorToBarCenter(_char2Label, -120f);
+        AnchorToBarCenter(_switchLabel, 110f);
+    }
+
+    /// <summary>ラベルをバーの水平中央から offsetX の位置に追従させる(縦位置は今のまま)。</summary>
+    private static void AnchorToBarCenter(Label label, float offsetX)
+    {
+        var top = label.Position.Y;
+        label.AnchorLeft = 0.5f;
+        label.AnchorRight = 0.5f;
+        label.OffsetLeft = offsetX;
+        label.OffsetTop = top;
+    }
+
+    private static Label MakeLabel(Control parent, Vector2 pos, int fontSize, Color color)
+    {
+        var label = new Label { Position = pos };
+        label.AddThemeFontSizeOverride("font_size", fontSize);
+        label.AddThemeColorOverride("font_color", color);
+        parent.AddChild(label);
+        return label;
+    }
+
+    /// <summary>UI バーの表示をロジックの現在値から作り直す(tick 後・ポーズ切替時に呼ぶ)。</summary>
+    private void UpdateHud()
+    {
+        _missionLabel.Text =
+            _logic.MissionCleared ? "ミッション達成!"
+            : !_logic.ZoneCaptured ? "雑魚を倒してエリアを制圧しよう"
+            : !_logic.TurretPlaced ? "スロット(緑枠)の近くで F: タレット設置"
+            : !_logic.BossAppeared ? "出現ポイント(赤菱形)の近くで F: 強敵を呼ぶ"
+            : "強敵を倒せ!(デバフ→大技のコンボが有効)";
+
+        var active = _logic.ActiveCharacter;
+        _char1Label.Text =
+            $"{(active == CharacterId.Attacker ? "▶" : "  ")} 1 アタッカー  E {CooldownText(_logic.SkillCooldownOf(CharacterId.Attacker))}";
+        _char2Label.Text =
+            $"{(active == CharacterId.Debuffer ? "▶" : "  ")} 2 デバッファー  E {CooldownText(_logic.SkillCooldownOf(CharacterId.Debuffer))}";
+        _char1Label.AddThemeColorOverride(
+            "font_color",
+            active == CharacterId.Attacker ? Colors.White : new Color(1f, 1f, 1f, 0.45f)
+        );
+        _char2Label.AddThemeColorOverride(
+            "font_color",
+            active == CharacterId.Debuffer
+                ? new Color(0.55f, 0.9f, 1f)
+                : new Color(1f, 1f, 1f, 0.45f)
+        );
+        _switchLabel.Text =
+            _logic.SwitchCooldown > 0 ? $"切替 {CooldownText(_logic.SwitchCooldown)}" : "";
+
+        var maxHp = _logic.Config.PlayerMaxHp;
+        _hpLabel.Text = $"HP {_logic.PlayerHp}/{maxHp}";
+        _hpFill.Size = _hpFill.Size with
+        {
+            X = HpBarWidth * Math.Clamp(_logic.PlayerHp / (float)maxHp, 0f, 1f),
+        };
+
+        // 見た目の State(ui/hud)は、ここで組んだ値の再計算ではなくノードの実表示・実レイアウトから写す
+        _hudState.Update(
+            new HudState.Snapshot(
+                MissionText: _missionLabel.Text,
+                MissionRect: RectText(_missionLabel.GetGlobalRect()),
+                HpText: _hpLabel.Text,
+                HpBarRatio: _hpFill.Size.X / HpBarWidth,
+                HpBarRect: RectText(_hpBack.GetGlobalRect()),
+                Char1Text: _char1Label.Text,
+                Char1Rect: RectText(_char1Label.GetGlobalRect()),
+                Char2Text: _char2Label.Text,
+                Char2Rect: RectText(_char2Label.GetGlobalRect()),
+                SwitchText: _switchLabel.Text,
+                UiBarRect: RectText(_uiBar.GetGlobalRect()),
+                GameRect: RectText(GameRect),
+                PauseMenuVisible: _pauseLayer?.Visible ?? false
+            )
+        );
+    }
+
+    /// <summary>Rect を State 用の "x,y,w,h"(整数丸め)に写す。</summary>
+    private static string RectText(Rect2 rect) =>
+        $"{rect.Position.X:0},{rect.Position.Y:0},{rect.Size.X:0},{rect.Size.Y:0}";
+
+    /// <summary>ポーズメニュー(Esc)。全画面の暗幕+中央の縦ボタン列。</summary>
+    private void BuildPauseMenu()
+    {
+        _pauseLayer = new CanvasLayer { Layer = 10, Visible = false };
+        AddChild(_pauseLayer);
+
+        var dim = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f) };
+        dim.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _pauseLayer.AddChild(dim);
+
+        // VBox へ直接 Center アンカーを設定するとサイズ確定前の左上角が中心に置かれるため、
+        // 全画面の CenterContainer に包ませて常に画面中心へレイアウトさせる
+        var center = new CenterContainer();
+        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _pauseLayer.AddChild(center);
+
+        var menu = new VBoxContainer();
+        menu.AddThemeConstantOverride("separation", 12);
+        center.AddChild(menu);
+
+        var title = new Label { Text = "ポーズ", HorizontalAlignment = HorizontalAlignment.Center };
+        title.AddThemeFontSizeOverride("font_size", 28);
+        menu.AddChild(title);
+
+        _resumeButton = MakeMenuButton(menu, "再開", () => TogglePause());
+        MakeMenuButton(menu, "はじめから", RestartMission);
+        var abortButton = MakeMenuButton(menu, "中断", () => { });
+        // 戻り先(タイトル画面)ができるまで押せない。選択肢の枠だけ先に用意しておく
+        abortButton.Disabled = true;
+        abortButton.TooltipText = "タイトル画面の実装後に有効化";
+        MakeMenuButton(menu, "ゲーム終了", () => GetTree().Quit());
+    }
+
+    private static Button MakeMenuButton(VBoxContainer menu, string text, Action onPressed)
+    {
+        var button = new Button { Text = text, CustomMinimumSize = new Vector2(220f, 40f) };
+        button.Pressed += onPressed;
+        menu.AddChild(button);
+        return button;
+    }
+
+    /// <summary>ポーズの開閉。開いている間は OS カーソルを出してメニューを操作させる。</summary>
+    private void TogglePause()
+    {
+        _paused = !_paused;
+        _pauseLayer.Visible = _paused;
+        Input.MouseMode = _paused ? Input.MouseModeEnum.Visible : Input.MouseModeEnum.Hidden;
+        if (_paused)
+        {
+            _resumeButton.GrabFocus();
+        }
+        _state.Update(_logic, _paused);
+        UpdateHud();
+        QueueRedraw();
+    }
+
+    /// <summary>「はじめから」。同じ seed でロジックを作り直し、演出の残骸も消して再開する。</summary>
+    private void RestartMission()
+    {
+        _logic = new BattleLogic(new BattleConfig(), _logic.Seed);
+        _camPos = _logic.PlayerPos;
+        _camZoom = 1f;
+        _hitMarkers.Clear();
+        _burstMarkers.Clear();
+        _hitstopFrames = 0;
+        _enemyFlashFrames = 0;
+        _aimLingerFrames = 0;
+        _displayFacingAngle = 0f;
+        TogglePause();
+        RefreshView();
+        _logger.ZLogInformation($"ミッションをはじめから(seed={_logic.Seed})");
     }
 
     private void StartStatee(LogBuffer buffer)
     {
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
         host.RegisterStateProvider(_state);
+        host.RegisterStateProvider(_hudState);
         host.RegisterTimeControl(_time);
         StandardCommands.Register(host, this, _logger);
         // 継続入力つきで論理を進めるコマンド(エージェントのプレイ経路)。

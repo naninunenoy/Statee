@@ -17,6 +17,9 @@ public sealed record BattleConfig
     public float PlayerRadius { get; init; } = 6f;
     public float PlayerSpeed { get; init; } = 90f;
 
+    /// <summary>プレイヤーの最大 HP。減らす手段(敵の攻撃)は未実装で、当面は常に満タン。</summary>
+    public int PlayerMaxHp { get; init; } = 10;
+
     /// <summary>スプリント(左 Shift)中の移動速度。</summary>
     public float SprintSpeed { get; init; } = 140f;
 

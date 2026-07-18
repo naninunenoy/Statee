@@ -50,6 +50,26 @@ public class BattleLogicTest
     private static BattleConfig MobAtSkillCenter() =>
         new() { MobSpawn = new Vector2(160f + 80f, 180f) }; // 既定の SkillRange は 80
 
+    // ---- プレイヤー HP ----
+
+    [Fact]
+    public void 初期状態_プレイヤーHPは設定の最大値()
+    {
+        var logic = Create(new BattleConfig { PlayerMaxHp = 7 });
+
+        logic.PlayerHp.ShouldBe(7);
+    }
+
+    [Fact]
+    public void Tick_ダメージ源が無い間_プレイヤーHPは減らない()
+    {
+        var logic = Create();
+
+        TickUntil(logic, () => logic.TickCount >= 60);
+
+        logic.PlayerHp.ShouldBe(logic.Config.PlayerMaxHp);
+    }
+
     // ---- プレイヤー移動 ----
 
     [Fact]
