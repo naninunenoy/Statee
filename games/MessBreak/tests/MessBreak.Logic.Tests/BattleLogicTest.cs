@@ -29,9 +29,9 @@ public class BattleLogicTest
             TurretSlot = turretSlot ?? new Vector2(440f, 180f),
         };
 
-    /// <summary>col 8(x 320..360)が全高の縦壁になっているステージ。プレイヤーは壁の左側。</summary>
-    private static StageDefinition WallBetween(Vector2? mobSpawn = null) =>
-        Arena(mobSpawn: mobSpawn ?? new Vector2(480f, 180f)) with
+    /// <summary>col 8(x 320..360)が全高の縦壁になっているステージ。プレイヤーは左、雑魚は右側。</summary>
+    private static StageDefinition WallBetween() =>
+        Arena(mobSpawn: new Vector2(480f, 180f)) with
         {
             Rows = [.. Enumerable.Repeat("........#.......", 9)],
         };
