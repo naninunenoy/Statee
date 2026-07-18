@@ -1,0 +1,37 @@
+# ピックアップ 12x12・2 種(heal: 回復キット / charge: スキルチャージ)。浮遊の上下はコード側で揺らす
+# 変換: dotnet run --project tools/dotee/Dotee -- render --input games/MessBreak/art/items/pickup.sprite.txt
+palette:
+. = #00000000   # 透明
+K = #1E232B     # 輪郭
+W = #E8ECF2     # キット筐体
+w = #C6CCD8     # 筐体シャドウ
+G = #4CBF6A     # 十字
+M = #2B3140     # チップ基板
+E = #5FE8D8     # 稲妻(明)
+e = #2E8C82     # 端子
+frame: heal
+............
+..KKKKKKKK..
+.KWWWWWWWWK.
+.KWWWGGWWWK.
+.KWWWGGWWWK.
+.KWGGGGGGWK.
+.KWGGGGGGWK.
+.KWWWGGWWWK.
+.KWWWGGWWWK.
+.KwwwwwwwwK.
+..KKKKKKKK..
+............
+frame: charge
+............
+..KKKKKKKK..
+.KMMMMEEMMK.
+.KMMMEEMMMK.
+.KMMEEEEEMK.
+.KMMMMEEMMK.
+.KMMMEEMMMK.
+.KMMEEMMMMK.
+.KMMEMMMMMK.
+.KeMMMMMMeK.
+..KKKKKKKK..
+............
