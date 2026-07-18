@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/tool/">
+    <Project Path="Wavee/Wavee.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Wavee.Tests/Wavee.Tests.csproj" />
+  </Folder>
+</Solution>
