@@ -20,6 +20,9 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     public int TickCount { get; private set; }
 
     // プレイヤー
+    /// <summary>プレイヤーの残 HP。減らす手段(敵の攻撃)は未実装で、当面は常に満タン。</summary>
+    public int PlayerHp { get; private set; } = config.PlayerMaxHp;
+
     public Vector2 PlayerPos { get; private set; } = config.PlayerSpawn;
     public Vector2 PlayerFacing { get; private set; } = new(1f, 0f);
     public PlayerAction PlayerAction { get; private set; } = PlayerAction.Free;

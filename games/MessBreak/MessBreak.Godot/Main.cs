@@ -93,14 +93,18 @@ public partial class Main : Node2D
     private int _aimLingerFrames;
     private float _displayFacingAngle;
 
-    // HUD(下部 UI バー)とポーズメニュー。表示だけの存在なので Godot 層に置く
+    // HUD(下部 UI バーと左上のミッションガイド)とポーズメニュー。表示だけの存在なので Godot 層に置く
     private Label _missionLabel = null!;
+    private Label _hpLabel = null!;
+    private ColorRect _hpFill = null!;
     private Label _char1Label = null!;
     private Label _char2Label = null!;
     private Label _switchLabel = null!;
-    private Label _statsLabel = null!;
     private CanvasLayer _pauseLayer = null!;
     private Button _resumeButton = null!;
+
+    /// <summary>HP バーの塗り部分の最大幅(実ピクセル)。</summary>
+    private const float HpBarWidth = 200f;
 
     /// <summary>ポーズメニュー(Esc)で論理 tick を止めているか。Statee の freeze とは独立。</summary>
     private bool _paused;
@@ -645,9 +649,31 @@ public partial class Main : Node2D
         bar.AddThemeStyleboxOverride("panel", style);
         layer.AddChild(bar);
 
-        _missionLabel = MakeLabel(bar, new Vector2(24f, 0f), 20, new Color(1f, 0.95f, 0.8f));
-        _missionLabel.Size = new Vector2(430f, UiBarHeight);
-        _missionLabel.VerticalAlignment = VerticalAlignment.Center;
+        // プレイヤー HP(数値+バー)。バーは背景の上に残量ぶんの塗りを重ねる
+        _hpLabel = MakeLabel(bar, new Vector2(24f, 14f), 18, new Color(0.6f, 1f, 0.65f));
+        var hpBack = new ColorRect
+        {
+            Position = new Vector2(24f, 52f),
+            Size = new Vector2(HpBarWidth, 14f),
+            Color = new Color(0.2f, 0.22f, 0.2f),
+        };
+        bar.AddChild(hpBack);
+        _hpFill = new ColorRect
+        {
+            Size = new Vector2(HpBarWidth, 14f),
+            Color = new Color(0.35f, 0.85f, 0.45f),
+        };
+        hpBack.AddChild(_hpFill);
+
+        // ミッションガイドはゲーム領域の左上に重ねる(視線移動を減らす)。縁取りで盤面から浮かせる
+        var overlay = new CanvasLayer();
+        AddChild(overlay);
+        _missionLabel = new Label { Position = new Vector2(16f, 12f) };
+        _missionLabel.AddThemeFontSizeOverride("font_size", 18);
+        _missionLabel.AddThemeColorOverride("font_color", new Color(1f, 0.95f, 0.8f));
+        _missionLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
+        _missionLabel.AddThemeConstantOverride("outline_size", 6);
+        overlay.AddChild(_missionLabel);
 
         // キャラ枠と切替 CD はバーの水平中央に追従させる
         _char1Label = MakeLabel(bar, new Vector2(0f, 14f), 18, Colors.White);
@@ -656,14 +682,6 @@ public partial class Main : Node2D
         AnchorToBarCenter(_char1Label, -120f);
         AnchorToBarCenter(_char2Label, -120f);
         AnchorToBarCenter(_switchLabel, 110f);
-
-        _statsLabel = MakeLabel(bar, Vector2.Zero, 16, new Color(1f, 1f, 1f, 0.75f));
-        // 撃破・命中率はバーの右端に追従させる
-        _statsLabel.SetAnchorsPreset(Control.LayoutPreset.RightWide);
-        _statsLabel.OffsetLeft = -184f;
-        _statsLabel.OffsetRight = -24f;
-        _statsLabel.HorizontalAlignment = HorizontalAlignment.Right;
-        _statsLabel.VerticalAlignment = VerticalAlignment.Center;
     }
 
     /// <summary>ラベルをバーの水平中央から offsetX の位置に追従させる(縦位置は今のまま)。</summary>
@@ -713,8 +731,12 @@ public partial class Main : Node2D
         _switchLabel.Text =
             _logic.SwitchCooldown > 0 ? $"切替 {CooldownText(_logic.SwitchCooldown)}" : "";
 
-        var accuracy = _logic.ShotCount == 0 ? 0f : 100f * _logic.HitCount / _logic.ShotCount;
-        _statsLabel.Text = $"撃破 {_logic.KillCount}\n命中率 {accuracy:0.#}%";
+        var maxHp = _logic.Config.PlayerMaxHp;
+        _hpLabel.Text = $"HP {_logic.PlayerHp}/{maxHp}";
+        _hpFill.Size = _hpFill.Size with
+        {
+            X = HpBarWidth * Math.Clamp(_logic.PlayerHp / (float)maxHp, 0f, 1f),
+        };
     }
 
     /// <summary>ポーズメニュー(Esc)。全画面の暗幕+中央の縦ボタン列。</summary>

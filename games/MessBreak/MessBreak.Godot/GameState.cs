@@ -14,6 +14,7 @@ public partial class GameState
     private sealed record Snapshot(
         int Seed,
         int TickCount,
+        int PlayerHp,
         float PlayerX,
         float PlayerY,
         float FacingX,
@@ -44,6 +45,7 @@ public partial class GameState
     );
 
     private volatile Snapshot _current = new(
+        0,
         0,
         0,
         0f,
@@ -80,6 +82,10 @@ public partial class GameState
 
     [StateeField]
     public int TickCount => _current.TickCount;
+
+    /// <summary>プレイヤーの残 HP(減らす手段は未実装で、当面は常に満タン)。</summary>
+    [StateeField]
+    public int PlayerHp => _current.PlayerHp;
 
     [StateeField]
     public float PlayerX => _current.PlayerX;
@@ -173,6 +179,7 @@ public partial class GameState
         _current = new Snapshot(
             logic.Seed,
             logic.TickCount,
+            logic.PlayerHp,
             logic.PlayerPos.X,
             logic.PlayerPos.Y,
             logic.PlayerFacing.X,
