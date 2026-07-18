@@ -37,9 +37,17 @@ public class DoteeCommands
         Directory.CreateDirectory(dir);
         var name = BaseName(input);
 
+        // 複数フレームは横並びの 1 枚(スプライトシート)に合成する
         var png = Path.Combine(dir, $"{name}.png");
-        File.WriteAllBytes(png, PngEncoder.Encode(doc.Width, doc.Height, doc.PixelAt));
+        File.WriteAllBytes(png, PngEncoder.Encode(doc.SheetWidth, doc.Height, doc.SheetPixelAt));
         Console.WriteLine(Path.GetFullPath(png));
+        if (doc.Frames.Count > 1)
+        {
+            Console.WriteLine(
+                $"frames: {doc.Frames.Count} x {doc.Width}x{doc.Height} "
+                    + $"({string.Join(", ", doc.Frames.Select(f => f.Name))})"
+            );
+        }
 
         if (scale > 1)
         {
@@ -47,9 +55,9 @@ public class DoteeCommands
             File.WriteAllBytes(
                 scaled,
                 PngEncoder.Encode(
-                    doc.Width * scale,
+                    doc.SheetWidth * scale,
                     doc.Height * scale,
-                    (x, y) => doc.PixelAt(x / scale, y / scale)
+                    (x, y) => doc.SheetPixelAt(x / scale, y / scale)
                 )
             );
             Console.WriteLine(Path.GetFullPath(scaled));
