@@ -48,6 +48,35 @@ public sealed record BattleConfig
     public int DodgeCooldownTicks { get; init; } = 30;
     public float DodgeSpeed { get; init; } = 240f;
 
+    // 敵エリアの雑魚(動かない・攻撃しない。倒すとエリア制圧=設置スロット解放)
+    public float MobRadius { get; init; } = 8f;
+
+    /// <summary>アタッカースキル単発(3)で倒せる値。</summary>
+    public int MobMaxHp { get; init; } = 3;
+
+    public System.Numerics.Vector2 MobSpawn { get; init; } = new(480f, 120f);
+
+    // 強敵(出現ポイントをアトラクトすると出現し、プレイヤーを追跡する。攻撃はまだしない)
+    public float BossRadius { get; init; } = 14f;
+    public int BossMaxHp { get; init; } = 20;
+    public float BossSpeed { get; init; } = 40f;
+
+    /// <summary>強敵の出現ポイント(アトラクトの対象)。</summary>
+    public System.Numerics.Vector2 BossSpawn { get; init; } = new(560f, 180f);
+
+    /// <summary>アトラクトが届く、プレイヤーと出現ポイントの最大距離。</summary>
+    public float AttractRange { get; init; } = 40f;
+
+    // タレット(エリア制圧で解放される設置スロットに置く。射程内の敵を自動射撃)
+    public System.Numerics.Vector2 TurretSlot { get; init; } = new(440f, 180f);
+
+    /// <summary>設置が届く、プレイヤーとスロットの最大距離。</summary>
+    public float PlaceRange { get; init; } = 40f;
+
+    public float TurretRange { get; init; } = 160f;
+    public int TurretFireCooldownTicks { get; init; } = 30;
+    public int TurretBulletDamage { get; init; } = 1;
+
     // 的(動かない・攻撃しない。撃破後にリスポーンする「当たる感」検証用ターゲット)
     public float TargetRadius { get; init; } = 8f;
 

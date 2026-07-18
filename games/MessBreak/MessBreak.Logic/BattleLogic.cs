@@ -41,8 +41,31 @@ public sealed class BattleLogic(BattleConfig config, int seed)
 
     private readonly int[] _skillCooldowns = new int[2];
 
-    /// <summary>飛翔中のプレイヤーの弾。</summary>
+    /// <summary>飛翔中の弾(プレイヤー・タレット共用)。</summary>
     public IReadOnlyList<Bullet> Bullets => _bullets;
+
+    /// <summary>生存中の敵。HP 0 になった敵は取り除かれる。</summary>
+    public IReadOnlyList<Enemy> Enemies => _enemies;
+
+    /// <summary>指定種別の生存中の敵(いなければ null)。</summary>
+    public Enemy? EnemyOf(EnemyKind kind) => _enemies.Find(e => e.Kind == kind);
+
+    private readonly List<Enemy> _enemies = [];
+
+    /// <summary>敵エリアを制圧済みか(雑魚を倒すと true。設置スロットが解放される)。</summary>
+    public bool ZoneCaptured { get; private set; }
+
+    /// <summary>タレットを設置済みか。</summary>
+    public bool TurretPlaced { get; private set; }
+
+    /// <summary>タレットの次の発射まで待つ残り tick 数。</summary>
+    public int TurretFireCooldown { get; private set; }
+
+    /// <summary>強敵を出現させたか(アトラクトは一度きり)。</summary>
+    public bool BossAppeared { get; private set; }
+
+    /// <summary>強敵を撃破してミッション達成したか。</summary>
+    public bool MissionCleared { get; private set; }
 
     // 的
     public Vector2 TargetPos { get; private set; } = config.TargetSpawn;
