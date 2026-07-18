@@ -43,6 +43,9 @@ public static class StandardCommands
 
     public static void Register(StateeHost host, Node node, ILogger logger)
     {
+        // 接続先プロセスの同一性確認(system/identity)。古いバイナリ・別プロセスへの
+        // 接続事故を検証の冒頭で検出できるよう、全ゲーム共通で公開する(D-075)
+        host.RegisterStateProvider(new IdentityStateProvider(node.GetType().Assembly));
         host.RegisterCommand(
             "ping",
             args =>

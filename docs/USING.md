@@ -51,8 +51,10 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
 
 配線の定型は **`libs/Statee.Godot`** にある(D-047)。自前で複製しない:
 
-- `StandardCommands.Register(host, node, logger)` — ping / key / screenshot / quit を一括登録。
-  **ping は組み込みではない**ので、これを外すと疎通確認の起点を失う
+- `StandardCommands.Register(host, node, logger)` — ping / key / screenshot / quit と
+  **`system/identity` State**(Pid / StartedAt / Mvid 等。D-075)を一括登録。
+  **ping は組み込みではない**ので、これを外すと疎通確認の起点を失う。
+  検証シナリオの冒頭で identity を読めば「古いバイナリ・別プロセスに繋いでいた」事故を検出できる
 - `KeyBinding` + `KeyBindingTable` — キーバインド表を1箇所に持ち、
   `TryHandle`(_UnhandledInput の処理)と `CreateInputStateProvider`(game/input State)の
   両方を同じ表から導出する。実装と公開情報が乖離しない
@@ -84,6 +86,16 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
 - headless では project.godot のウィンドウサイズが反映されない。必要なら実行時に
   `GetWindow().Size` で設定する
 - `screenshot` コマンドの保存先は絶対パスで渡す(headless では撮影不可)
+- **ポートを確保できなかったら即終了する(exit 1)**。バインド失敗のまま動き続けると
+  CLI が別プロセス(古いバイナリ等)に繋がる事故に気づけない(D-075。雛形の
+  Main.StateeServer.cs が SocketException を捕まえて `Quit(1)` する)
+- **UI の見た目も検証したければ「UI ミラー State」を作る**(例 → games/MessBreak の
+  `ui/hud`)。ロジック値の再掲ではなく、**画面に出している Label の文字列や
+  `GetGlobalRect()` をノードから写して公開**すると、「ロジック→UI の写し間違い」
+  「配置の破綻」を State で検証できる。境界の掟とは矛盾しない(State が UI を
+  参照するのではなく、Godot 層が自分の表示を報告する)。注意: Godot の Control
+  レイアウトはフレーム末に確定するため、**起動直後(tick 0)の Rect は仮値**。
+  1 tick 進めてから読む。ゲーム内ポーズは `tick` コマンドを止めない(素通りが仕様。D-076)
 - **本番ビルド(ExportRelease)には TCP 待ち受けを含めない**(D-065)。
   `StateeTcpServer` の起動・停止は `Main.StateeServer.cs`(partial + partial method)に隔離し、
   csproj で `ExportRelease` のとき `Compile Remove` + `Statee.Remote` 参照を条件付きにする。
