@@ -26,6 +26,19 @@ public static class StateeHostTickCommandExtensions
         string commandName = "tick"
     )
     {
-        throw new NotImplementedException();
+        host.RegisterMainThreadCommand(
+            commandName,
+            args =>
+            {
+                var frames = Math.Clamp(args.GetInt("frames", 1), 1, maxFramesPerCall);
+                var input = parseInput(args);
+                for (var i = 0; i < frames; i++)
+                {
+                    step(input);
+                    timeControl.OnFrame();
+                }
+                return result();
+            }
+        );
     }
 }

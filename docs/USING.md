@@ -56,8 +56,13 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
 - `KeyBinding` + `KeyBindingTable` — キーバインド表を1箇所に持ち、
   `TryHandle`(_UnhandledInput の処理)と `CreateInputStateProvider`(game/input State)の
   両方を同じ表から導出する。実装と公開情報が乖離しない
-- `CmdlineArgs.ParseInt("--seed=", ...)` — シード・ポートの起動引数
+- `CmdlineArgs.ParseInt("--seed=", ...)` — シード・ポートの起動引数。
+  `CmdlineArgs.HasFlag("--frozen")` で「起動直後から freeze」に対応する(D-073。
+  実時間で tick が進むと接続タイミングで盤面が変わるため、再現シナリオは tick 0 から書く)
 - `StateeLogging.CreateLoggerFactory(buffer)` — logs コマンド用バッファ+コンソールのロガー
+- リアルタイムゲームの `tick` コマンド(入力を指定して N tick 進める)は
+  `host.RegisterTickCommand(time, parseInput, step, result)`(Statee.Core、D-072)。
+  ゲーム側に書くのは「引数 → 入力型の写像」と「1 tick 進める処理」だけ
 
 ゲーム側に残る注意点:
 
@@ -67,6 +72,10 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
   (デリゲートで足りる場合は `SnapshotStateProvider`(Statee.Core)を使う)
 - ゲーム状態を変えるコマンドは `RegisterMainThreadCommand`(メインスレッドで実行される)。
   読むだけ・スレッド安全なものは `RegisterCommand` でよい
+- **効果音・エフェクトの発火を状態の差分から推測させない**。ロジックが
+  「その tick に起きた出来事」のリスト(毎 tick 先頭でクリア)を公開し、
+  Godot 層がそれを音・演出に翻訳する。「何が起きたか」はロジックの責務、
+  「どう見せる・鳴らすか」は Godot 層の責務(実装例 → games/MessBreak の BattleEvent)
 - `_Process` で `MainThreadDispatcher.Pump()` を毎フレーム呼ぶ。
   freeze 中も動くよう `ProcessMode = ProcessModeEnum.Always` にする
 - csproj は `Godot.NET.Sdk`。**`CopyLocalLockFileAssemblies` を有効にする**

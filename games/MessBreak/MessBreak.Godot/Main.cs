@@ -92,6 +92,13 @@ public partial class Main : Node2D
         _logic = new BattleLogic(new BattleConfig(), CmdlineArgs.ParseInt("--seed=", DefaultSeed));
         _camPos = _logic.PlayerPos;
 
+        // 起動直後から実時間で tick が進むと接続タイミングで盤面が変わるため、
+        // 再現シナリオでは --frozen で tick 0 から凍結した状態で始められる(D-073)
+        if (CmdlineArgs.HasFlag("--frozen"))
+        {
+            _time.Freeze();
+        }
+
         LoadAssets();
         RefreshView();
         StartStatee(buffer);
@@ -584,11 +591,10 @@ public partial class Main : Node2D
         // freeze と組み合わせて「入力を指定して N Tick 進める」を実現する。
         // 例: send --command tick --arg frames=30,input=right+fire,aimx=1,aimy=-0.5
         // (CLI の --arg は複数指定をカンマで区切るため、入力トークンは + で連結する)
-        host.RegisterMainThreadCommand(
-            "tick",
-            args =>
+        host.RegisterTickCommand(
+            _time,
+            parseInput: args =>
             {
-                var frames = Math.Clamp(args.GetInt("frames", 1), 1, MaxTickFrames);
                 var aim = new System.Numerics.Vector2(
                     ParseFloat(args.GetString("aimx")),
                     ParseFloat(args.GetString("aimy"))
@@ -600,15 +606,14 @@ public partial class Main : Node2D
                     skillX is null && skillY is null
                         ? null
                         : new System.Numerics.Vector2(ParseFloat(skillX), ParseFloat(skillY));
-                var input = ParseInput(args.GetString("input") ?? "", aim, aimPoint);
-                for (var i = 0; i < frames; i++)
-                {
-                    _logic.Tick(input);
-                    _time.OnFrame();
-                }
+                return ParseInput(args.GetString("input") ?? "", aim, aimPoint);
+            },
+            step: input => _logic.Tick(input),
+            result: () =>
+            {
                 RefreshView();
                 _logger.ZLogInformation(
-                    $"tick {frames} → tick={_logic.TickCount} hits={_logic.HitCount}/{_logic.ShotCount}"
+                    $"tick → tick={_logic.TickCount} hits={_logic.HitCount}/{_logic.ShotCount}"
                 );
                 return new
                 {
@@ -621,7 +626,8 @@ public partial class Main : Node2D
                     _logic.BossAppeared,
                     _logic.MissionCleared,
                 };
-            }
+            },
+            maxFramesPerCall: MaxTickFrames
         );
         StartStateeServer(host);
     }

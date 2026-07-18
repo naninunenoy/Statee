@@ -22,6 +22,23 @@ public static class CmdlineArgs
         return defaultValue;
     }
 
+    /// <summary>
+    /// `--frozen` 形式のフラグ引数があるか。起動直後から freeze しておきたい場合
+    /// (実時間で tick が進むと接続タイミングで盤面が変わるため。D-073)などに使う。
+    /// </summary>
+    public static bool HasFlag(string name)
+    {
+        foreach (var arg in OS.GetCmdlineUserArgs())
+        {
+            if (string.Equals(arg, name, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static string ParseString(string prefix, string defaultValue)
     {
         foreach (var arg in OS.GetCmdlineUserArgs())

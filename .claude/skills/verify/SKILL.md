@@ -41,6 +41,8 @@ dotnet build <ターゲットのディレクトリ>   # 例: dotnet build sample
 
 - **バックグラウンドで起動**する(フォアグラウンドだと待ち受けたまま返ってこない)
 - `--seed=` で乱数シードを注入すると決定論的に観測できる(対応しているターゲットのみ)
+- `--frozen` で起動直後から freeze できる(対応しているターゲットのみ。D-073)。
+  再現シナリオを tick 0 から書くときに使う(未対応だと接続までに実時間で tick が進む)
 - 初回のみアセットインポートが必要:
   `<godot> --headless --path <target> --import`
   → **完了後にクラッシュする(exit 0xC0000005)ので exit code は無視**(D-016)
@@ -55,14 +57,17 @@ dotnet build <ターゲットのディレクトリ>   # 例: dotnet build sample
 | 目的 | コマンド例 |
 |---|---|
 | 疎通 | `ping --message hello` |
-| 不変情報 | `state --path system/platform` |
-| フレーム進行 | `state --path system/runtime`(Frame / UptimeSeconds) |
+| 不変情報 | `state --path system/platform`(※) |
+| フレーム進行 | `state --path system/runtime`(Frame / UptimeSeconds)(※) |
 | ゲーム状態 | `state --path game/…`(パス・内容はゲームごと。例: SuikaGame は game/board) |
 | 条件待機 | `send --command wait --arg path=game/board,field=Score,op=ge,value=1`(D-028) |
 | 任意コマンド | `send --command <ゲームが登録したコマンド> --arg key=value` |
 | ログ | `logs --tail 20` |
 | 終了 | `quit`(exit 0 で正常終了することも確認対象) |
 
+- ※ `system/platform` / `system/runtime` は **PingTarget が登録している State** で、
+  ゲームターゲットには無いことが多い(雛形は登録しない)。「未知の State パス」が返ったら
+  そのターゲットの `game/…` パスで確認する
 - **複数引数はカンマ区切り**: `--arg key1=v1,key2=v2`(`--arg` の繰り返しは最後だけが残る)
 - 出力は TOON 形式。`exit: 0` 以外や `error:` は失敗
 - **固定フレーム数・固定秒数の待機は書かない**。`wait` か state の再取得で条件成立を待つ
