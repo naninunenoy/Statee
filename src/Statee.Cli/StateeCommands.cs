@@ -20,6 +20,62 @@ public class StateeCommands
     public int State(string path = "system/runtime", int port = DefaultPort) =>
         SendRequest("state", new Dictionary<string, string> { ["path"] = path }, port);
 
+    /// <summary>
+    /// State を定期取得してコンソールに表示し続ける(人間の目視確認用)。Ctrl+C で終了する。
+    /// 他コマンドと違い stdout は表示用で、payload 契約(stdout=payload のみ)の対象外。
+    /// </summary>
+    /// <param name="path">State のパス(例: system/runtime, system/platform)。</param>
+    /// <param name="interval">取得間隔(秒)。</param>
+    /// <param name="count">取得回数。0 で無限(Ctrl+C まで)。</param>
+    /// <param name="port">接続先ポート。</param>
+    public int Watch(
+        string path = "system/runtime",
+        double interval = 0.5,
+        int count = 0,
+        int port = DefaultPort
+    )
+    {
+        var client = new StateeClient(port);
+        var args = new Dictionary<string, string> { ["path"] = path };
+        var lastOk = false;
+        for (var i = 0; count <= 0 || i < count; i++)
+        {
+            if (i > 0)
+            {
+                Thread.Sleep(TimeSpan.FromSeconds(interval));
+            }
+
+            string body;
+            try
+            {
+                body = client.Invoke("state", args);
+                lastOk = true;
+            }
+            catch (StateeClientException e)
+            {
+                body = e.IsErrorResponse ? $"error: {e.Message}" : e.Message;
+                lastOk = false;
+            }
+
+            if (Console.IsOutputRedirected)
+            {
+                Console.WriteLine($"--- {DateTime.Now:HH:mm:ss.fff} ---");
+            }
+            else
+            {
+                Console.Clear();
+            }
+
+            var status = lastOk ? "ok" : "NG";
+            Console.WriteLine(
+                $"[watch] path={path} port={port} interval={interval}s {DateTime.Now:HH:mm:ss.fff} ({status})"
+            );
+            Console.WriteLine(body);
+        }
+
+        return lastOk ? 0 : 1;
+    }
+
     /// <summary>ターゲットが保持するログを取得する。</summary>
     /// <param name="tail">新しい方から何件取得するか。</param>
     /// <param name="port">接続先ポート。</param>
