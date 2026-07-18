@@ -66,6 +66,7 @@ public partial class Main : Node2D
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly TimeControl _time = new();
     private readonly GameState _state = new();
+    private readonly HudState _hudState = new();
 
     private BattleLogic _logic = null!;
     private ILoggerFactory? _loggerFactory;
@@ -95,7 +96,9 @@ public partial class Main : Node2D
 
     // HUD(下部 UI バーと左上のミッションガイド)とポーズメニュー。表示だけの存在なので Godot 層に置く
     private Label _missionLabel = null!;
+    private Panel _uiBar = null!;
     private Label _hpLabel = null!;
+    private ColorRect _hpBack = null!;
     private ColorRect _hpFill = null!;
     private Label _char1Label = null!;
     private Label _char2Label = null!;
@@ -638,6 +641,7 @@ public partial class Main : Node2D
 
         // バーはウィンドウ下端に実ピクセルでアンカー(リサイズしても高さ・文字サイズは一定)
         var bar = new Panel();
+        _uiBar = bar;
         bar.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
         bar.OffsetTop = -UiBarHeight;
         var style = new StyleBoxFlat
@@ -651,19 +655,19 @@ public partial class Main : Node2D
 
         // プレイヤー HP(数値+バー)。バーは背景の上に残量ぶんの塗りを重ねる
         _hpLabel = MakeLabel(bar, new Vector2(24f, 14f), 18, new Color(0.6f, 1f, 0.65f));
-        var hpBack = new ColorRect
+        _hpBack = new ColorRect
         {
             Position = new Vector2(24f, 52f),
             Size = new Vector2(HpBarWidth, 14f),
             Color = new Color(0.2f, 0.22f, 0.2f),
         };
-        bar.AddChild(hpBack);
+        bar.AddChild(_hpBack);
         _hpFill = new ColorRect
         {
             Size = new Vector2(HpBarWidth, 14f),
             Color = new Color(0.35f, 0.85f, 0.45f),
         };
-        hpBack.AddChild(_hpFill);
+        _hpBack.AddChild(_hpFill);
 
         // ミッションガイドはゲーム領域の左上に重ねる(視線移動を減らす)。縁取りで盤面から浮かせる
         var overlay = new CanvasLayer();
@@ -737,7 +741,30 @@ public partial class Main : Node2D
         {
             X = HpBarWidth * Math.Clamp(_logic.PlayerHp / (float)maxHp, 0f, 1f),
         };
+
+        // 見た目の State(ui/hud)は、ここで組んだ値の再計算ではなくノードの実表示・実レイアウトから写す
+        _hudState.Update(
+            new HudState.Snapshot(
+                MissionText: _missionLabel.Text,
+                MissionRect: RectText(_missionLabel.GetGlobalRect()),
+                HpText: _hpLabel.Text,
+                HpBarRatio: _hpFill.Size.X / HpBarWidth,
+                HpBarRect: RectText(_hpBack.GetGlobalRect()),
+                Char1Text: _char1Label.Text,
+                Char1Rect: RectText(_char1Label.GetGlobalRect()),
+                Char2Text: _char2Label.Text,
+                Char2Rect: RectText(_char2Label.GetGlobalRect()),
+                SwitchText: _switchLabel.Text,
+                UiBarRect: RectText(_uiBar.GetGlobalRect()),
+                GameRect: RectText(GameRect),
+                PauseMenuVisible: _pauseLayer?.Visible ?? false
+            )
+        );
     }
+
+    /// <summary>Rect を State 用の "x,y,w,h"(整数丸め)に写す。</summary>
+    private static string RectText(Rect2 rect) =>
+        $"{rect.Position.X:0},{rect.Position.Y:0},{rect.Size.X:0},{rect.Size.Y:0}";
 
     /// <summary>ポーズメニュー(Esc)。全画面の暗幕+中央の縦ボタン列。</summary>
     private void BuildPauseMenu()
@@ -749,10 +776,15 @@ public partial class Main : Node2D
         dim.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _pauseLayer.AddChild(dim);
 
+        // VBox へ直接 Center アンカーを設定するとサイズ確定前の左上角が中心に置かれるため、
+        // 全画面の CenterContainer に包ませて常に画面中心へレイアウトさせる
+        var center = new CenterContainer();
+        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _pauseLayer.AddChild(center);
+
         var menu = new VBoxContainer();
-        menu.SetAnchorsPreset(Control.LayoutPreset.Center);
         menu.AddThemeConstantOverride("separation", 12);
-        _pauseLayer.AddChild(menu);
+        center.AddChild(menu);
 
         var title = new Label { Text = "ポーズ", HorizontalAlignment = HorizontalAlignment.Center };
         title.AddThemeFontSizeOverride("font_size", 28);
@@ -786,6 +818,7 @@ public partial class Main : Node2D
             _resumeButton.GrabFocus();
         }
         _state.Update(_logic, _paused);
+        UpdateHud();
         QueueRedraw();
     }
 
@@ -810,6 +843,7 @@ public partial class Main : Node2D
     {
         var host = new StateeHost(buffer) { MainThreadDispatcher = _dispatcher };
         host.RegisterStateProvider(_state);
+        host.RegisterStateProvider(_hudState);
         host.RegisterTimeControl(_time);
         StandardCommands.Register(host, this, _logger);
         // 継続入力つきで論理を進めるコマンド(エージェントのプレイ経路)。
