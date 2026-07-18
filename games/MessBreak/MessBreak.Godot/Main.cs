@@ -347,7 +347,7 @@ public partial class Main : Node2D
             _logic.MissionCleared ? "ミッション達成!"
             : !_logic.ZoneCaptured ? "雑魚を倒してエリアを制圧しよう"
             : !_logic.TurretPlaced ? "スロット(緑枠)の近くで F: タレット設置"
-            : !_logic.BossAppeared ? "出現ポイント(赤菱形)の近くで G: 強敵を呼ぶ"
+            : !_logic.BossAppeared ? "出現ポイント(赤菱形)の近くで F: 強敵を呼ぶ"
             : "強敵を倒せ!(デバフ→大技のコンボが有効)";
         DrawString(ThemeDB.FallbackFont, new Vector2(16, 60), missionText, fontSize: 18);
     }
@@ -432,13 +432,14 @@ public partial class Main : Node2D
             Fire: fire,
             Dodge: Input.IsPhysicalKeyPressed(Key.Space),
             Sprint: Input.IsPhysicalKeyPressed(Key.Shift),
-            Skill: Input.IsPhysicalKeyPressed(Key.E) || Input.IsPhysicalKeyPressed(Key.Q),
+            Skill: Input.IsPhysicalKeyPressed(Key.E),
             AimPoint: ToLogic(GetGlobalMousePosition()), // マウスにはレティクル位置が常にある
             SwitchTo: Input.IsPhysicalKeyPressed(Key.Key1) ? CharacterId.Attacker
                 : Input.IsPhysicalKeyPressed(Key.Key2) ? CharacterId.Debuffer
                 : null,
+            // インタラクトは F に一本化(設置もアトラクトも F。発動条件は場所依存でロジックが判定)
             Place: Input.IsPhysicalKeyPressed(Key.F),
-            Attract: Input.IsPhysicalKeyPressed(Key.G)
+            Attract: Input.IsPhysicalKeyPressed(Key.F)
         );
     }
 
