@@ -39,7 +39,8 @@ public partial class GameState
         bool MissionCleared,
         int ShotCount,
         int HitCount,
-        int KillCount
+        int KillCount,
+        bool Paused
     );
 
     private volatile Snapshot _current = new(
@@ -70,7 +71,8 @@ public partial class GameState
         false,
         0,
         0,
-        0
+        0,
+        false
     );
 
     [StateeField]
@@ -159,8 +161,12 @@ public partial class GameState
     [StateeField]
     public int KillCount => _current.KillCount;
 
+    /// <summary>ポーズメニュー(Esc)で論理 tick を止めているか。freeze とは独立。</summary>
+    [StateeField]
+    public bool Paused => _current.Paused;
+
     /// <summary>メインスレッドから呼ぶ。スナップショットを不可分に差し替える。</summary>
-    public void Update(BattleLogic logic)
+    public void Update(BattleLogic logic, bool paused)
     {
         var mob = logic.EnemyOf(EnemyKind.Mob);
         var boss = logic.EnemyOf(EnemyKind.Boss);
@@ -192,7 +198,8 @@ public partial class GameState
             logic.MissionCleared,
             logic.ShotCount,
             logic.HitCount,
-            logic.KillCount
+            logic.KillCount,
+            paused
         );
     }
 }
