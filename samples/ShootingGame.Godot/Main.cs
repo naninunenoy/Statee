@@ -47,6 +47,12 @@ public partial class Main : Node2D
 
         _logic = new ShootingLogic(CmdlineArgs.ParseInt("--seed=", DefaultSeed));
 
+        // 再現シナリオでは --frozen で tick 0 から凍結した状態で始められる(D-073)
+        if (CmdlineArgs.HasFlag("--frozen"))
+        {
+            _time.Freeze();
+        }
+
         RefreshView();
         StartStatee(buffer);
         _logger.ZLogInformation($"ShootingGame 起動 seed={_logic.Seed}");
@@ -200,22 +206,17 @@ public partial class Main : Node2D
         host.RegisterTimeControl(_time);
         StandardCommands.Register(host, this, _logger);
         // 継続入力つきで論理を進めるコマンド(エージェントのプレイ経路)。
-        // freeze と組み合わせて「入力を指定して N Tick 進める」を実現する。
+        // freeze と組み合わせて「入力を指定して N Tick 進める」を実現する(D-049/D-072)。
         // 例: send --command tick --arg frames=30,input=right+shoot
         // (CLI の --arg は複数指定をカンマで区切るため、入力トークンは + で連結する)
-        host.RegisterMainThreadCommand(
-            "tick",
-            args =>
+        host.RegisterTickCommand(
+            _time,
+            parseInput: args => ParseInput(args.GetString("input") ?? ""),
+            step: input => _logic.Tick(input),
+            result: () =>
             {
-                var frames = Math.Clamp(args.GetInt("frames", 1), 1, MaxTickFrames);
-                var input = ParseInput(args.GetString("input") ?? "");
-                for (var i = 0; i < frames; i++)
-                {
-                    _logic.Tick(input);
-                    _time.OnFrame();
-                }
                 RefreshView();
-                _logger.ZLogInformation($"tick {frames} input={input} → tick={_logic.TickCount}");
+                _logger.ZLogInformation($"tick → tick={_logic.TickCount}");
                 return new
                 {
                     _logic.TickCount,
@@ -223,7 +224,8 @@ public partial class Main : Node2D
                     _logic.Lives,
                     _logic.IsGameOver,
                 };
-            }
+            },
+            maxFramesPerCall: MaxTickFrames
         );
         StartStateeServer(host);
     }

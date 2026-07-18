@@ -22,7 +22,9 @@ description: >-
 1. ゲーム名 `<Name>`(PascalCase)を引数から取る。無ければ聞く。
    `samples/<Name>.Logic` 等が既に存在したら中断して報告する
 2. 下のテンプレートどおりにファイルを作る(`<Name>` を置換。
-   `<name>` は小文字化した State パス用)
+   `<name>` は小文字化した State パス用)。
+   ※ゲームを**改名**するときは `[StateeState("game/<name>")]` の小文字パスが
+   PascalCase の一括置換から漏れやすい。改名時は必ず grep で確認する
 3. 専用ソリューション `samples/<Name>.slnx` を作る(テンプレート参照)
 4. `dotnet build samples/<Name>.slnx` と `dotnet test samples/<Name>.slnx --no-build` が緑になること
 5. `<godot> --headless --path samples/<Name>.Godot --import` を実行
@@ -298,6 +300,13 @@ public partial class Main : Node2D
         _logger = _loggerFactory.CreateLogger<Main>();
 
         _logic = new GameLogic(CmdlineArgs.ParseInt("--seed=", DefaultSeed));
+
+        // 再現シナリオでは --frozen で最初から凍結した状態で始められる(D-073)
+        if (CmdlineArgs.HasFlag("--frozen"))
+        {
+            _time.Freeze();
+        }
+
         _keyBindings =
         [
             new KeyBinding(Key.Space, "step", "1ターン進める(プレースホルダ)", ActStep),
@@ -434,6 +443,10 @@ public partial class Main
 - プレースホルダ(GameLogic.Step / step コマンド / Space キー)を実ゲームの
   アクションに置き換えていく。進め方は docs/GUIDELINE.md の4段階
   (スケルトン → 失敗するテスト → 実装 → リファクタ。各段階でコミット)
+- リアルタイムゲームにするなら: `_PhysicsProcess` で 1 tick 進める固定タイムステップにし、
+  エージェントのプレイ経路は freeze + `host.RegisterTickCommand(...)`(Statee.Core、D-072)。
+  効果音・エフェクトはロジックが公開する「その tick の出来事リスト」を Godot 層で翻訳する
+  (状態の差分から推測しない。docs/USING.md §4)
 - 動作確認は `/verify --path samples/<Name>.Godot`
 - 決定論設計にするなら、全アクションをロジック層で記録(ActionLog)して State 公開すると
   リプレイ検証(記録 → 同一シード再起動 → 再生 → State 一致)まで到達できる
