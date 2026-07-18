@@ -11,7 +11,16 @@ namespace MessBreak.Logic;
 /// </summary>
 public sealed class BattleLogic(BattleConfig config, int seed)
 {
+    public BattleLogic(BattleConfig config, StageDefinition stage, int seed)
+        : this(config, seed)
+    {
+        Stage = stage;
+    }
+
     public BattleConfig Config { get; } = config;
+
+    /// <summary>ステージ定義(ダンジョン形状と配置)。壁との衝突・初期配置はここから引く。</summary>
+    public StageDefinition Stage { get; } = null!;
 
     /// <summary>生成に使ったシード。State で公開して再現性を検証する(現状 乱数は未使用)。</summary>
     public int Seed { get; } = seed;
