@@ -17,8 +17,7 @@ public readonly record struct TickInput(
     bool Skill = false,
     Vector2? AimPoint = null,
     CharacterId? SwitchTo = null,
-    bool Place = false,
-    bool Attract = false
+    bool Interact = false
 )
 {
     public static TickInput None => new();

@@ -437,9 +437,7 @@ public partial class Main : Node2D
             SwitchTo: Input.IsPhysicalKeyPressed(Key.Key1) ? CharacterId.Attacker
                 : Input.IsPhysicalKeyPressed(Key.Key2) ? CharacterId.Debuffer
                 : null,
-            // インタラクトは F に一本化(設置もアトラクトも F。発動条件は場所依存でロジックが判定)
-            Place: Input.IsPhysicalKeyPressed(Key.F),
-            Attract: Input.IsPhysicalKeyPressed(Key.F)
+            Interact: Input.IsPhysicalKeyPressed(Key.F)
         );
     }
 
@@ -650,8 +648,7 @@ public partial class Main : Node2D
         var dodge = false;
         var sprint = false;
         var skill = false;
-        var place = false;
-        var attract = false;
+        var interact = false;
         CharacterId? switchTo = null;
         foreach (var token in tokens.Split('+', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -689,29 +686,15 @@ public partial class Main : Node2D
                 case "char2":
                     switchTo = CharacterId.Debuffer;
                     break;
-                case "place":
-                    place = true;
-                    break;
-                case "attract":
-                    attract = true;
+                case "interact":
+                    interact = true;
                     break;
                 default:
                     throw new ArgumentException(
-                        $"未知の入力トークン '{token}'(left/right/up/down/fire/dodge/sprint/skill/char1/char2/place/attract)"
+                        $"未知の入力トークン '{token}'(left/right/up/down/fire/dodge/sprint/skill/char1/char2/interact)"
                     );
             }
         }
-        return new TickInput(
-            dir,
-            aim,
-            fire,
-            dodge,
-            sprint,
-            skill,
-            aimPoint,
-            switchTo,
-            place,
-            attract
-        );
+        return new TickInput(dir, aim, fire, dodge, sprint, skill, aimPoint, switchTo, interact);
     }
 }

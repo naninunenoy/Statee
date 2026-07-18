@@ -62,6 +62,15 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         },
     ];
 
+    /// <summary>インタラクト(F)で操作できるもの。範囲内で発動可能な最寄りの1つが反応する。</summary>
+    public IReadOnlyList<Interactable> Interactables => InteractableList;
+
+    // プライマリコンストラクタの初期化子では this を渡せないため遅延生成
+    private List<Interactable> InteractableList =>
+        _interactables ??= [new TurretSlotInteractable(this), new BossSpawnInteractable(this)];
+
+    private List<Interactable>? _interactables;
+
     /// <summary>敵エリアを制圧済みか(雑魚を倒すと true。設置スロットが解放される)。</summary>
     public bool ZoneCaptured { get; private set; }
 
@@ -175,8 +184,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                 }
                 Move(input.MoveDir, input.Sprint ? Config.SprintSpeed : Config.PlayerSpeed);
                 TrySwitch(input);
-                TryPlaceTurret(input);
-                TryAttract(input);
+                TryInteract(input);
                 TrySkill(input);
                 TryFire(input);
                 return;
@@ -198,44 +206,66 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         _events.Add(new BattleEvent(BattleEventKind.CharacterSwitched, PlayerPos));
     }
 
-    /// <summary>制圧済みの解放スロットの近くでのみ設置できる(一度きり)。</summary>
-    private void TryPlaceTurret(TickInput input)
+    /// <summary>範囲内で発動可能な Interactable のうち、最寄りの1つだけを発動する。</summary>
+    private void TryInteract(TickInput input)
     {
-        if (
-            !input.Place
-            || !ZoneCaptured
-            || TurretPlaced
-            || (Config.TurretSlot - PlayerPos).Length() > Config.PlaceRange
-        )
+        if (!input.Interact)
         {
             return;
         }
-        TurretPlaced = true;
-        _events.Add(new BattleEvent(BattleEventKind.TurretPlaced, Config.TurretSlot));
+        Interactable? nearest = null;
+        var nearestDist = float.MaxValue;
+        foreach (var interactable in InteractableList)
+        {
+            if (!interactable.CanInteract)
+            {
+                continue;
+            }
+            var dist = (interactable.Pos - PlayerPos).Length();
+            if (dist <= interactable.Range && dist < nearestDist)
+            {
+                nearestDist = dist;
+                nearest = interactable;
+            }
+        }
+        nearest?.Interact();
     }
 
-    /// <summary>出現ポイントの近くでアトラクトすると強敵が出現する(一度きり)。</summary>
-    private void TryAttract(TickInput input)
+    /// <summary>タレットの設置スロット。エリア制圧で解放され、一度だけ設置できる。</summary>
+    private sealed class TurretSlotInteractable(BattleLogic logic) : Interactable
     {
-        if (
-            !input.Attract
-            || BossAppeared
-            || (Config.BossSpawn - PlayerPos).Length() > Config.AttractRange
-        )
+        public override Vector2 Pos => logic.Config.TurretSlot;
+        public override float Range => logic.Config.PlaceRange;
+        public override bool CanInteract => logic.ZoneCaptured && !logic.TurretPlaced;
+
+        internal override void Interact()
         {
-            return;
+            logic.TurretPlaced = true;
+            logic._events.Add(new BattleEvent(BattleEventKind.TurretPlaced, Pos));
         }
-        BossAppeared = true;
-        _enemies.Add(
-            new Enemy
-            {
-                Id = _nextEnemyId++,
-                Kind = EnemyKind.Boss,
-                Pos = Config.BossSpawn,
-                Hp = Config.BossMaxHp,
-            }
-        );
-        _events.Add(new BattleEvent(BattleEventKind.BossAppeared, Config.BossSpawn));
+    }
+
+    /// <summary>強敵の出現ポイント。アトラクトで強敵を一度だけ出現させる。</summary>
+    private sealed class BossSpawnInteractable(BattleLogic logic) : Interactable
+    {
+        public override Vector2 Pos => logic.Config.BossSpawn;
+        public override float Range => logic.Config.AttractRange;
+        public override bool CanInteract => !logic.BossAppeared;
+
+        internal override void Interact()
+        {
+            logic.BossAppeared = true;
+            logic._enemies.Add(
+                new Enemy
+                {
+                    Id = logic._nextEnemyId++,
+                    Kind = EnemyKind.Boss,
+                    Pos = Pos,
+                    Hp = logic.Config.BossMaxHp,
+                }
+            );
+            logic._events.Add(new BattleEvent(BattleEventKind.BossAppeared, Pos));
+        }
     }
 
     /// <summary>操作中キャラのスキル。爆心の範囲内の全敵に、キャラごとの効果を与える。</summary>

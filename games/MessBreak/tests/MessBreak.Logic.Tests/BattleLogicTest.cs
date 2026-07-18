@@ -352,7 +352,7 @@ public class BattleLogicTest
     {
         var logic = Create(NearSlotAndSpawnPoint());
 
-        logic.Tick(new TickInput(Place: true));
+        logic.Tick(new TickInput(Interact: true));
 
         logic.TurretPlaced.ShouldBeFalse();
     }
@@ -363,7 +363,7 @@ public class BattleLogicTest
         var logic = Create(); // プレイヤー (160,180)、スロット (440,180) = 遠い
         ShootUntilKilled(logic, EnemyKind.Mob);
 
-        logic.Tick(new TickInput(Place: true));
+        logic.Tick(new TickInput(Interact: true));
 
         logic.TurretPlaced.ShouldBeFalse();
     }
@@ -374,12 +374,14 @@ public class BattleLogicTest
         var logic = Create(NearSlotAndSpawnPoint());
         ShootUntilKilled(logic, EnemyKind.Mob);
 
-        logic.Tick(new TickInput(Place: true));
+        logic.Tick(new TickInput(Interact: true));
 
         logic.TurretPlaced.ShouldBeTrue();
         logic.Events.ShouldContain(
             new BattleEvent(BattleEventKind.TurretPlaced, logic.Config.TurretSlot)
         );
+        // 出現ポイントも範囲内だが、発動するのは最寄りの1つ(スロット)だけ
+        logic.BossAppeared.ShouldBeFalse();
     }
 
     [Fact]
@@ -387,9 +389,9 @@ public class BattleLogicTest
     {
         var logic = Create(NearSlotAndSpawnPoint());
         ShootUntilKilled(logic, EnemyKind.Mob);
-        logic.Tick(new TickInput(Place: true));
+        logic.Tick(new TickInput(Interact: true));
 
-        logic.Tick(new TickInput(Place: true));
+        logic.Tick(new TickInput(Interact: true));
 
         logic.Events.ShouldNotContain(e => e.Kind == BattleEventKind.TurretPlaced);
     }
@@ -399,8 +401,8 @@ public class BattleLogicTest
     {
         var logic = Create(NearSlotAndSpawnPoint());
         ShootUntilKilled(logic, EnemyKind.Mob);
-        logic.Tick(new TickInput(Place: true));
-        logic.Tick(new TickInput(Attract: true)); // 強敵 (460,180) はタレット射程 160 内
+        logic.Tick(new TickInput(Interact: true));
+        logic.Tick(new TickInput(Interact: true)); // 強敵 (460,180) はタレット射程 160 内
         var shots = logic.ShotCount;
         var hits = logic.HitCount;
 
@@ -417,7 +419,7 @@ public class BattleLogicTest
         // 出現ポイント(既定 560,180)はスロット(440,180)から離れており、タレット弾の飛翔を観測できる
         var logic = Create(new BattleConfig { PlayerSpawn = new Vector2(430f, 180f) });
         ShootUntilKilled(logic, EnemyKind.Mob);
-        logic.Tick(new TickInput(Place: true));
+        logic.Tick(new TickInput(Interact: true));
         for (
             var i = 0;
             i < 600
@@ -428,7 +430,7 @@ public class BattleLogicTest
             logic.Tick(new TickInput(new Vector2(1f, 0f))); // 出現ポイントまで歩く
         }
 
-        logic.Tick(new TickInput(Attract: true));
+        logic.Tick(new TickInput(Interact: true));
         TickUntil(logic, () => logic.Bullets.Any(b => b.FromTurret), 120);
 
         logic.Events.ShouldContain(
@@ -441,7 +443,7 @@ public class BattleLogicTest
     {
         var logic = Create(NearSlotAndSpawnPoint());
         ShootUntilKilled(logic, EnemyKind.Mob); // 以後、敵は 0 体
-        logic.Tick(new TickInput(Place: true));
+        logic.Tick(new TickInput(Interact: true));
 
         for (var i = 0; i < 60; i++)
         {
@@ -457,7 +459,7 @@ public class BattleLogicTest
     {
         var logic = Create(); // プレイヤー (160,180)、出現ポイント (560,180) = 遠い
 
-        logic.Tick(new TickInput(Attract: true));
+        logic.Tick(new TickInput(Interact: true));
 
         logic.BossAppeared.ShouldBeFalse();
         logic.EnemyOf(EnemyKind.Boss).ShouldBeNull();
@@ -468,7 +470,7 @@ public class BattleLogicTest
     {
         var logic = Create(NearSlotAndSpawnPoint());
 
-        logic.Tick(new TickInput(Attract: true));
+        logic.Tick(new TickInput(Interact: true));
 
         logic.BossAppeared.ShouldBeTrue();
         var boss = EnemyOf(logic, EnemyKind.Boss);
@@ -483,9 +485,9 @@ public class BattleLogicTest
     public void Tick_二度目のアトラクト入力_強敵は増えない()
     {
         var logic = Create(NearSlotAndSpawnPoint());
-        logic.Tick(new TickInput(Attract: true));
+        logic.Tick(new TickInput(Interact: true));
 
-        logic.Tick(new TickInput(Attract: true));
+        logic.Tick(new TickInput(Interact: true));
 
         logic.Enemies.Count(e => e.Kind == EnemyKind.Boss).ShouldBe(1);
     }
@@ -494,7 +496,7 @@ public class BattleLogicTest
     public void Tick_強敵_毎tickプレイヤーへ速度分だけ近づく()
     {
         var logic = Create(NearSlotAndSpawnPoint());
-        logic.Tick(new TickInput(Attract: true));
+        logic.Tick(new TickInput(Interact: true));
         var before = (EnemyOf(logic, EnemyKind.Boss).Pos - logic.PlayerPos).Length();
 
         logic.Tick(TickInput.None);
@@ -507,7 +509,7 @@ public class BattleLogicTest
     public void Tick_強敵がプレイヤーに接触_半径の和の距離で止まる()
     {
         var logic = Create(NearSlotAndSpawnPoint());
-        logic.Tick(new TickInput(Attract: true));
+        logic.Tick(new TickInput(Interact: true));
         var contact = logic.Config.BossRadius + logic.Config.PlayerRadius;
 
         TickUntil(
@@ -524,7 +526,7 @@ public class BattleLogicTest
     public void Tick_強敵を撃破_ミッション達成イベントが出る()
     {
         var logic = Create(NearSlotAndSpawnPoint());
-        logic.Tick(new TickInput(Attract: true));
+        logic.Tick(new TickInput(Interact: true));
 
         ShootUntilKilled(logic, EnemyKind.Boss);
 
@@ -640,7 +642,7 @@ public class BattleLogicTest
             BossSpawn = new Vector2(250f, 180f), // 出現ポイントから 10 ≤ AttractRange
         };
         var logic = Create(config);
-        logic.Tick(new TickInput(Attract: true));
+        logic.Tick(new TickInput(Interact: true));
 
         logic.Tick(new TickInput(Skill: true, AimPoint: new Vector2(255f, 180f)));
 
