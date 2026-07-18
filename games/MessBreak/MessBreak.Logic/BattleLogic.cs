@@ -9,30 +9,45 @@ namespace MessBreak.Logic;
 /// tick 駆動・決定論。時間経過はすべて Tick 呼び出し回数で表し、実時間に依存しない。
 /// Godot 層は入力を <see cref="TickInput"/> に詰めて Tick を呼び、公開プロパティを描画するだけ。
 /// </summary>
-public sealed class BattleLogic(BattleConfig config, int seed)
+public sealed class BattleLogic
 {
     public BattleLogic(BattleConfig config, StageDefinition stage, int seed)
-        : this(config, seed)
     {
+        Config = config;
         Stage = stage;
+        Seed = seed;
+        PlayerHp = config.PlayerMaxHp;
+        PlayerPos = stage.PlayerSpawn;
+        foreach (var pos in stage.MobSpawns)
+        {
+            _enemies.Add(
+                new Enemy
+                {
+                    Id = _nextEnemyId++,
+                    Kind = EnemyKind.Mob,
+                    Pos = pos,
+                    Hp = config.MobMaxHp,
+                }
+            );
+        }
     }
 
-    public BattleConfig Config { get; } = config;
+    public BattleConfig Config { get; }
 
     /// <summary>ステージ定義(ダンジョン形状と配置)。壁との衝突・初期配置はここから引く。</summary>
-    public StageDefinition Stage { get; } = null!;
+    public StageDefinition Stage { get; }
 
     /// <summary>生成に使ったシード。State で公開して再現性を検証する(現状 乱数は未使用)。</summary>
-    public int Seed { get; } = seed;
+    public int Seed { get; }
 
     /// <summary>経過 tick 数。</summary>
     public int TickCount { get; private set; }
 
     // プレイヤー
     /// <summary>プレイヤーの残 HP。減らす手段(敵の攻撃)は未実装で、当面は常に満タン。</summary>
-    public int PlayerHp { get; private set; } = config.PlayerMaxHp;
+    public int PlayerHp { get; private set; }
 
-    public Vector2 PlayerPos { get; private set; } = config.PlayerSpawn;
+    public Vector2 PlayerPos { get; private set; }
     public Vector2 PlayerFacing { get; private set; } = new(1f, 0f);
     public PlayerAction PlayerAction { get; private set; } = PlayerAction.Free;
     public int DodgeCooldown { get; private set; }
@@ -63,16 +78,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>指定種別の生存中の敵(いなければ null)。</summary>
     public Enemy? EnemyOf(EnemyKind kind) => _enemies.Find(e => e.Kind == kind);
 
-    private readonly List<Enemy> _enemies =
-    [
-        new Enemy
-        {
-            Id = 1,
-            Kind = EnemyKind.Mob,
-            Pos = config.MobSpawn,
-            Hp = config.MobMaxHp,
-        },
-    ];
+    private readonly List<Enemy> _enemies = [];
 
     /// <summary>インタラクト(F)で操作できるもの。範囲内で発動可能な最寄りの1つが反応する。</summary>
     public IReadOnlyList<Interactable> Interactables => InteractableList;
@@ -110,7 +116,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
 
     private readonly List<Bullet> _bullets = [];
     private int _nextBulletId = 1;
-    private int _nextEnemyId = 2;
+    private int _nextEnemyId = 1;
 
     /// <summary>ドッジの残り無敵 tick 数。</summary>
     private int _actionTicks;
@@ -246,7 +252,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>タレットの設置スロット。エリア制圧で解放され、一度だけ設置できる。</summary>
     private sealed class TurretSlotInteractable(BattleLogic logic) : Interactable
     {
-        public override Vector2 Pos => logic.Config.TurretSlot;
+        public override Vector2 Pos => logic.Stage.TurretSlot;
         public override float Range => logic.Config.PlaceRange;
         public override bool CanInteract => logic.ZoneCaptured && !logic.TurretPlaced;
 
@@ -260,7 +266,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>強敵の出現ポイント。アトラクトで強敵を一度だけ出現させる。</summary>
     private sealed class BossSpawnInteractable(BattleLogic logic) : Interactable
     {
-        public override Vector2 Pos => logic.Config.BossSpawn;
+        public override Vector2 Pos => logic.Stage.BossSpawn;
         public override float Range => logic.Config.AttractRange;
         public override bool CanInteract => !logic.BossAppeared;
 
@@ -364,20 +370,46 @@ public sealed class BattleLogic(BattleConfig config, int seed)
             return;
         }
         var unit = Vector2.Normalize(dir);
-        PlayerPos = ClampToRoom(PlayerPos + unit * speed * Dt, Config.PlayerRadius);
+        PlayerPos = MoveCircle(PlayerPos, unit * speed * Dt, Config.PlayerRadius);
     }
 
     private void TickDodge()
     {
         _actionTicks--;
-        PlayerPos = ClampToRoom(
-            PlayerPos + _dodgeDir * Config.DodgeSpeed * Dt,
-            Config.PlayerRadius
-        );
+        PlayerPos = MoveCircle(PlayerPos, _dodgeDir * Config.DodgeSpeed * Dt, Config.PlayerRadius);
         if (_actionTicks <= 0)
         {
             PlayerAction = PlayerAction.Free;
         }
+    }
+
+    /// <summary>
+    /// 円をステージの壁と衝突させながら動かす。軸ごとに独立に進め、
+    /// 塞がれた軸だけ壁面で止める(壁沿いのスライドになる)。
+    /// </summary>
+    private Vector2 MoveCircle(Vector2 pos, Vector2 delta, float radius)
+    {
+        var movedX = pos with { X = MoveAxis(pos, delta.X, radius, horizontal: true) };
+        return movedX with { Y = MoveAxis(movedX, delta.Y, radius, horizontal: false) };
+    }
+
+    /// <summary>1軸ぶんの移動。壁セルに食い込むなら、進入した壁面に接する位置まで戻す。</summary>
+    private float MoveAxis(Vector2 pos, float delta, float radius, bool horizontal)
+    {
+        var value = (horizontal ? pos.X : pos.Y) + delta;
+        if (delta == 0f)
+        {
+            return value;
+        }
+        var candidate = horizontal ? pos with { X = value } : pos with { Y = value };
+        if (!Stage.OverlapsSolid(candidate, radius))
+        {
+            return value;
+        }
+        var tile = Stage.TileSize;
+        return delta > 0f
+            ? MathF.Floor((value + radius) / tile) * tile - radius
+            : MathF.Ceiling((value - radius) / tile) * tile + radius;
     }
 
     /// <summary>設置済みタレットの自動射撃。射程内で最も近い敵へクールダウンごとに 1 発撃つ。</summary>
@@ -396,7 +428,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         var nearestDist = Config.TurretRange;
         foreach (var enemy in _enemies)
         {
-            var dist = (enemy.Pos - Config.TurretSlot).Length();
+            var dist = (enemy.Pos - Stage.TurretSlot).Length();
             if (dist <= nearestDist)
             {
                 nearestDist = dist;
@@ -407,13 +439,13 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         {
             return;
         }
-        var dir = Vector2.Normalize(nearest.Pos - Config.TurretSlot);
-        _bullets.Add(new Bullet(_nextBulletId++, Config.TurretSlot, dir, FromTurret: true));
+        var dir = Vector2.Normalize(nearest.Pos - Stage.TurretSlot);
+        _bullets.Add(new Bullet(_nextBulletId++, Stage.TurretSlot, dir, FromTurret: true));
         TurretFireCooldown = Config.TurretFireCooldownTicks;
-        _events.Add(new BattleEvent(BattleEventKind.TurretFired, Config.TurretSlot));
+        _events.Add(new BattleEvent(BattleEventKind.TurretFired, Stage.TurretSlot));
     }
 
-    /// <summary>弾を進め、敵への命中と部屋外への逸脱で消す。</summary>
+    /// <summary>弾を進め、敵への命中と壁セルへの進入(ステージ外を含む)で消す。</summary>
     private void TickBullets()
     {
         for (var i = _bullets.Count - 1; i >= 0; i--)
@@ -434,7 +466,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                 _bullets.RemoveAt(i);
                 continue;
             }
-            if (pos.X < 0f || pos.X > Config.RoomWidth || pos.Y < 0f || pos.Y > Config.RoomHeight)
+            if (Stage.IsSolidAt(pos))
             {
                 _bullets.RemoveAt(i);
                 continue;
@@ -459,7 +491,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
             return;
         }
         var step = MathF.Min(Config.BossSpeed * Dt, dist - contact);
-        boss.Pos += Vector2.Normalize(toPlayer) * step;
+        boss.Pos = MoveCircle(boss.Pos, Vector2.Normalize(toPlayer) * step, Config.BossRadius);
     }
 
     /// <summary>
@@ -501,8 +533,11 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         _events.Add(new BattleEvent(BattleEventKind.EnemyKilled, enemy.Pos));
         if (enemy.Kind == EnemyKind.Mob)
         {
-            ZoneCaptured = true;
-            _events.Add(new BattleEvent(BattleEventKind.ZoneCaptured, enemy.Pos));
+            if (!_enemies.Exists(e => e.Kind == EnemyKind.Mob))
+            {
+                ZoneCaptured = true;
+                _events.Add(new BattleEvent(BattleEventKind.ZoneCaptured, enemy.Pos));
+            }
         }
         else
         {
@@ -510,10 +545,4 @@ public sealed class BattleLogic(BattleConfig config, int seed)
             _events.Add(new BattleEvent(BattleEventKind.MissionCleared, enemy.Pos));
         }
     }
-
-    private Vector2 ClampToRoom(Vector2 pos, float radius) =>
-        new(
-            Math.Clamp(pos.X, radius, Config.RoomWidth - radius),
-            Math.Clamp(pos.Y, radius, Config.RoomHeight - radius)
-        );
 }

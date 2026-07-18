@@ -130,7 +130,11 @@ public partial class Main : Node2D
         _loggerFactory = StateeLogging.CreateLoggerFactory(buffer);
         _logger = _loggerFactory.CreateLogger<Main>();
 
-        _logic = new BattleLogic(new BattleConfig(), CmdlineArgs.ParseInt("--seed=", DefaultSeed));
+        _logic = new BattleLogic(
+            new BattleConfig(),
+            Stages.Room1(),
+            CmdlineArgs.ParseInt("--seed=", DefaultSeed)
+        );
         _camPos = _logic.PlayerPos;
 
         // 起動直後から実時間で tick が進むと接続タイミングで盤面が変わるため、
@@ -211,7 +215,6 @@ public partial class Main : Node2D
     /// </summary>
     private void UpdateCamera()
     {
-        var config = _logic.Config;
         var ads = Input.IsMouseButtonPressed(MouseButton.Right);
         var aimPoint = ToLogic(GetGlobalMousePosition());
         var weight = ads ? LookAheadWeightAds : LookAheadWeight;
@@ -225,8 +228,8 @@ public partial class Main : Node2D
         var halfW = ScreenCenter.X / ScaleFactor;
         var halfH = ScreenCenter.Y / ScaleFactor;
         desired = new System.Numerics.Vector2(
-            ClampCameraAxis(desired.X, halfW, config.RoomWidth),
-            ClampCameraAxis(desired.Y, halfH, config.RoomHeight)
+            ClampCameraAxis(desired.X, halfW, _logic.Stage.Width),
+            ClampCameraAxis(desired.Y, halfH, _logic.Stage.Height)
         );
         _camPos += (desired - _camPos) * CameraLerp;
     }
@@ -241,20 +244,37 @@ public partial class Main : Node2D
     {
         var config = _logic.Config;
 
-        // 部屋
+        // 床(ステージ全域)と壁セル
+        var stage = _logic.Stage;
         var roomTopLeft = ToScreen(System.Numerics.Vector2.Zero);
         DrawRect(
             new Rect2(
                 roomTopLeft,
-                new Vector2(config.RoomWidth * ScaleFactor, config.RoomHeight * ScaleFactor)
+                new Vector2(stage.Width * ScaleFactor, stage.Height * ScaleFactor)
             ),
             new Color(0.12f, 0.10f, 0.14f)
         );
+        var wallColor = new Color(0.32f, 0.28f, 0.38f);
+        for (var row = 0; row < stage.Rows.Count; row++)
+        {
+            for (var col = 0; col < stage.Rows[row].Length; col++)
+            {
+                if (!stage.IsSolidCell(col, row))
+                {
+                    continue;
+                }
+                var topLeft = ToScreen(
+                    new System.Numerics.Vector2(col * stage.TileSize, row * stage.TileSize)
+                );
+                var size = new Vector2(stage.TileSize * ScaleFactor, stage.TileSize * ScaleFactor);
+                DrawRect(new Rect2(topLeft, size), wallColor);
+            }
+        }
 
         // 設置スロット(制圧後に見える。設置済みは塗り、未設置は枠だけ)
         if (_logic.ZoneCaptured)
         {
-            var slotScreen = ToScreen(config.TurretSlot);
+            var slotScreen = ToScreen(stage.TurretSlot);
             var half = 8f * ScaleFactor;
             var slotRect = new Rect2(
                 slotScreen - new Vector2(half, half),
@@ -274,7 +294,7 @@ public partial class Main : Node2D
         // 強敵の出現ポイント(アトラクト前だけ菱形マーカーを出す)
         if (!_logic.BossAppeared)
         {
-            var spawnScreen = ToScreen(config.BossSpawn);
+            var spawnScreen = ToScreen(stage.BossSpawn);
             var r = 6f * ScaleFactor;
             DrawPolygon(
                 [
@@ -825,7 +845,7 @@ public partial class Main : Node2D
     /// <summary>「はじめから」。同じ seed でロジックを作り直し、演出の残骸も消して再開する。</summary>
     private void RestartMission()
     {
-        _logic = new BattleLogic(new BattleConfig(), _logic.Seed);
+        _logic = new BattleLogic(new BattleConfig(), Stages.Room1(), _logic.Seed);
         _camPos = _logic.PlayerPos;
         _camZoom = 1f;
         _hitMarkers.Clear();

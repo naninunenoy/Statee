@@ -28,17 +28,44 @@ public sealed record StageDefinition
     public required Vector2 TurretSlot { get; init; }
 
     /// <summary>ステージ全体のワールド幅。</summary>
-    public float Width => default;
+    public float Width => (Rows.Count == 0 ? 0 : Rows[0].Length) * TileSize;
 
     /// <summary>ステージ全体のワールド高さ。</summary>
-    public float Height => default;
+    public float Height => Rows.Count * TileSize;
 
     /// <summary>指定セルが壁か。グリッド範囲外は壁とみなす。</summary>
-    public bool IsSolidCell(int col, int row) => default;
+    public bool IsSolidCell(int col, int row) =>
+        col < 0 || row < 0 || row >= Rows.Count || col >= Rows[row].Length || Rows[row][col] == '#';
 
     /// <summary>指定ワールド座標(点)が壁の中か。</summary>
-    public bool IsSolidAt(Vector2 pos) => default;
+    public bool IsSolidAt(Vector2 pos) =>
+        IsSolidCell((int)MathF.Floor(pos.X / TileSize), (int)MathF.Floor(pos.Y / TileSize));
 
     /// <summary>指定の円が壁セルに重なるか(接しているだけなら false)。</summary>
-    public bool OverlapsSolid(Vector2 center, float radius) => default;
+    public bool OverlapsSolid(Vector2 center, float radius)
+    {
+        var minCol = (int)MathF.Floor((center.X - radius) / TileSize);
+        var maxCol = (int)MathF.Floor((center.X + radius) / TileSize);
+        var minRow = (int)MathF.Floor((center.Y - radius) / TileSize);
+        var maxRow = (int)MathF.Floor((center.Y + radius) / TileSize);
+        for (var row = minRow; row <= maxRow; row++)
+        {
+            for (var col = minCol; col <= maxCol; col++)
+            {
+                if (!IsSolidCell(col, row))
+                {
+                    continue;
+                }
+                var nearest = new Vector2(
+                    Math.Clamp(center.X, col * TileSize, (col + 1) * TileSize),
+                    Math.Clamp(center.Y, row * TileSize, (row + 1) * TileSize)
+                );
+                if ((nearest - center).LengthSquared() < radius * radius)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 }
