@@ -13,12 +13,17 @@
 
 Statee を使ってゲームを作る側(フレームワークを触らない人)は `docs/USING.md` が入口。
 
-## 現在地(2026-07 時点)
+## 現在地(2026-07-18 時点)
 
-ネットワーク対戦(Syncee: D-050〜D-059)までを `network2` ブランチで開発した。
-リバーシ(即時確定)と RaidBoss(ロックステップ・部屋ロビー・リアルタイム制)が動作し、
-サーバ+複数クライアントのマルチインスタンスE2Eで全インスタンスの状態完全一致まで
-確認済み。未着手の候補は `docs/ARCHITECTURE.md` の「今後の候補」に一覧がある。
+- フレームワークとサンプル6つ(スイカ / ローグライク / STG / リバーシ / RaidBoss / TodoApp)は
+  区切りまで完了し、すべて `main` にマージ済み。ネットワーク同期(Syncee: D-050〜D-059)も
+  マルチインスタンスE2Eで全インスタンスの状態完全一致まで確認済み
+- 現在の主戦場は **`games/MessBreak`**(本気のゲーム開発。D-069)。
+  企画・設計は `games/MessBreak/docs/DESIGN.md` にあり、ドッグフーディングで見えた
+  Statee 側の摩擦は `docs/adr/notes/game-dev-feedback-messbreak-slice1.md` を受け皿に、
+  対応したら D-xxx / docs へ昇格して消す運用(D-070〜D-077 はこの流れで生まれた)
+- 最新の決定は D-077(CLI `watch`)。未着手の候補は `docs/ARCHITECTURE.md` の
+  「今後の候補」各節と、MessBreak 側は DESIGN.md を参照
 
 ## 新しい環境のセットアップ
 

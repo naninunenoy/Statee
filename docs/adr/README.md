@@ -80,6 +80,14 @@
 | [D-067](D-067.md) | Statee の配布は NuGet パッケージを一次形態とする |
 | [D-068](D-068.md) | サンプルゲームのディレクトリを game/ から samples/ にリネーム |
 | [D-069](D-069.md) | 本気のゲーム開発は games/ 配下に自己完結ディレクトリで置く |
+| [D-070](D-070.md) | ドット絵生成ツール dotee を tools/dotee に置く |
+| [D-071](D-071.md) | 効果音生成ツール wavee を tools/wavee に置く |
+| [D-072](D-072.md) | リアルタイムゲームの tick コマンド定型を RegisterTickCommand として Statee.Core へ吸収 |
+| [D-073](D-073.md) | 起動引数 --frozen(起動直後から freeze) |
+| [D-074](D-074.md) | State スナップショットの自動生成(Generator 拡張)は見送り |
+| [D-075](D-075.md) | 接続先プロセスの同一性確認(system/identity)とポート衝突時の即死 |
+| [D-076](D-076.md) | ゲーム内ポーズと tick コマンドの関係(素通りを仕様とする) |
+| [D-077](D-077.md) | CLI に人間向けの watch サブコマンドを追加 |
 
 ## notes(書き捨てメモ)
 
@@ -88,3 +96,4 @@
 | [main-thread-dispatch](notes/main-thread-dispatch.md) | メインスレッドディスパッチの設計経緯(→ D-025 へ昇格) |
 | [godot-synchronizationcontext](notes/godot-synchronizationcontext.md) | Godot の SynchronizationContext による自己デッドロック(実バグ) |
 | [suika-physics-boundary](notes/suika-physics-boundary.md) | スイカゲーム最小シーンの物理 ↔ ロジック境界 |
+| [game-dev-feedback-messbreak-slice1](notes/game-dev-feedback-messbreak-slice1.md) | MessBreak ドッグフーディングで見えた Statee への摩擦メモ(未対応分の受け皿) |
