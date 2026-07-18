@@ -196,3 +196,11 @@ DESIGN.md の「次の候補」と整合させた優先順。各縦切りは
 
 数値はすべて BattleConfig / CharacterConfig(必要なら設置物用の PlacementConfig を新設)に
 置き、本書の数値は初期値の提案として扱う。
+
+## 6. アートアセット
+
+本書 §1〜4 のコンテンツに対応するドット絵(タイル・敵・設置物・キャラ・顔アイコン)は
+`games/MessBreak/art/` に **`.sprite.txt`(テキスト定義)→ dotee でスプライトシート PNG 化**
+(D-078)の形で用意済み。一覧・サイズ・フレーム構成・利用規約(右向き基準+FlipH、
+タレット/武器の中心回転、演出はコード側)は [../art/README.md](../art/README.md) を参照。
+Godot 層への配線(TileMap 化・AnimatedSprite 化)は未着手で、次の表現系スライスで行う。
