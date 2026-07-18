@@ -1,0 +1,58 @@
+# 感電床 16x16・3 コマループ(shock_0 は帯電の弱い間、1/2 は放電アーク)
+# 変換: dotnet run --project tools/dotee/Dotee -- render --input games/MessBreak/art/tiles/hazard.sprite.txt
+palette:
+b = #22262E   # 帯電床ベース
+p = #2B303B   # パネル溝
+E = #5FE8D8   # アーク(明)
+e = #2E8C82   # アーク(暗)・待機の火花
+frame: shock_0
+bbbbbbbbbbbbbbbp
+bbbbbbbbbbbbbbbp
+bbbebbbbbbbbbbbp
+bbbbbbbbbbbbbbbp
+bbbbbbbbbbebbbbp
+bbbbbbbbbbbbbbbp
+bbbbbbbbbbbbbbbp
+bbbbbbebbbbbbbbp
+bbbbbbbbbbbbbbbp
+bbbbbbbbbbbbbebp
+bbebbbbbbbbbbbbp
+bbbbbbbbbbbbbbbp
+bbbbbbbbbebbbbbp
+bbbbbbbbbbbbbbbp
+bbbbbbbbbbbbbbbp
+pppppppppppppppp
+frame: shock_1
+bbbbbbbbbbbbbbbp
+bbEbbbbbbbbbbbbp
+bbbEEbbbbbbebbbp
+bbbbbEbbbbbbbbbp
+bbbbbEEbbbbbbbbp
+bbbbbbbEEbbbbbbp
+bebbbbbbbEbbbbbp
+bbbbbbbbbEEbbbbp
+bbbbbbbbbbbEEbbp
+bbbbbbbbbbbbEbbp
+bbbbbbbbbbbbEEbp
+bbbbebbbbbbbbEbp
+bbbbbbbbbbbbbbbp
+bbbbbbbbbbbbbbbp
+bbbbbbbbbbbbbbbp
+pppppppppppppppp
+frame: shock_2
+bbbbbbbbbbbbbbbp
+bbbbbbbbbbbbEbbp
+bbbbebbbbbEEbbbp
+bbbbbbbbbEbbbbbp
+bbbbbbbEEbbbbbbp
+bbbbbbEbbbbbbbbp
+bbbbEEbbbbbbbebp
+bbbEbbbbbbbbbbbp
+bbEEbbbbbbbbbbbp
+bbbEbbbbbbebbbbp
+bbbbEbbbbbbbbbbp
+bbbbbEEbbbbbbbbp
+bbbbbbbEbbbbbbbp
+bbbbbbbbbbbbbbbp
+bbbbbbbbbbbbbbbp
+pppppppppppppppp

@@ -1,0 +1,42 @@
+# 石柱 16x32(Y ソート用の背の高いプロップ)
+# 変換: dotnet run --project tools/dotee/Dotee -- render --input games/MessBreak/art/tiles/pillar.sprite.txt
+palette:
+. = #00000000   # 透明
+K = #262B35     # 輪郭
+H = #646B7D     # 笠石ハイライト
+P = #555B6B     # 明面
+p = #474D5C     # 中間
+s = #3A404D     # 陰面
+grid:
+.KKKKKKKKKKKKKK.
+KHHHHHHHHHHHHHHK
+KHPPPPPPPPPPPPsK
+KKKKKKKKKKKKKKKK
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+..KPPPPppppssK..
+.KKKKKKKKKKKKKK.
+KHHHHHHHHHHHHHHK
+KPPPPPPPPPPPPPsK
+KssssssssssssssK
+KKKKKKKKKKKKKKKK

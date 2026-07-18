@@ -1,0 +1,66 @@
+# プロップ(Y ソートで奥行きを出す置物)16x16: 木箱・バレル・瓦礫
+# 変換: dotnet run --project tools/dotee/Dotee -- render --input games/MessBreak/art/tiles/props.sprite.txt
+palette:
+. = #00000000   # 透明
+K = #232833     # 輪郭
+W = #7A5B3A     # 木箱面
+w = #8F6C45     # 木箱ハイライト
+d = #5E4429     # 木箱シャドウ
+m = #4A5160     # 金属バンド
+B = #5A6478     # バレル胴
+L = #6E7A92     # バレルハイライト
+D = #454E5F     # バレルシャドウ
+R = #4C525F     # 岩
+r = #5D6472     # 岩ハイライト
+s = #383E49     # 岩シャドウ
+frame: crate
+.KKKKKKKKKKKKKK.
+KwwwwwwwwwwwwwwK
+KwKWWWWWWWWWWKdK
+KwWKWWWWWWWWKWdK
+KwWWKWWWWWWKWWdK
+KwWWWKWWWWKWWWdK
+KwWWWWKWWKWWWWdK
+KwWWWWWKKWWWWWdK
+KwWWWWWKKWWWWWdK
+KwWWWWKWWKWWWWdK
+KwWWWKWWWWKWWWdK
+KwWWKWWWWWWKWWdK
+KwKWWWWWWWWWWKdK
+KwWWWWWWWWWWWWdK
+KddddddddddddddK
+.KKKKKKKKKKKKKK.
+frame: barrel
+....KKKKKKKK....
+..KKmmmmmmmmKK..
+.KLLBBBBBBBBDDK.
+.KLLBBBBBBBBDDK.
+.KLLBBBBBBBBDDK.
+.KLLBBBBBBBBDDK.
+.KLLBBBBBBBBDDK.
+.KmmmmmmmmmmmmK.
+.KmmmmmmmmmmmmK.
+.KLLBBBBBBBBDDK.
+.KLLBBBBBBBBDDK.
+.KLLBBBBBBBBDDK.
+.KLLBBBBBBBBDDK.
+.KmmmmmmmmmmmmK.
+..KKmmmmmmmmKK..
+....KKKKKKKK....
+frame: rubble
+................
+................
+................
+................
+................
+......KKK.......
+.....KrrrK......
+..KKKRRRrKKK....
+.KrrRRRRRRrrK...
+KrRRRRsRRRRRrKK.
+KRRsRRRRsRRRRRK.
+KsRRRRRRRRsRRsK.
+.KKssRRsssRRKK..
+...KKKKKKKKK....
+................
+................
