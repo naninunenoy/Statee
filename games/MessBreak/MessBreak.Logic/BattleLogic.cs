@@ -174,86 +174,114 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                     return;
                 }
                 Move(input.MoveDir, input.Sprint ? Config.SprintSpeed : Config.PlayerSpeed);
-                if (
-                    input.SwitchTo is { } switchTo
-                    && switchTo != ActiveCharacter
-                    && SwitchCooldown == 0
-                )
-                {
-                    ActiveCharacter = switchTo;
-                    SwitchCooldown = Config.SwitchCooldownTicks;
-                    _events.Add(new BattleEvent(BattleEventKind.CharacterSwitched, PlayerPos));
-                }
-                if (
-                    input.Place
-                    && ZoneCaptured
-                    && !TurretPlaced
-                    && (Config.TurretSlot - PlayerPos).Length() <= Config.PlaceRange
-                )
-                {
-                    TurretPlaced = true;
-                    _events.Add(new BattleEvent(BattleEventKind.TurretPlaced, Config.TurretSlot));
-                }
-                if (
-                    input.Attract
-                    && !BossAppeared
-                    && (Config.BossSpawn - PlayerPos).Length() <= Config.AttractRange
-                )
-                {
-                    BossAppeared = true;
-                    _enemies.Add(
-                        new Enemy
-                        {
-                            Id = _nextEnemyId++,
-                            Kind = EnemyKind.Boss,
-                            Pos = Config.BossSpawn,
-                            Hp = Config.BossMaxHp,
-                        }
-                    );
-                    _events.Add(new BattleEvent(BattleEventKind.BossAppeared, Config.BossSpawn));
-                }
-                if (input.Skill && SkillCooldown == 0)
-                {
-                    var character = Config.CharacterOf(ActiveCharacter);
-                    _skillCooldowns[(int)ActiveCharacter] = character.SkillCooldownTicks;
-                    var center = SkillCenter(input.AimPoint, character.SkillRange);
-                    _events.Add(new BattleEvent(BattleEventKind.SkillBurst, center));
-                    // ApplyDamage は撃破時にリストから取り除くため、スナップショットを回す
-                    foreach (var enemy in _enemies.ToArray())
-                    {
-                        var inRange =
-                            (enemy.Pos - center).Length()
-                            <= character.SkillRadius + RadiusOf(enemy.Kind);
-                        if (!inRange)
-                        {
-                            continue;
-                        }
-                        if (ActiveCharacter == CharacterId.Attacker)
-                        {
-                            ApplyDamage(enemy, character.SkillDamage, enemy.Pos);
-                        }
-                        else
-                        {
-                            // デバッファー: ダメージなしで被ダメージ増幅デバフを付与
-                            enemy.DebuffTicks = character.DebuffDurationTicks;
-                            enemy.DebuffMultiplier = character.DebuffDamageMultiplier;
-                            _events.Add(new BattleEvent(BattleEventKind.EnemyDebuffed, enemy.Pos));
-                        }
-                    }
-                }
-                if (input.Fire && FireCooldown == 0)
-                {
-                    _bullets.Add(new Bullet(_nextBulletId++, PlayerPos, AssistDir(PlayerFacing)));
-                    FireCooldown = Config.FireCooldownTicks;
-                    ShotCount++;
-                    _events.Add(new BattleEvent(BattleEventKind.BulletFired, PlayerPos));
-                }
+                TrySwitch(input);
+                TryPlaceTurret(input);
+                TryAttract(input);
+                TrySkill(input);
+                TryFire(input);
                 return;
 
             case PlayerAction.Dodge:
                 TickDodge();
                 return;
         }
+    }
+
+    private void TrySwitch(TickInput input)
+    {
+        if (input.SwitchTo is not { } switchTo || switchTo == ActiveCharacter || SwitchCooldown > 0)
+        {
+            return;
+        }
+        ActiveCharacter = switchTo;
+        SwitchCooldown = Config.SwitchCooldownTicks;
+        _events.Add(new BattleEvent(BattleEventKind.CharacterSwitched, PlayerPos));
+    }
+
+    /// <summary>制圧済みの解放スロットの近くでのみ設置できる(一度きり)。</summary>
+    private void TryPlaceTurret(TickInput input)
+    {
+        if (
+            !input.Place
+            || !ZoneCaptured
+            || TurretPlaced
+            || (Config.TurretSlot - PlayerPos).Length() > Config.PlaceRange
+        )
+        {
+            return;
+        }
+        TurretPlaced = true;
+        _events.Add(new BattleEvent(BattleEventKind.TurretPlaced, Config.TurretSlot));
+    }
+
+    /// <summary>出現ポイントの近くでアトラクトすると強敵が出現する(一度きり)。</summary>
+    private void TryAttract(TickInput input)
+    {
+        if (
+            !input.Attract
+            || BossAppeared
+            || (Config.BossSpawn - PlayerPos).Length() > Config.AttractRange
+        )
+        {
+            return;
+        }
+        BossAppeared = true;
+        _enemies.Add(
+            new Enemy
+            {
+                Id = _nextEnemyId++,
+                Kind = EnemyKind.Boss,
+                Pos = Config.BossSpawn,
+                Hp = Config.BossMaxHp,
+            }
+        );
+        _events.Add(new BattleEvent(BattleEventKind.BossAppeared, Config.BossSpawn));
+    }
+
+    /// <summary>操作中キャラのスキル。爆心の範囲内の全敵に、キャラごとの効果を与える。</summary>
+    private void TrySkill(TickInput input)
+    {
+        if (!input.Skill || SkillCooldown > 0)
+        {
+            return;
+        }
+        var character = Config.CharacterOf(ActiveCharacter);
+        _skillCooldowns[(int)ActiveCharacter] = character.SkillCooldownTicks;
+        var center = SkillCenter(input.AimPoint, character.SkillRange);
+        _events.Add(new BattleEvent(BattleEventKind.SkillBurst, center));
+        // ApplyDamage は撃破時にリストから取り除くため、スナップショットを回す
+        foreach (var enemy in _enemies.ToArray())
+        {
+            var inRange =
+                (enemy.Pos - center).Length() <= character.SkillRadius + RadiusOf(enemy.Kind);
+            if (!inRange)
+            {
+                continue;
+            }
+            if (ActiveCharacter == CharacterId.Attacker)
+            {
+                ApplyDamage(enemy, character.SkillDamage, enemy.Pos);
+            }
+            else
+            {
+                // デバッファー: ダメージなしで被ダメージ増幅デバフを付与
+                enemy.DebuffTicks = character.DebuffDurationTicks;
+                enemy.DebuffMultiplier = character.DebuffDamageMultiplier;
+                _events.Add(new BattleEvent(BattleEventKind.EnemyDebuffed, enemy.Pos));
+            }
+        }
+    }
+
+    private void TryFire(TickInput input)
+    {
+        if (!input.Fire || FireCooldown > 0)
+        {
+            return;
+        }
+        _bullets.Add(new Bullet(_nextBulletId++, PlayerPos, AssistDir(PlayerFacing)));
+        FireCooldown = Config.FireCooldownTicks;
+        ShotCount++;
+        _events.Add(new BattleEvent(BattleEventKind.BulletFired, PlayerPos));
     }
 
     /// <summary>
