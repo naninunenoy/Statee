@@ -150,6 +150,7 @@ public sealed class SpriteDocument
         {
             throw new FormatException("grid: / frame: 節がないか、ドット行が 1 行もありません");
         }
+        var (w, h) = (frames[0].Grid[0].Length, frames[0].Grid.Count);
         foreach (var frame in frames)
         {
             if (frame.Grid.Count == 0)
@@ -159,10 +160,6 @@ public sealed class SpriteDocument
                 );
             }
             ValidateGrid(frame.Grid, palette);
-        }
-        var (w, h) = (frames[0].Grid[0].Length, frames[0].Grid.Count);
-        foreach (var frame in frames)
-        {
             if (frame.Grid[0].Length != w || frame.Grid.Count != h)
             {
                 throw new FormatException(
