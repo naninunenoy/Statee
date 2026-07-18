@@ -3,8 +3,9 @@ using System.Numerics;
 namespace MessBreak.Logic;
 
 /// <summary>
-/// 射撃場ロジック(docs/DESIGN.md「当たる感の検証」)。動かない的を撃ち、撃破すると
-/// リスポーンする。勝敗はなく、命中統計(発射数・命中数・撃破数)で手触りを検証する。
+/// 小部屋の制圧ミッション(docs/DESIGN.md「縦切り3-1」)。敵エリアの雑魚を倒すと制圧=
+/// 設置スロットが解放され、タレットを置ける。出現ポイントをアトラクトすると強敵が現れ、
+/// 射撃+スキルコンボ+タレットで撃破するとミッション達成。
 /// tick 駆動・決定論。時間経過はすべて Tick 呼び出し回数で表し、実時間に依存しない。
 /// Godot 層は入力を <see cref="TickInput"/> に詰めて Tick を呼び、公開プロパティを描画するだけ。
 /// </summary>
@@ -12,7 +13,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
 {
     public BattleConfig Config { get; } = config;
 
-    /// <summary>生成に使ったシード(リスポーン位置の乱数)。State で公開して再現性を検証する。</summary>
+    /// <summary>生成に使ったシード。State で公開して再現性を検証する(現状 乱数は未使用)。</summary>
     public int Seed { get; } = seed;
 
     /// <summary>経過 tick 数。</summary>
@@ -50,7 +51,16 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>指定種別の生存中の敵(いなければ null)。</summary>
     public Enemy? EnemyOf(EnemyKind kind) => _enemies.Find(e => e.Kind == kind);
 
-    private readonly List<Enemy> _enemies = [];
+    private readonly List<Enemy> _enemies =
+    [
+        new Enemy
+        {
+            Id = 1,
+            Kind = EnemyKind.Mob,
+            Pos = config.MobSpawn,
+            Hp = config.MobMaxHp,
+        },
+    ];
 
     /// <summary>敵エリアを制圧済みか(雑魚を倒すと true。設置スロットが解放される)。</summary>
     public bool ZoneCaptured { get; private set; }
@@ -67,20 +77,7 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     /// <summary>強敵を撃破してミッション達成したか。</summary>
     public bool MissionCleared { get; private set; }
 
-    // 的
-    public Vector2 TargetPos { get; private set; } = config.TargetSpawn;
-    public int TargetHp { get; private set; } = config.TargetMaxHp;
-
-    /// <summary>リスポーンまでの残り tick 数(0 なら的は生存中)。</summary>
-    public int TargetRespawnCooldown { get; private set; }
-
-    /// <summary>的のデバフ(被ダメージ増幅)の残り tick 数(0 なら未付与)。</summary>
-    public int TargetDebuffTicks { get; private set; }
-
-    /// <summary>付与中デバフの倍率(付与したデバッファーの設定値を保持)。</summary>
-    private int _debuffMultiplier = 1;
-
-    // 命中統計(「当たる感」の検証指標)
+    // 命中統計(「当たる感」の検証指標。タレットの弾は数えない)
     public int ShotCount { get; private set; }
     public int HitCount { get; private set; }
     public int KillCount { get; private set; }
@@ -91,8 +88,8 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     private readonly List<BattleEvent> _events = [];
 
     private readonly List<Bullet> _bullets = [];
-    private readonly Random _rng = new(seed);
     private int _nextBulletId = 1;
+    private int _nextEnemyId = 2;
 
     /// <summary>ドッジの残り無敵 tick 数。</summary>
     private int _actionTicks;
@@ -124,15 +121,18 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         {
             SwitchCooldown--;
         }
-        if (TargetDebuffTicks > 0)
+        foreach (var enemy in _enemies)
         {
-            TargetDebuffTicks--;
+            if (enemy.DebuffTicks > 0)
+            {
+                enemy.DebuffTicks--;
+            }
         }
-        // 撃破(スキル=TickPlayer 内 / 弾=TickBullets 内)と同じ tick で
-        // カウントダウンが進まないよう、リスポーン処理は最初に行う
-        TickTargetRespawn();
+        // 出現(TickPlayer 内のアトラクト)と同じ tick で動かないよう、追跡は先に行う
+        TickBossChase();
         Aim(input);
         TickPlayer(input);
+        TickTurret();
         TickBullets();
     }
 
@@ -153,6 +153,10 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     }
 
     private float Dt => 1f / Config.TicksPerSecond;
+
+    /// <summary>敵種別ごとの当たり判定半径。</summary>
+    private float RadiusOf(EnemyKind kind) =>
+        kind == EnemyKind.Mob ? Config.MobRadius : Config.BossRadius;
 
     private void TickPlayer(TickInput input)
     {
@@ -180,26 +184,61 @@ public sealed class BattleLogic(BattleConfig config, int seed)
                     SwitchCooldown = Config.SwitchCooldownTicks;
                     _events.Add(new BattleEvent(BattleEventKind.CharacterSwitched, PlayerPos));
                 }
+                if (
+                    input.Place
+                    && ZoneCaptured
+                    && !TurretPlaced
+                    && (Config.TurretSlot - PlayerPos).Length() <= Config.PlaceRange
+                )
+                {
+                    TurretPlaced = true;
+                    _events.Add(new BattleEvent(BattleEventKind.TurretPlaced, Config.TurretSlot));
+                }
+                if (
+                    input.Attract
+                    && !BossAppeared
+                    && (Config.BossSpawn - PlayerPos).Length() <= Config.AttractRange
+                )
+                {
+                    BossAppeared = true;
+                    _enemies.Add(
+                        new Enemy
+                        {
+                            Id = _nextEnemyId++,
+                            Kind = EnemyKind.Boss,
+                            Pos = Config.BossSpawn,
+                            Hp = Config.BossMaxHp,
+                        }
+                    );
+                    _events.Add(new BattleEvent(BattleEventKind.BossAppeared, Config.BossSpawn));
+                }
                 if (input.Skill && SkillCooldown == 0)
                 {
                     var character = Config.CharacterOf(ActiveCharacter);
                     _skillCooldowns[(int)ActiveCharacter] = character.SkillCooldownTicks;
                     var center = SkillCenter(input.AimPoint, character.SkillRange);
                     _events.Add(new BattleEvent(BattleEventKind.SkillBurst, center));
-                    var inRange =
-                        TargetHp > 0
-                        && (TargetPos - center).Length()
-                            <= character.SkillRadius + Config.TargetRadius;
-                    if (inRange && ActiveCharacter == CharacterId.Attacker)
+                    // ApplyDamage は撃破時にリストから取り除くため、スナップショットを回す
+                    foreach (var enemy in _enemies.ToArray())
                     {
-                        ApplyTargetDamage(character.SkillDamage, TargetPos);
-                    }
-                    else if (inRange)
-                    {
-                        // デバッファー: ダメージなしで被ダメージ増幅デバフを付与
-                        TargetDebuffTicks = character.DebuffDurationTicks;
-                        _debuffMultiplier = character.DebuffDamageMultiplier;
-                        _events.Add(new BattleEvent(BattleEventKind.TargetDebuffed, TargetPos));
+                        var inRange =
+                            (enemy.Pos - center).Length()
+                            <= character.SkillRadius + RadiusOf(enemy.Kind);
+                        if (!inRange)
+                        {
+                            continue;
+                        }
+                        if (ActiveCharacter == CharacterId.Attacker)
+                        {
+                            ApplyDamage(enemy, character.SkillDamage, enemy.Pos);
+                        }
+                        else
+                        {
+                            // デバッファー: ダメージなしで被ダメージ増幅デバフを付与
+                            enemy.DebuffTicks = character.DebuffDurationTicks;
+                            enemy.DebuffMultiplier = character.DebuffDamageMultiplier;
+                            _events.Add(new BattleEvent(BattleEventKind.EnemyDebuffed, enemy.Pos));
+                        }
                     }
                 }
                 if (input.Fire && FireCooldown == 0)
@@ -218,23 +257,34 @@ public sealed class BattleLogic(BattleConfig config, int seed)
     }
 
     /// <summary>
-    /// エイムアシスト。発射方向と的の中心の角度差が吸着角以内なら的の中心へ吸わせる。
-    /// 的がリスポーン待ちの間は補正しない。
+    /// エイムアシスト。発射方向との角度差が吸着角以内の敵のうち、最も向きが近いものの
+    /// 中心へ吸わせる。該当がなければ補正しない。
     /// </summary>
     private Vector2 AssistDir(Vector2 facing)
     {
-        if (TargetHp <= 0 || Config.AimAssistDegrees <= 0f)
+        if (Config.AimAssistDegrees <= 0f)
         {
             return facing;
         }
-        var toTarget = TargetPos - PlayerPos;
-        if (toTarget == Vector2.Zero)
-        {
-            return facing;
-        }
-        var unit = Vector2.Normalize(toTarget);
         var cosLimit = MathF.Cos(Config.AimAssistDegrees * MathF.PI / 180f);
-        return Vector2.Dot(facing, unit) >= cosLimit ? unit : facing;
+        var best = facing;
+        var bestDot = cosLimit;
+        foreach (var enemy in _enemies)
+        {
+            var toEnemy = enemy.Pos - PlayerPos;
+            if (toEnemy == Vector2.Zero)
+            {
+                continue;
+            }
+            var unit = Vector2.Normalize(toEnemy);
+            var dot = Vector2.Dot(facing, unit);
+            if (dot >= bestDot)
+            {
+                bestDot = dot;
+                best = unit;
+            }
+        }
+        return best;
     }
 
     private void Move(Vector2 dir, float speed)
@@ -260,20 +310,57 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         }
     }
 
-    /// <summary>弾を進め、的への命中と部屋外への逸脱で消す。</summary>
+    /// <summary>設置済みタレットの自動射撃。射程内で最も近い敵へクールダウンごとに 1 発撃つ。</summary>
+    private void TickTurret()
+    {
+        if (!TurretPlaced)
+        {
+            return;
+        }
+        if (TurretFireCooldown > 0)
+        {
+            TurretFireCooldown--;
+            return;
+        }
+        Enemy? nearest = null;
+        var nearestDist = Config.TurretRange;
+        foreach (var enemy in _enemies)
+        {
+            var dist = (enemy.Pos - Config.TurretSlot).Length();
+            if (dist <= nearestDist)
+            {
+                nearestDist = dist;
+                nearest = enemy;
+            }
+        }
+        if (nearest is null)
+        {
+            return;
+        }
+        var dir = Vector2.Normalize(nearest.Pos - Config.TurretSlot);
+        _bullets.Add(new Bullet(_nextBulletId++, Config.TurretSlot, dir, FromTurret: true));
+        TurretFireCooldown = Config.TurretFireCooldownTicks;
+        _events.Add(new BattleEvent(BattleEventKind.TurretFired, Config.TurretSlot));
+    }
+
+    /// <summary>弾を進め、敵への命中と部屋外への逸脱で消す。</summary>
     private void TickBullets()
     {
         for (var i = _bullets.Count - 1; i >= 0; i--)
         {
             var bullet = _bullets[i];
             var pos = bullet.Pos + bullet.Dir * Config.BulletSpeed * Dt;
-            if (
-                TargetHp > 0
-                && (TargetPos - pos).Length() <= Config.BulletRadius + Config.TargetRadius
-            )
+            var hit = _enemies.Find(e =>
+                (e.Pos - pos).Length() <= Config.BulletRadius + RadiusOf(e.Kind)
+            );
+            if (hit is not null)
             {
-                HitCount++;
-                ApplyTargetDamage(Config.BulletDamage, pos);
+                var damage = bullet.FromTurret ? Config.TurretBulletDamage : Config.BulletDamage;
+                if (!bullet.FromTurret)
+                {
+                    HitCount++;
+                }
+                ApplyDamage(hit, damage, pos);
                 _bullets.RemoveAt(i);
                 continue;
             }
@@ -284,6 +371,25 @@ public sealed class BattleLogic(BattleConfig config, int seed)
             }
             _bullets[i] = bullet with { Pos = pos };
         }
+    }
+
+    /// <summary>強敵はプレイヤーを追跡する。接触距離(半径の和)までは詰めるが重ならない。</summary>
+    private void TickBossChase()
+    {
+        var boss = EnemyOf(EnemyKind.Boss);
+        if (boss is null)
+        {
+            return;
+        }
+        var toPlayer = PlayerPos - boss.Pos;
+        var dist = toPlayer.Length();
+        var contact = Config.BossRadius + Config.PlayerRadius;
+        if (dist <= contact)
+        {
+            return;
+        }
+        var step = MathF.Min(Config.BossSpeed * Dt, dist - contact);
+        boss.Pos += Vector2.Normalize(toPlayer) * step;
     }
 
     /// <summary>
@@ -304,59 +410,35 @@ public sealed class BattleLogic(BattleConfig config, int seed)
         return PlayerPos + Vector2.Normalize(toPoint) * range;
     }
 
-    /// <summary>的へのダメージ適用と撃破処理(弾・スキル共通)。命中統計は呼び出し側で数える。</summary>
-    private void ApplyTargetDamage(int damage, Vector2 hitPos)
+    /// <summary>
+    /// 敵へのダメージ適用と撃破処理(弾・スキル共通)。命中統計は呼び出し側で数える。
+    /// 雑魚の撃破はエリア制圧、強敵の撃破はミッション達成になる。
+    /// </summary>
+    private void ApplyDamage(Enemy enemy, int damage, Vector2 hitPos)
     {
-        if (TargetDebuffTicks > 0)
+        if (enemy.DebuffTicks > 0)
         {
-            damage *= _debuffMultiplier;
+            damage *= enemy.DebuffMultiplier;
         }
-        TargetHp = Math.Max(0, TargetHp - damage);
-        _events.Add(new BattleEvent(BattleEventKind.TargetHit, hitPos));
-        if (TargetHp == 0)
-        {
-            KillCount++;
-            TargetRespawnCooldown = Config.TargetRespawnTicks;
-            _events.Add(new BattleEvent(BattleEventKind.TargetKilled, TargetPos));
-        }
-    }
-
-    /// <summary>撃破された的のリスポーン。待ちが明けたら HP 全快・乱数位置で復活する。</summary>
-    private void TickTargetRespawn()
-    {
-        if (TargetHp > 0 || TargetRespawnCooldown == 0)
+        enemy.Hp = Math.Max(0, enemy.Hp - damage);
+        _events.Add(new BattleEvent(BattleEventKind.EnemyHit, hitPos));
+        if (enemy.Hp > 0)
         {
             return;
         }
-        TargetRespawnCooldown--;
-        if (TargetRespawnCooldown == 0)
+        KillCount++;
+        _enemies.Remove(enemy);
+        _events.Add(new BattleEvent(BattleEventKind.EnemyKilled, enemy.Pos));
+        if (enemy.Kind == EnemyKind.Mob)
         {
-            TargetHp = Config.TargetMaxHp;
-            TargetPos = NextSpawnPos();
-            TargetDebuffTicks = 0; // 新しい的はデバフを引き継がない
+            ZoneCaptured = true;
+            _events.Add(new BattleEvent(BattleEventKind.ZoneCaptured, enemy.Pos));
         }
-    }
-
-    /// <summary>
-    /// 次のリスポーン位置。壁からマージンを取った矩形内の乱数で、プレイヤーの
-    /// 至近距離を避ける(seed 由来なので決定論)。避けきれない場合は最後の候補を使う。
-    /// </summary>
-    private Vector2 NextSpawnPos()
-    {
-        var margin = Config.TargetSpawnMargin;
-        var pos = TargetPos;
-        for (var i = 0; i < 16; i++)
+        else
         {
-            pos = new Vector2(
-                margin + (float)_rng.NextDouble() * (Config.RoomWidth - 2f * margin),
-                margin + (float)_rng.NextDouble() * (Config.RoomHeight - 2f * margin)
-            );
-            if ((pos - PlayerPos).Length() >= Config.TargetMinPlayerDistance)
-            {
-                break;
-            }
+            MissionCleared = true;
+            _events.Add(new BattleEvent(BattleEventKind.MissionCleared, enemy.Pos));
         }
-        return pos;
     }
 
     private Vector2 ClampToRoom(Vector2 pos, float radius) =>

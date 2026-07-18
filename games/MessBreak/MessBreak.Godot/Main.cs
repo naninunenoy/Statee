@@ -65,7 +65,7 @@ public partial class Main : Node2D
 
     // ヒット演出(すべて表現なので Godot 層に置く。ロジックの Events から駆動する)
     private int _hitstopFrames;
-    private int _targetFlashFrames;
+    private int _enemyFlashFrames;
     private readonly List<(System.Numerics.Vector2 Pos, int Frames)> _hitMarkers = [];
     private readonly List<(System.Numerics.Vector2 Pos, int Frames, float Radius)> _burstMarkers =
     [];
@@ -123,9 +123,9 @@ public partial class Main : Node2D
             _burstMarkers[i] = _burstMarkers[i] with { Frames = _burstMarkers[i].Frames - 1 };
         }
         _burstMarkers.RemoveAll(m => m.Frames <= 0);
-        if (_targetFlashFrames > 0)
+        if (_enemyFlashFrames > 0)
         {
-            _targetFlashFrames--;
+            _enemyFlashFrames--;
         }
         if (_time.IsFrozen)
         {
@@ -181,21 +181,63 @@ public partial class Main : Node2D
             new Color(0.12f, 0.10f, 0.14f)
         );
 
-        // 的(残 HP で色を濃くする。被弾直後は白フラッシュ。リスポーン待ち中は非表示)
-        if (_logic.TargetHp > 0)
+        // 設置スロット(制圧後に見える。設置済みは塗り、未設置は枠だけ)
+        if (_logic.ZoneCaptured)
         {
-            var hpRatio = _logic.TargetHp / (float)config.TargetMaxHp;
-            var targetColor =
-                _targetFlashFrames > 0
+            var slotScreen = ToScreen(config.TurretSlot);
+            var half = 8f * ScaleFactor;
+            var slotRect = new Rect2(
+                slotScreen - new Vector2(half, half),
+                new Vector2(half * 2f, half * 2f)
+            );
+            if (_logic.TurretPlaced)
+            {
+                DrawRect(slotRect, new Color(0.45f, 0.8f, 0.5f));
+                DrawCircle(slotScreen, 3f * ScaleFactor, new Color(0.2f, 0.35f, 0.25f));
+            }
+            else
+            {
+                DrawRect(slotRect, new Color(0.45f, 0.8f, 0.5f, 0.8f), filled: false, width: 2f);
+            }
+        }
+
+        // 強敵の出現ポイント(アトラクト前だけ菱形マーカーを出す)
+        if (!_logic.BossAppeared)
+        {
+            var spawnScreen = ToScreen(config.BossSpawn);
+            var r = 6f * ScaleFactor;
+            DrawPolygon(
+                [
+                    spawnScreen + new Vector2(0, -r),
+                    spawnScreen + new Vector2(r, 0),
+                    spawnScreen + new Vector2(0, r),
+                    spawnScreen + new Vector2(-r, 0),
+                ],
+                [new Color(1f, 0.35f, 0.35f, 0.75f)]
+            );
+        }
+
+        // 敵(残 HP で色を濃くする。被弾直後は白フラッシュ。デバフ中は紫リング)
+        foreach (var enemy in _logic.Enemies)
+        {
+            var maxHp = enemy.Kind == EnemyKind.Mob ? config.MobMaxHp : config.BossMaxHp;
+            var radius = enemy.Kind == EnemyKind.Mob ? config.MobRadius : config.BossRadius;
+            var baseColor =
+                enemy.Kind == EnemyKind.Mob
+                    ? new Color(0.55f, 0.25f, 0.6f)
+                    : new Color(0.75f, 0.2f, 0.25f);
+            var hpRatio = enemy.Hp / (float)maxHp;
+            var color =
+                _enemyFlashFrames > 0
                     ? new Color(1f, 1f, 1f)
-                    : new Color(0.55f, 0.25f, 0.6f) * hpRatio + new Color(0.3f, 0.15f, 0.3f);
-            DrawCircle(ToScreen(_logic.TargetPos), config.TargetRadius * ScaleFactor, targetColor);
-            // デバフ中は的の周りに紫のリングを出す(コンボの好機を可視化)
-            if (_logic.TargetDebuffTicks > 0)
+                    : baseColor * hpRatio + new Color(0.3f, 0.15f, 0.3f);
+            DrawCircle(ToScreen(enemy.Pos), radius * ScaleFactor, color);
+            // デバフ中は敵の周りに紫のリングを出す(コンボの好機を可視化)
+            if (enemy.DebuffTicks > 0)
             {
                 DrawArc(
-                    ToScreen(_logic.TargetPos),
-                    (config.TargetRadius + 4f) * ScaleFactor,
+                    ToScreen(enemy.Pos),
+                    (radius + 4f) * ScaleFactor,
                     0f,
                     Mathf.Tau,
                     32,
@@ -282,16 +324,16 @@ public partial class Main : Node2D
             );
         }
 
-        // 画面外の的の方向インジケーター(画面端の三角矢印)
-        if (_logic.TargetHp > 0)
+        // 画面外の敵の方向インジケーター(画面端の三角矢印)
+        foreach (var enemy in _logic.Enemies)
         {
-            DrawOffscreenIndicator(ToScreen(_logic.TargetPos));
+            DrawOffscreenIndicator(ToScreen(enemy.Pos));
         }
 
         // レティクル(OS カーソルの代わり)。構え中は引き締まった十字、非構えは薄めのリング
         DrawReticle(GetGlobalMousePosition(), Input.IsMouseButtonPressed(MouseButton.Right));
 
-        // HUD(命中統計。「当たる感」検証の指標)
+        // HUD(命中統計とミッション進行)
         var accuracy = _logic.ShotCount == 0 ? 0f : 100f * _logic.HitCount / _logic.ShotCount;
         var characterText =
             _logic.ActiveCharacter == CharacterId.Attacker ? "アタッカー" : "デバッファー";
@@ -301,6 +343,13 @@ public partial class Main : Node2D
             $"[{characterText}]  skill1={CooldownText(_logic.SkillCooldownOf(CharacterId.Attacker))}  skill2={CooldownText(_logic.SkillCooldownOf(CharacterId.Debuffer))}  shots={_logic.ShotCount}  hits={_logic.HitCount}  kills={_logic.KillCount}  acc={accuracy:0.#}%  tick={_logic.TickCount}",
             fontSize: 20
         );
+        var missionText =
+            _logic.MissionCleared ? "ミッション達成!"
+            : !_logic.ZoneCaptured ? "雑魚を倒してエリアを制圧しよう"
+            : !_logic.TurretPlaced ? "スロット(緑枠)の近くで F: タレット設置"
+            : !_logic.BossAppeared ? "出現ポイント(赤菱形)の近くで G: 強敵を呼ぶ"
+            : "強敵を倒せ!(デバフ→大技のコンボが有効)";
+        DrawString(ThemeDB.FallbackFont, new Vector2(16, 60), missionText, fontSize: 18);
     }
 
     public override void _ExitTree()
@@ -387,7 +436,9 @@ public partial class Main : Node2D
             AimPoint: ToLogic(GetGlobalMousePosition()), // マウスにはレティクル位置が常にある
             SwitchTo: Input.IsPhysicalKeyPressed(Key.Key1) ? CharacterId.Attacker
                 : Input.IsPhysicalKeyPressed(Key.Key2) ? CharacterId.Debuffer
-                : null
+                : null,
+            Place: Input.IsPhysicalKeyPressed(Key.F),
+            Attract: Input.IsPhysicalKeyPressed(Key.G)
         );
     }
 
@@ -490,13 +541,23 @@ public partial class Main : Node2D
                 case BattleEventKind.BulletFired:
                     _shotPlayer.Play();
                     break;
-                case BattleEventKind.TargetHit:
+                case BattleEventKind.EnemyHit:
                     _hitMarkers.Add((battleEvent.Pos, HitMarkerFrames));
-                    _targetFlashFrames = 4;
+                    _enemyFlashFrames = 4;
                     _hitstopFrames = 2;
                     break;
-                case BattleEventKind.TargetKilled:
+                case BattleEventKind.EnemyKilled:
                     _hitstopFrames = 6;
+                    break;
+                case BattleEventKind.TurretFired:
+                    _shotPlayer.Play();
+                    break;
+                case BattleEventKind.BossAppeared:
+                    _hitstopFrames = 6;
+                    _skillPlayer.Play();
+                    break;
+                case BattleEventKind.MissionCleared:
+                    _hitstopFrames = 12;
                     break;
                 case BattleEventKind.SkillBurst:
                     _burstMarkers.Add(
@@ -556,7 +617,10 @@ public partial class Main : Node2D
                     _logic.ShotCount,
                     _logic.HitCount,
                     _logic.KillCount,
-                    _logic.TargetHp,
+                    _logic.ZoneCaptured,
+                    _logic.TurretPlaced,
+                    _logic.BossAppeared,
+                    _logic.MissionCleared,
                 };
             }
         );
@@ -585,6 +649,8 @@ public partial class Main : Node2D
         var dodge = false;
         var sprint = false;
         var skill = false;
+        var place = false;
+        var attract = false;
         CharacterId? switchTo = null;
         foreach (var token in tokens.Split('+', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -622,12 +688,29 @@ public partial class Main : Node2D
                 case "char2":
                     switchTo = CharacterId.Debuffer;
                     break;
+                case "place":
+                    place = true;
+                    break;
+                case "attract":
+                    attract = true;
+                    break;
                 default:
                     throw new ArgumentException(
-                        $"未知の入力トークン '{token}'(left/right/up/down/fire/dodge/sprint/skill/char1/char2)"
+                        $"未知の入力トークン '{token}'(left/right/up/down/fire/dodge/sprint/skill/char1/char2/place/attract)"
                     );
             }
         }
-        return new TickInput(dir, aim, fire, dodge, sprint, skill, aimPoint, switchTo);
+        return new TickInput(
+            dir,
+            aim,
+            fire,
+            dodge,
+            sprint,
+            skill,
+            aimPoint,
+            switchTo,
+            place,
+            attract
+        );
     }
 }

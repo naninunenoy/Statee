@@ -5,20 +5,11 @@ public enum BattleEventKind
     /// <summary>弾を発射した(Pos = 発射位置)。</summary>
     BulletFired,
 
-    /// <summary>弾が的に命中した(Pos = 命中位置)。</summary>
-    TargetHit,
-
-    /// <summary>的を撃破した(Pos = 的の位置)。</summary>
-    TargetKilled,
-
     /// <summary>スキルの範囲爆発が発生した(Pos = 爆発中心)。</summary>
     SkillBurst,
 
     /// <summary>キャラクターを切り替えた(Pos = プレイヤー位置)。</summary>
     CharacterSwitched,
-
-    /// <summary>的にデバフ(被ダメージ増幅)が付与された(Pos = 的の位置)。</summary>
-    TargetDebuffed,
 
     /// <summary>弾が敵に命中した(Pos = 命中位置)。</summary>
     EnemyHit,

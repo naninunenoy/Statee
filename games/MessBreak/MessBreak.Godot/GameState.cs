@@ -26,11 +26,17 @@ public partial class GameState
         int AttackerSkillCooldown,
         int DebufferSkillCooldown,
         int BulletCount,
-        float TargetX,
-        float TargetY,
-        int TargetHp,
-        int TargetRespawnCooldown,
-        int TargetDebuffTicks,
+        int MobHp,
+        int MobDebuffTicks,
+        bool ZoneCaptured,
+        bool TurretPlaced,
+        int TurretFireCooldown,
+        bool BossAppeared,
+        int BossHp,
+        float BossX,
+        float BossY,
+        int BossDebuffTicks,
+        bool MissionCleared,
         int ShotCount,
         int HitCount,
         int KillCount
@@ -51,11 +57,17 @@ public partial class GameState
         0,
         0,
         0,
+        0,
+        0,
+        false,
+        false,
+        0,
+        false,
+        0,
         0f,
         0f,
         0,
-        0,
-        0,
+        false,
         0,
         0,
         0
@@ -103,20 +115,40 @@ public partial class GameState
     [StateeField]
     public int BulletCount => _current.BulletCount;
 
+    /// <summary>雑魚の残 HP(0 なら撃破済み)。</summary>
     [StateeField]
-    public float TargetX => _current.TargetX;
+    public int MobHp => _current.MobHp;
 
     [StateeField]
-    public float TargetY => _current.TargetY;
+    public int MobDebuffTicks => _current.MobDebuffTicks;
 
     [StateeField]
-    public int TargetHp => _current.TargetHp;
+    public bool ZoneCaptured => _current.ZoneCaptured;
 
     [StateeField]
-    public int TargetRespawnCooldown => _current.TargetRespawnCooldown;
+    public bool TurretPlaced => _current.TurretPlaced;
 
     [StateeField]
-    public int TargetDebuffTicks => _current.TargetDebuffTicks;
+    public int TurretFireCooldown => _current.TurretFireCooldown;
+
+    [StateeField]
+    public bool BossAppeared => _current.BossAppeared;
+
+    /// <summary>強敵の残 HP(未出現・撃破済みは 0)。</summary>
+    [StateeField]
+    public int BossHp => _current.BossHp;
+
+    [StateeField]
+    public float BossX => _current.BossX;
+
+    [StateeField]
+    public float BossY => _current.BossY;
+
+    [StateeField]
+    public int BossDebuffTicks => _current.BossDebuffTicks;
+
+    [StateeField]
+    public bool MissionCleared => _current.MissionCleared;
 
     [StateeField]
     public int ShotCount => _current.ShotCount;
@@ -130,6 +162,8 @@ public partial class GameState
     /// <summary>メインスレッドから呼ぶ。スナップショットを不可分に差し替える。</summary>
     public void Update(BattleLogic logic)
     {
+        var mob = logic.EnemyOf(EnemyKind.Mob);
+        var boss = logic.EnemyOf(EnemyKind.Boss);
         _current = new Snapshot(
             logic.Seed,
             logic.TickCount,
@@ -145,11 +179,17 @@ public partial class GameState
             logic.SkillCooldownOf(CharacterId.Attacker),
             logic.SkillCooldownOf(CharacterId.Debuffer),
             logic.Bullets.Count,
-            logic.TargetPos.X,
-            logic.TargetPos.Y,
-            logic.TargetHp,
-            logic.TargetRespawnCooldown,
-            logic.TargetDebuffTicks,
+            mob?.Hp ?? 0,
+            mob?.DebuffTicks ?? 0,
+            logic.ZoneCaptured,
+            logic.TurretPlaced,
+            logic.TurretFireCooldown,
+            logic.BossAppeared,
+            boss?.Hp ?? 0,
+            boss?.Pos.X ?? 0f,
+            boss?.Pos.Y ?? 0f,
+            boss?.DebuffTicks ?? 0,
+            logic.MissionCleared,
             logic.ShotCount,
             logic.HitCount,
             logic.KillCount

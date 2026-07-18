@@ -414,10 +414,19 @@ public class BattleLogicTest
     [Fact]
     public void Tick_タレット発射_FromTurretの弾とTurretFiredイベントが出る()
     {
-        var logic = Create(NearSlotAndSpawnPoint());
+        // 出現ポイント(既定 560,180)はスロット(440,180)から離れており、タレット弾の飛翔を観測できる
+        var logic = Create(new BattleConfig { PlayerSpawn = new Vector2(430f, 180f) });
         ShootUntilKilled(logic, EnemyKind.Mob);
         logic.Tick(new TickInput(Place: true));
-        TickUntil(logic, () => logic.Bullets.Count == 0); // プレイヤー弾の掃け待ち
+        for (
+            var i = 0;
+            i < 600
+                && (logic.Config.BossSpawn - logic.PlayerPos).Length() > logic.Config.AttractRange;
+            i++
+        )
+        {
+            logic.Tick(new TickInput(new Vector2(1f, 0f))); // 出現ポイントまで歩く
+        }
 
         logic.Tick(new TickInput(Attract: true));
         TickUntil(logic, () => logic.Bullets.Any(b => b.FromTurret), 120);

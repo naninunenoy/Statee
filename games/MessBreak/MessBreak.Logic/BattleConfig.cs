@@ -77,22 +77,6 @@ public sealed record BattleConfig
     public int TurretFireCooldownTicks { get; init; } = 30;
     public int TurretBulletDamage { get; init; } = 1;
 
-    // 的(動かない・攻撃しない。撃破後にリスポーンする「当たる感」検証用ターゲット)
-    public float TargetRadius { get; init; } = 8f;
-
-    /// <summary>アタッカースキル単発(3)では倒れず、デバフ込みのコンボ(3×2)で一撃になる値。</summary>
-    public int TargetMaxHp { get; init; } = 6;
-
-    /// <summary>撃破からリスポーンまでの tick 数。</summary>
-    public int TargetRespawnTicks { get; init; } = 30;
-
-    /// <summary>リスポーン位置の壁からの最小距離。</summary>
-    public float TargetSpawnMargin { get; init; } = 24f;
-
-    /// <summary>リスポーン位置とプレイヤーの最小距離(密着スポーン防止)。</summary>
-    public float TargetMinPlayerDistance { get; init; } = 60f;
-
     // 初期配置
     public System.Numerics.Vector2 PlayerSpawn { get; init; } = new(160f, 180f);
-    public System.Numerics.Vector2 TargetSpawn { get; init; } = new(480f, 180f);
 }
