@@ -4,6 +4,16 @@ namespace Dotee;
 public readonly record struct Rgba(byte R, byte G, byte B, byte A);
 
 /// <summary>
+/// スプライトシートの 1 フレーム。`frame: 名前` 節で定義され、名前とドットグリッドを持つ。
+/// </summary>
+public sealed class SpriteFrame
+{
+    public string Name => "";
+
+    public Rgba PixelAt(int x, int y) => default;
+}
+
+/// <summary>
 /// スプライト定義テキスト(.sprite.txt)のパース結果。
 /// 形式: `palette:` 節に「文字 = #RRGGBB(AA)」、`grid:` 節に 1 行 = 1 走査線。
 /// 行頭 # はコメント、palette 行は行末 # コメント可。grid の文字はパレット定義済みであること。
@@ -22,6 +32,15 @@ public sealed class SpriteDocument
     }
 
     public Rgba PixelAt(int x, int y) => Palette[Grid[y][x]];
+
+    /// <summary>定義順のフレーム一覧。`grid:` 形式(単一フレーム)では 1 件になる。</summary>
+    public IReadOnlyList<SpriteFrame> Frames => [];
+
+    /// <summary>フレームを横に並べたシート全体の幅(= Width × フレーム数)。</summary>
+    public int SheetWidth => 0;
+
+    /// <summary>シート座標(フレームを横並びに合成した座標系)のピクセル色。</summary>
+    public Rgba SheetPixelAt(int x, int y) => default;
 
     public static SpriteDocument Parse(string text)
     {
