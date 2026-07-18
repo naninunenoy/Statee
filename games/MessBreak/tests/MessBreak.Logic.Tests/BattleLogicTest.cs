@@ -7,8 +7,34 @@ public class BattleLogicTest
 {
     private const int Seed = 1;
 
-    private static BattleLogic Create(BattleConfig? config = null) =>
-        new(config ?? new BattleConfig(), Seed);
+    private static BattleLogic Create(BattleConfig? config = null, StageDefinition? stage = null) =>
+        new(config ?? new BattleConfig(), stage ?? Arena(), Seed);
+
+    /// <summary>
+    /// 壁のない 640x360 のステージ(範囲外が壁扱いになるので外周は不要)。
+    /// 配置だけを差し替えて検証するための基本形。
+    /// </summary>
+    private static StageDefinition Arena(
+        Vector2? playerSpawn = null,
+        Vector2? mobSpawn = null,
+        Vector2? bossSpawn = null,
+        Vector2? turretSlot = null
+    ) =>
+        new()
+        {
+            Rows = [.. Enumerable.Repeat(new string('.', 16), 9)],
+            PlayerSpawn = playerSpawn ?? new Vector2(160f, 180f),
+            MobSpawns = [mobSpawn ?? new Vector2(480f, 120f)],
+            BossSpawn = bossSpawn ?? new Vector2(560f, 180f),
+            TurretSlot = turretSlot ?? new Vector2(440f, 180f),
+        };
+
+    /// <summary>col 8(x 320..360)が全高の縦壁になっているステージ。プレイヤーは壁の左側。</summary>
+    private static StageDefinition WallBetween(Vector2? mobSpawn = null) =>
+        Arena(mobSpawn: mobSpawn ?? new Vector2(480f, 180f)) with
+        {
+            Rows = [.. Enumerable.Repeat("........#.......", 9)],
+        };
 
     /// <summary>条件が成立するまで入力なしで進める。固定 tick 待ちを書かないためのヘルパ。</summary>
     private static void TickUntil(BattleLogic logic, Func<bool> condition, int maxTicks = 600)
@@ -44,11 +70,11 @@ public class BattleLogicTest
     }
 
     /// <summary>雑魚がプレイヤーの真右(初期 Facing の先)にいる配置。</summary>
-    private static BattleConfig MobStraightRight() => new() { MobSpawn = new Vector2(480f, 180f) };
+    private static StageDefinition MobStraightRight() => Arena(mobSpawn: new Vector2(480f, 180f));
 
     /// <summary>初期の向き(1,0)の SkillRange 先=爆心に雑魚がいる配置。</summary>
-    private static BattleConfig MobAtSkillCenter() =>
-        new() { MobSpawn = new Vector2(160f + 80f, 180f) }; // 既定の SkillRange は 80
+    private static StageDefinition MobAtSkillCenter() =>
+        Arena(mobSpawn: new Vector2(160f + 80f, 180f)); // 既定の SkillRange は 80
 
     // ---- プレイヤー HP ----
 
@@ -98,7 +124,7 @@ public class BattleLogicTest
     }
 
     [Fact]
-    public void Tick_左の壁に向かって移動し続ける_半径の位置で止まる()
+    public void Tick_ステージ左端に向かって移動し続ける_半径の位置で止まる()
     {
         var logic = Create();
 
@@ -120,6 +146,83 @@ public class BattleLogicTest
 
         var expected = before.X + logic.Config.SprintSpeed / logic.Config.TicksPerSecond;
         logic.PlayerPos.X.ShouldBe(expected, 0.001f);
+    }
+
+    // ---- ステージの壁との衝突 ----
+
+    [Fact]
+    public void Tick_壁に向かって移動し続ける_壁面から半径の位置で止まる()
+    {
+        var logic = Create(stage: WallBetween()); // 壁の左面は x=320
+
+        for (var i = 0; i < 600; i++)
+        {
+            logic.Tick(new TickInput(new Vector2(1f, 0f)));
+        }
+
+        logic.PlayerPos.X.ShouldBe(320f - logic.Config.PlayerRadius, 0.001f);
+    }
+
+    [Fact]
+    public void Tick_壁に接した状態での斜め移動_塞がれていない軸だけ進む()
+    {
+        var wallFace = 320f - new BattleConfig().PlayerRadius;
+        var logic = Create(stage: WallBetween() with { PlayerSpawn = new Vector2(wallFace, 180f) });
+
+        logic.Tick(new TickInput(new Vector2(1f, 1f)));
+
+        logic.PlayerPos.X.ShouldBe(wallFace, 0.001f);
+        logic.PlayerPos.Y.ShouldBeGreaterThan(180f);
+    }
+
+    [Fact]
+    public void Tick_壁に向かうドッジ_壁を通り抜けない()
+    {
+        var wallFace = 320f - new BattleConfig().PlayerRadius;
+        var logic = Create(stage: WallBetween() with { PlayerSpawn = new Vector2(wallFace, 180f) });
+        logic.Tick(new TickInput(new Vector2(1f, 0f), Dodge: true));
+
+        TickUntil(logic, () => logic.PlayerAction == PlayerAction.Free);
+
+        logic.PlayerPos.X.ShouldBe(wallFace, 0.001f);
+    }
+
+    [Fact]
+    public void Tick_弾が壁に入る_消えて壁の向こうの敵には当たらない()
+    {
+        var logic = Create(stage: WallBetween()); // 雑魚 (480,180) は壁の右側
+
+        logic.Tick(new TickInput(Fire: true)); // 初期 Facing (1,0) = 壁越しに雑魚の方向
+        TickUntil(logic, () => logic.Bullets.Count == 0, 120);
+
+        EnemyOf(logic, EnemyKind.Mob).Hp.ShouldBe(logic.Config.MobMaxHp);
+        logic.HitCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Tick_強敵の追跡_壁セルに重ならない()
+    {
+        // 壁は col8(全高)だが row4 だけ通路。プレイヤーは壁の右側で強敵を出してから左へ逃げる
+        var rows = Enumerable
+            .Range(0, 9)
+            .Select(r => r == 4 ? new string('.', 16) : "........#.......")
+            .ToArray();
+        var stage = Arena(
+            playerSpawn: new Vector2(430f, 60f),
+            bossSpawn: new Vector2(460f, 60f)
+        ) with
+        {
+            Rows = rows,
+        };
+        var logic = Create(stage: stage);
+        logic.Tick(new TickInput(Interact: true)); // アトラクト
+
+        for (var i = 0; i < 300; i++)
+        {
+            logic.Tick(new TickInput(new Vector2(-1f, 0f)));
+            var boss = EnemyOf(logic, EnemyKind.Boss);
+            stage.OverlapsSolid(boss.Pos, logic.Config.BossRadius).ShouldBeFalse();
+        }
     }
 
     // ---- エイム(移動と独立) ----
@@ -270,7 +373,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_弾が雑魚に当たる_HPが減り弾は消える()
     {
-        var logic = Create(MobStraightRight()); // 雑魚は 320 先。初期 Facing (1,0) = 雑魚の方向
+        var logic = Create(stage: MobStraightRight()); // 雑魚は 320 先。初期 Facing (1,0) = 雑魚の方向
         logic.Tick(new TickInput(Fire: true));
 
         TickUntil(logic, () => EnemyOf(logic, EnemyKind.Mob).Hp < logic.Config.MobMaxHp, 120);
@@ -281,10 +384,10 @@ public class BattleLogicTest
     }
 
     [Fact]
-    public void Tick_弾が部屋の外に出る_消える()
+    public void Tick_弾がステージの外へ出る_消える()
     {
         var logic = Create();
-        logic.Tick(new TickInput(AimDir: new Vector2(-1f, 0f))); // 敵のいない左の壁へ
+        logic.Tick(new TickInput(AimDir: new Vector2(-1f, 0f))); // 敵のいないステージ左端へ
         logic.Tick(new TickInput(Fire: true));
 
         TickUntil(logic, () => logic.Bullets.Count == 0, 120);
@@ -307,7 +410,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_命中_HitCountが増える()
     {
-        var logic = Create(MobStraightRight());
+        var logic = Create(stage: MobStraightRight());
         logic.Tick(new TickInput(Fire: true));
 
         TickUntil(logic, () => EnemyOf(logic, EnemyKind.Mob).Hp < logic.Config.MobMaxHp, 120);
@@ -331,14 +434,16 @@ public class BattleLogicTest
     // ---- 敵エリアの制圧(雑魚撃破) ----
 
     [Fact]
-    public void 初期状態_雑魚が1体だけいて未制圧()
+    public void 初期状態_雑魚はステージの配置どおりにいて未制圧()
     {
-        var logic = Create();
+        var logic = Create(
+            stage: Arena() with { MobSpawns = [new Vector2(200f, 180f), new Vector2(400f, 120f)] }
+        );
 
-        logic.Enemies.Count.ShouldBe(1);
-        var mob = EnemyOf(logic, EnemyKind.Mob);
-        mob.Pos.ShouldBe(logic.Config.MobSpawn);
-        mob.Hp.ShouldBe(logic.Config.MobMaxHp);
+        logic.Enemies.Count.ShouldBe(2);
+        logic.Enemies[0].Pos.ShouldBe(new Vector2(200f, 180f));
+        logic.Enemies[1].Pos.ShouldBe(new Vector2(400f, 120f));
+        logic.Enemies[0].Id.ShouldNotBe(logic.Enemies[1].Id);
         logic.ZoneCaptured.ShouldBeFalse();
     }
 
@@ -357,20 +462,47 @@ public class BattleLogicTest
         logic.Events.ShouldContain(new BattleEvent(BattleEventKind.ZoneCaptured, mobPos));
     }
 
+    [Fact]
+    public void Tick_雑魚が複数残っていて一部を撃破_制圧にならない()
+    {
+        // 1体目は爆心 (240,180) の一撃で倒れるが、2体目 (480,120) は遠く無傷
+        var logic = Create(
+            stage: Arena() with { MobSpawns = [new Vector2(240f, 180f), new Vector2(480f, 120f)] }
+        );
+
+        logic.Tick(new TickInput(Skill: true, AimPoint: new Vector2(240f, 180f)));
+
+        logic.KillCount.ShouldBe(1);
+        logic.ZoneCaptured.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Tick_複数の雑魚を全滅_制圧される()
+    {
+        var logic = Create(
+            stage: Arena() with { MobSpawns = [new Vector2(200f, 180f), new Vector2(220f, 180f)] }
+        );
+
+        logic.Tick(new TickInput(Skill: true, AimPoint: new Vector2(210f, 180f)));
+
+        logic.Enemies.ShouldBeEmpty();
+        logic.ZoneCaptured.ShouldBeTrue();
+        logic.Events.ShouldContain(e => e.Kind == BattleEventKind.ZoneCaptured);
+    }
+
     // ---- タレット設置 ----
 
     /// <summary>スロットとボス出現ポイントの至近にプレイヤーを置く配置(移動を挟まず検証する)。</summary>
-    private static BattleConfig NearSlotAndSpawnPoint() =>
-        new()
-        {
-            PlayerSpawn = new Vector2(430f, 180f), // スロット (440,180) から 10
-            BossSpawn = new Vector2(460f, 180f), // 出現ポイントから 30 ≤ AttractRange 40
-        };
+    private static StageDefinition NearSlotAndSpawnPoint() =>
+        Arena(
+            playerSpawn: new Vector2(430f, 180f), // スロット (440,180) から 10
+            bossSpawn: new Vector2(460f, 180f) // 出現ポイントから 30 ≤ AttractRange 40
+        );
 
     [Fact]
     public void Tick_未制圧での設置入力_設置されない()
     {
-        var logic = Create(NearSlotAndSpawnPoint());
+        var logic = Create(stage: NearSlotAndSpawnPoint());
 
         logic.Tick(new TickInput(Interact: true));
 
@@ -391,14 +523,14 @@ public class BattleLogicTest
     [Fact]
     public void Tick_制圧済みでスロット付近の設置入力_設置されイベントが出る()
     {
-        var logic = Create(NearSlotAndSpawnPoint());
+        var logic = Create(stage: NearSlotAndSpawnPoint());
         ShootUntilKilled(logic, EnemyKind.Mob);
 
         logic.Tick(new TickInput(Interact: true));
 
         logic.TurretPlaced.ShouldBeTrue();
         logic.Events.ShouldContain(
-            new BattleEvent(BattleEventKind.TurretPlaced, logic.Config.TurretSlot)
+            new BattleEvent(BattleEventKind.TurretPlaced, logic.Stage.TurretSlot)
         );
         // 出現ポイントも範囲内だが、発動するのは最寄りの1つ(スロット)だけ
         logic.BossAppeared.ShouldBeFalse();
@@ -407,7 +539,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_設置済みの再設置入力_二重には置けずイベントも出ない()
     {
-        var logic = Create(NearSlotAndSpawnPoint());
+        var logic = Create(stage: NearSlotAndSpawnPoint());
         ShootUntilKilled(logic, EnemyKind.Mob);
         logic.Tick(new TickInput(Interact: true));
 
@@ -419,7 +551,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_タレット射程内に敵_自動射撃しタレット弾は命中統計に数えない()
     {
-        var logic = Create(NearSlotAndSpawnPoint());
+        var logic = Create(stage: NearSlotAndSpawnPoint());
         ShootUntilKilled(logic, EnemyKind.Mob);
         logic.Tick(new TickInput(Interact: true));
         logic.Tick(new TickInput(Interact: true)); // 強敵 (460,180) はタレット射程 160 内
@@ -436,14 +568,14 @@ public class BattleLogicTest
     [Fact]
     public void Tick_タレット発射_FromTurretの弾とTurretFiredイベントが出る()
     {
-        // 出現ポイント(既定 560,180)はスロット(440,180)から離れており、タレット弾の飛翔を観測できる
-        var logic = Create(new BattleConfig { PlayerSpawn = new Vector2(430f, 180f) });
+        // 出現ポイント(560,180)はスロット(440,180)から離れており、タレット弾の飛翔を観測できる
+        var logic = Create(stage: Arena(playerSpawn: new Vector2(430f, 180f)));
         ShootUntilKilled(logic, EnemyKind.Mob);
         logic.Tick(new TickInput(Interact: true));
         for (
             var i = 0;
             i < 600
-                && (logic.Config.BossSpawn - logic.PlayerPos).Length() > logic.Config.AttractRange;
+                && (logic.Stage.BossSpawn - logic.PlayerPos).Length() > logic.Config.AttractRange;
             i++
         )
         {
@@ -454,14 +586,14 @@ public class BattleLogicTest
         TickUntil(logic, () => logic.Bullets.Any(b => b.FromTurret), 120);
 
         logic.Events.ShouldContain(
-            new BattleEvent(BattleEventKind.TurretFired, logic.Config.TurretSlot)
+            new BattleEvent(BattleEventKind.TurretFired, logic.Stage.TurretSlot)
         );
     }
 
     [Fact]
     public void Tick_射程内に敵がいない_タレットは撃たない()
     {
-        var logic = Create(NearSlotAndSpawnPoint());
+        var logic = Create(stage: NearSlotAndSpawnPoint());
         ShootUntilKilled(logic, EnemyKind.Mob); // 以後、敵は 0 体
         logic.Tick(new TickInput(Interact: true));
 
@@ -488,23 +620,23 @@ public class BattleLogicTest
     [Fact]
     public void Tick_出現ポイント付近のアトラクト入力_強敵が出現しイベントが出る()
     {
-        var logic = Create(NearSlotAndSpawnPoint());
+        var logic = Create(stage: NearSlotAndSpawnPoint());
 
         logic.Tick(new TickInput(Interact: true));
 
         logic.BossAppeared.ShouldBeTrue();
         var boss = EnemyOf(logic, EnemyKind.Boss);
-        boss.Pos.ShouldBe(logic.Config.BossSpawn);
+        boss.Pos.ShouldBe(logic.Stage.BossSpawn);
         boss.Hp.ShouldBe(logic.Config.BossMaxHp);
         logic.Events.ShouldContain(
-            new BattleEvent(BattleEventKind.BossAppeared, logic.Config.BossSpawn)
+            new BattleEvent(BattleEventKind.BossAppeared, logic.Stage.BossSpawn)
         );
     }
 
     [Fact]
     public void Tick_二度目のアトラクト入力_強敵は増えない()
     {
-        var logic = Create(NearSlotAndSpawnPoint());
+        var logic = Create(stage: NearSlotAndSpawnPoint());
         logic.Tick(new TickInput(Interact: true));
 
         logic.Tick(new TickInput(Interact: true));
@@ -515,7 +647,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_強敵_毎tickプレイヤーへ速度分だけ近づく()
     {
-        var logic = Create(NearSlotAndSpawnPoint());
+        var logic = Create(stage: NearSlotAndSpawnPoint());
         logic.Tick(new TickInput(Interact: true));
         var before = (EnemyOf(logic, EnemyKind.Boss).Pos - logic.PlayerPos).Length();
 
@@ -528,7 +660,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_強敵がプレイヤーに接触_半径の和の距離で止まる()
     {
-        var logic = Create(NearSlotAndSpawnPoint());
+        var logic = Create(stage: NearSlotAndSpawnPoint());
         logic.Tick(new TickInput(Interact: true));
         var contact = logic.Config.BossRadius + logic.Config.PlayerRadius;
 
@@ -545,7 +677,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_強敵を撃破_ミッション達成イベントが出る()
     {
-        var logic = Create(NearSlotAndSpawnPoint());
+        var logic = Create(stage: NearSlotAndSpawnPoint());
         logic.Tick(new TickInput(Interact: true));
 
         ShootUntilKilled(logic, EnemyKind.Boss);
@@ -560,7 +692,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_スキル入力_範囲内の雑魚にスキルダメージが入る()
     {
-        var logic = Create(MobAtSkillCenter() with { MobMaxHp = 5 });
+        var logic = Create(new BattleConfig { MobMaxHp = 5 }, MobAtSkillCenter());
 
         logic.Tick(new TickInput(Skill: true));
 
@@ -570,7 +702,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_スキル入力_範囲外の雑魚にはダメージが入らない()
     {
-        var logic = Create(MobStraightRight()); // 雑魚は 320 先。爆心 80 + 半径 40 + 敵 8 では届かない
+        var logic = Create(stage: MobStraightRight()); // 雑魚は 320 先。爆心 80 + 半径 40 + 敵 8 では届かない
 
         logic.Tick(new TickInput(Skill: true));
 
@@ -616,7 +748,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_スキル発動後_クールダウンが始まり連発できない()
     {
-        var logic = Create(MobAtSkillCenter() with { MobMaxHp = 10 });
+        var logic = Create(new BattleConfig { MobMaxHp = 10 }, MobAtSkillCenter());
         logic.Tick(new TickInput(Skill: true));
         var hpAfterFirst = EnemyOf(logic, EnemyKind.Mob).Hp;
 
@@ -643,7 +775,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_スキルで雑魚を撃破_制圧されKillCountが増える()
     {
-        var logic = Create(MobAtSkillCenter()); // MobMaxHp 3 = SkillDamage 3 で一撃
+        var logic = Create(stage: MobAtSkillCenter()); // MobMaxHp 3 = SkillDamage 3 で一撃
 
         logic.Tick(new TickInput(Skill: true));
 
@@ -655,13 +787,12 @@ public class BattleLogicTest
     [Fact]
     public void Tick_スキル_範囲内の複数の敵に同時に効く()
     {
-        var config = new BattleConfig
-        {
-            PlayerSpawn = new Vector2(240f, 180f),
-            MobSpawn = new Vector2(260f, 180f),
-            BossSpawn = new Vector2(250f, 180f), // 出現ポイントから 10 ≤ AttractRange
-        };
-        var logic = Create(config);
+        var stage = Arena(
+            playerSpawn: new Vector2(240f, 180f),
+            mobSpawn: new Vector2(260f, 180f),
+            bossSpawn: new Vector2(250f, 180f) // 出現ポイントから 10 ≤ AttractRange
+        );
+        var logic = Create(stage: stage);
         logic.Tick(new TickInput(Interact: true));
 
         logic.Tick(new TickInput(Skill: true, AimPoint: new Vector2(255f, 180f)));
@@ -674,7 +805,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_スキル命中_射撃の命中統計には数えない()
     {
-        var logic = Create(MobAtSkillCenter() with { MobMaxHp = 10 });
+        var logic = Create(new BattleConfig { MobMaxHp = 10 }, MobAtSkillCenter());
 
         logic.Tick(new TickInput(Skill: true));
 
@@ -685,7 +816,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_ドッジ中のスキル入力_発動しない()
     {
-        var logic = Create(MobAtSkillCenter() with { DodgeTicks = 10 });
+        var logic = Create(new BattleConfig { DodgeTicks = 10 }, MobAtSkillCenter());
         logic.Tick(new TickInput(new Vector2(0f, 1f), Dodge: true));
 
         logic.Tick(new TickInput(Skill: true));
@@ -779,7 +910,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_デバッファースキル_雑魚にデバフが付きダメージは入らない()
     {
-        var logic = Create(MobAtSkillCenter() with { SwitchCooldownTicks = 1 });
+        var logic = Create(new BattleConfig { SwitchCooldownTicks = 1 }, MobAtSkillCenter());
         logic.Tick(new TickInput(SwitchTo: CharacterId.Debuffer));
 
         logic.Tick(new TickInput(Skill: true));
@@ -793,7 +924,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_範囲外のデバッファースキル_デバフは付かない()
     {
-        var logic = Create(MobStraightRight() with { SwitchCooldownTicks = 1 }); // 雑魚は 320 先
+        var logic = Create(new BattleConfig { SwitchCooldownTicks = 1 }, MobStraightRight()); // 雑魚は 320 先
         logic.Tick(new TickInput(SwitchTo: CharacterId.Debuffer));
 
         logic.Tick(new TickInput(Skill: true));
@@ -804,7 +935,10 @@ public class BattleLogicTest
     [Fact]
     public void Tick_デバフ中の被弾_ダメージが倍率分になる()
     {
-        var logic = Create(MobAtSkillCenter() with { SwitchCooldownTicks = 1, MobMaxHp = 10 });
+        var logic = Create(
+            new BattleConfig { SwitchCooldownTicks = 1, MobMaxHp = 10 },
+            MobAtSkillCenter()
+        );
         logic.Tick(new TickInput(SwitchTo: CharacterId.Debuffer));
         logic.Tick(new TickInput(Skill: true)); // デバフ付与
 
@@ -822,12 +956,13 @@ public class BattleLogicTest
     public void Tick_デバフ_持続時間が切れると等倍に戻る()
     {
         var logic = Create(
-            MobAtSkillCenter() with
+            new BattleConfig
             {
                 SwitchCooldownTicks = 1,
                 MobMaxHp = 10,
                 Debuffer = new CharacterConfig { DebuffDurationTicks = 5 },
-            }
+            },
+            MobAtSkillCenter()
         );
         logic.Tick(new TickInput(SwitchTo: CharacterId.Debuffer));
         logic.Tick(new TickInput(Skill: true));
@@ -845,7 +980,10 @@ public class BattleLogicTest
     public void Tick_コンボ_デバフから切り替えてアタッカースキルで満タンの雑魚を一撃()
     {
         // MobMaxHp 6 = SkillDamage 3 × DebuffDamageMultiplier 2。コンボでのみ一撃になる
-        var logic = Create(MobAtSkillCenter() with { SwitchCooldownTicks = 1, MobMaxHp = 6 });
+        var logic = Create(
+            new BattleConfig { SwitchCooldownTicks = 1, MobMaxHp = 6 },
+            MobAtSkillCenter()
+        );
         logic.Tick(new TickInput(SwitchTo: CharacterId.Debuffer)); // デバッファーへ
         logic.Tick(new TickInput(Skill: true)); // デバフ付与
         logic.Tick(new TickInput(SwitchTo: CharacterId.Attacker)); // アタッカーへ戻す
@@ -871,7 +1009,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_命中_EnemyHitイベントが発生する()
     {
-        var logic = Create(MobStraightRight());
+        var logic = Create(stage: MobStraightRight());
         logic.Tick(new TickInput(Fire: true));
 
         TickUntil(logic, () => logic.HitCount == 1, 120);
@@ -895,7 +1033,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_吸着角の内側にズレた発射_弾は敵の中心へ向かう()
     {
-        var logic = Create(MobStraightRight() with { AimAssistDegrees = 10f });
+        var logic = Create(new BattleConfig { AimAssistDegrees = 10f }, MobStraightRight());
         // 雑魚は真右(1,0)。約 5.7 度上へずらしてもアシストで吸われる
         logic.Tick(new TickInput(AimDir: new Vector2(1f, -0.1f)));
 
@@ -909,7 +1047,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_吸着角の外側の発射_補正されない()
     {
-        var logic = Create(MobStraightRight() with { AimAssistDegrees = 10f });
+        var logic = Create(new BattleConfig { AimAssistDegrees = 10f }, MobStraightRight());
         // 約 45 度上=コーン外
         var aim = Vector2.Normalize(new Vector2(1f, -1f));
         logic.Tick(new TickInput(AimDir: aim));
@@ -923,7 +1061,7 @@ public class BattleLogicTest
     [Fact]
     public void Tick_敵が全滅している_補正されない()
     {
-        var logic = Create(MobStraightRight() with { AimAssistDegrees = 10f });
+        var logic = Create(new BattleConfig { AimAssistDegrees = 10f }, MobStraightRight());
         ShootUntilKilled(logic, EnemyKind.Mob);
         TickUntil(logic, () => logic.FireCooldown == 0);
         var aim = new Vector2(1f, -0.1f);
