@@ -85,6 +85,17 @@ public partial class Main : Node2D
     /// <summary>敵の揺れ 1 コマぶんの論理 tick 数。</summary>
     private const int BobTicksPerFrame = 20;
 
+    // 床・壁のタイルシート(art/tiles.sprite.txt)。1 コマ = ステージ 1 マス
+    private const int TileCell = 40;
+    private const int TileSheetRowFloor = 0;
+    private const int TileSheetRowWall = 1;
+
+    /// <summary>同じ用途の見た目違いの数(シートの列数)。</summary>
+    private const int TileSheetColumns = 4;
+
+    /// <summary>壁が下隣の床へ落とす影の深さ(ワールド単位)。</summary>
+    private const float WallShadowDepth = 6f;
+
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly TimeControl _time = new();
     private readonly GameState _state = new();
@@ -96,6 +107,9 @@ public partial class Main : Node2D
 
     /// <summary>キャラごとの歩行シート。切り替えでそのまま見た目が変わる。</summary>
     private Dictionary<CharacterId, Texture2D> _characterTextures = null!;
+
+    /// <summary>床・壁のタイルシート。</summary>
+    private Texture2D _tileTexture = null!;
 
     /// <summary>敵のシート(雑魚・強敵)。</summary>
     private Texture2D _mobTexture = null!;
@@ -302,30 +316,30 @@ public partial class Main : Node2D
     {
         var config = _logic.Config;
 
-        // 床(ステージ全域)と壁セル
+        // 床と壁(タイルシートから 1 マスずつ)
         var stage = _logic.Stage;
-        var roomTopLeft = ToScreen(System.Numerics.Vector2.Zero);
-        DrawRect(
-            new Rect2(
-                roomTopLeft,
-                new Vector2(stage.Width * ScaleFactor, stage.Height * ScaleFactor)
-            ),
-            new Color(0.12f, 0.10f, 0.14f)
-        );
-        var wallColor = new Color(0.32f, 0.28f, 0.38f);
+        var tileSize = stage.TileSize * ScaleFactor;
         for (var row = 0; row < stage.Rows.Count; row++)
         {
             for (var col = 0; col < stage.Rows[row].Length; col++)
             {
-                if (!stage.IsSolidCell(col, row))
-                {
-                    continue;
-                }
+                var solid = stage.IsSolidCell(col, row);
                 var topLeft = ToScreen(
                     new System.Numerics.Vector2(col * stage.TileSize, row * stage.TileSize)
                 );
-                var size = new Vector2(stage.TileSize * ScaleFactor, stage.TileSize * ScaleFactor);
-                DrawRect(new Rect2(topLeft, size), wallColor);
+                DrawTextureRectRegion(
+                    _tileTexture,
+                    new Rect2(topLeft, new Vector2(tileSize, tileSize)),
+                    TileSource(solid ? TileSheetRowWall : TileSheetRowFloor, col, row)
+                );
+                // 壁の下隣が床なら、そこへ影を落とす(壁に厚みを感じさせる)
+                if (!solid && row > 0 && stage.IsSolidCell(col, row - 1))
+                {
+                    DrawRect(
+                        new Rect2(topLeft, new Vector2(tileSize, WallShadowDepth * ScaleFactor)),
+                        new Color(0f, 0f, 0f, 0.45f)
+                    );
+                }
             }
         }
 
@@ -483,6 +497,7 @@ public partial class Main : Node2D
             [CharacterId.Attacker] = LoadSheet("attacker"),
             [CharacterId.Debuffer] = LoadSheet("debuffer"),
         };
+        _tileTexture = LoadSheet("tiles");
         _mobTexture = LoadSheet("mob");
         _bossTexture = LoadSheet("boss");
         _shotPlayer = new AudioStreamPlayer
@@ -714,6 +729,20 @@ public partial class Main : Node2D
 
     /// <summary>どのキャラの歩行シートを描くか。描画と State 公開の両方がここを通る。</summary>
     private CharacterId PlayerSheetCharacter() => _logic.ActiveCharacter;
+
+    /// <summary>
+    /// タイルシートから 1 コマぶんの矩形を選ぶ。列はセル座標だけで決まるので、
+    /// 同じマスは毎フレーム同じ絵になる(乱数を引くとちらつく)。
+    /// `col * a + row * b` のような線形式だと同じコマが斜めに並んで縞に見えるため、
+    /// ビットを撹拌してから列を取る。
+    /// </summary>
+    private static Rect2 TileSource(int sheetRow, int col, int row)
+    {
+        var hash = (uint)(col * 73856093) ^ (uint)(row * 19349663);
+        hash = (hash ^ (hash >> 13)) * 1274126177u;
+        var column = (int)((hash ^ (hash >> 16)) % TileSheetColumns);
+        return new Rect2(column * TileCell, sheetRow * TileCell, TileCell, TileCell);
+    }
 
     /// <summary>歩行シート(art/&lt;name&gt;.png)を読む。Godot の import 経路は使わない。</summary>
     private static Texture2D LoadSheet(string name) =>
