@@ -5,6 +5,12 @@ namespace MessBreak.Logic.Tests;
 public class StagesTest
 {
     [Fact]
+    public void Room1_雑魚が複数配置されている()
+    {
+        Stages.Room1().MobSpawns.Count.ShouldBeGreaterThan(1);
+    }
+
+    [Fact]
     public void Room1_パースでき全配置が床の上にある()
     {
         var stage = Stages.Room1();
