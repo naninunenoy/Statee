@@ -67,10 +67,14 @@ public static class StandardCommands
                     );
                 var (key, ctrl, shift, alt) = ParseKey(name);
                 var viewport = node.GetViewport();
+                // 本物のキーイベントは Keycode と PhysicalKeycode の両方を持つ。片方しか
+                // 立てないと、キーレイアウト非依存のため PhysicalKeycode で判定している
+                // ゲーム(例: MessBreak の Esc ポーズ)に注入が届かない
                 viewport.PushInput(
                     new InputEventKey
                     {
                         Keycode = key,
+                        PhysicalKeycode = key,
                         CtrlPressed = ctrl,
                         ShiftPressed = shift,
                         AltPressed = alt,
@@ -81,6 +85,7 @@ public static class StandardCommands
                     new InputEventKey
                     {
                         Keycode = key,
+                        PhysicalKeycode = key,
                         CtrlPressed = ctrl,
                         ShiftPressed = shift,
                         AltPressed = alt,
