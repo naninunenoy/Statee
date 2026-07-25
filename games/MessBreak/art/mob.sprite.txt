@@ -1,0 +1,28 @@
+# MessBreak の雑魚(Mess の端くれ)48x16 = 16x16 × 3列
+# 列: 待機 / 揺れ / 被弾フラッシュ(白シルエット)
+# 直径 16 = BattleConfig.MobRadius 8 の当たり判定と一致する。1px = 1ワールド単位
+# 変換: dotnet run --project tools/dotee/Dotee -- render --input games/MessBreak/art/mob.sprite.txt
+palette:
+. = #00000000   # 透明
+q = #4A1F63   # 体(暗)
+p = #6E3390   # 体
+P = #9457BF   # 体(明)
+E = #F2E45C   # 眼光
+W = #FFFFFF   # 被弾フラッシュ
+grid:
+................................................
+...q........q......................W........W...
+...qq......qq......q........q......WW......WW...
+...qPp....pPq......qq......qq......WWW....WWW...
+..qPPPppppPPPq.....qPp....pPq.....WWWWWWWWWWWW..
+.qPPPPPPPPPPPPq...qPPPppppPPPq...WWWWWWWWWWWWWW.
+.qPPEEPPPPEEPPq..qPPPPPPPPPPPPq..WWWWWWWWWWWWWW.
+.qPPEEPPPPEEPPq..qPPEEPPPPEEPPq..WWWWWWWWWWWWWW.
+.qPPPPPPPPPPPPq..qPPEEPPPPEEPPq..WWWWWWWWWWWWWW.
+.qPpppppppppPPq..qPPPPPPPPPPPPq..WWWWWWWWWWWWWW.
+.qPpqqqqqqqqpPq..qPpppppppppPPq..WWWWWWWWWWWWWW.
+.qPPpppppppPPPq..qPpqqqqqqqqpPq..WWWWWWWWWWWWWW.
+..qPPPPPPPPPPq...qPPpppppppPPPq...WWWWWWWWWWWW..
+..qqPPPPPPPPqq....qPPPPPPPPPPq....WWWWWWWWWWWW..
+...qqqqqqqqqq.....qqPPPPPPPPqq.....WWWWWWWWWW...
+....qq....qq.......qqqqqqqqqq.......WW....WW....

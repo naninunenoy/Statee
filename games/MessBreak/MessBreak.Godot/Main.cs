@@ -76,6 +76,26 @@ public partial class Main : Node2D
     /// <summary>歩行 1 コマぶんの論理 tick 数。</summary>
     private const int WalkTicksPerFrame = 8;
 
+    // 敵シート(art/mob.sprite.txt / art/boss.sprite.txt)。列 = 待機 / 揺れ / 被弾フラッシュ、
+    // 行 = 雑魚は 1 行のみ、強敵は down / up / side(プレイヤースプライトと同じ並び)
+    private const int MobCell = 16;
+    private const int BossCell = 32;
+    private const int EnemySpriteColumnFlash = 2;
+
+    /// <summary>敵の揺れ 1 コマぶんの論理 tick 数。</summary>
+    private const int BobTicksPerFrame = 20;
+
+    // 床・壁のタイルシート(art/tiles.sprite.txt)。1 コマ = ステージ 1 マス
+    private const int TileCell = 40;
+    private const int TileSheetRowFloor = 0;
+    private const int TileSheetRowWall = 1;
+
+    /// <summary>同じ用途の見た目違いの数(シートの列数)。</summary>
+    private const int TileSheetColumns = 4;
+
+    /// <summary>壁が下隣の床へ落とす影の深さ(ワールド単位)。</summary>
+    private const float WallShadowDepth = 6f;
+
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly TimeControl _time = new();
     private readonly GameState _state = new();
@@ -87,6 +107,19 @@ public partial class Main : Node2D
 
     /// <summary>キャラごとの歩行シート。切り替えでそのまま見た目が変わる。</summary>
     private Dictionary<CharacterId, Texture2D> _characterTextures = null!;
+
+    /// <summary>床・壁のタイルシート。</summary>
+    private Texture2D _tileTexture = null!;
+
+    /// <summary>敵のシート(雑魚・強敵)。</summary>
+    private Texture2D _mobTexture = null!;
+    private Texture2D _bossTexture = null!;
+
+    /// <summary>
+    /// Y ソートして描く対象(敵、または null = プレイヤー)。毎フレーム作り直さないよう使い回す。
+    /// </summary>
+    private readonly List<(float Y, Enemy? Enemy)> _actors = [];
+
     private AudioStreamPlayer _shotPlayer = null!;
     private AudioStreamPlayer _skillPlayer = null!;
 
@@ -283,30 +316,30 @@ public partial class Main : Node2D
     {
         var config = _logic.Config;
 
-        // 床(ステージ全域)と壁セル
+        // 床と壁(タイルシートから 1 マスずつ)
         var stage = _logic.Stage;
-        var roomTopLeft = ToScreen(System.Numerics.Vector2.Zero);
-        DrawRect(
-            new Rect2(
-                roomTopLeft,
-                new Vector2(stage.Width * ScaleFactor, stage.Height * ScaleFactor)
-            ),
-            new Color(0.12f, 0.10f, 0.14f)
-        );
-        var wallColor = new Color(0.32f, 0.28f, 0.38f);
+        var tileSize = stage.TileSize * ScaleFactor;
         for (var row = 0; row < stage.Rows.Count; row++)
         {
             for (var col = 0; col < stage.Rows[row].Length; col++)
             {
-                if (!stage.IsSolidCell(col, row))
-                {
-                    continue;
-                }
+                var solid = stage.IsSolidCell(col, row);
                 var topLeft = ToScreen(
                     new System.Numerics.Vector2(col * stage.TileSize, row * stage.TileSize)
                 );
-                var size = new Vector2(stage.TileSize * ScaleFactor, stage.TileSize * ScaleFactor);
-                DrawRect(new Rect2(topLeft, size), wallColor);
+                DrawTextureRectRegion(
+                    _tileTexture,
+                    new Rect2(topLeft, new Vector2(tileSize, tileSize)),
+                    TileSource(solid ? TileSheetRowWall : TileSheetRowFloor, col, row)
+                );
+                // 壁の下隣が床なら、そこへ影を落とす(壁に厚みを感じさせる)
+                if (!solid && row > 0 && stage.IsSolidCell(col, row - 1))
+                {
+                    DrawRect(
+                        new Rect2(topLeft, new Vector2(tileSize, WallShadowDepth * ScaleFactor)),
+                        new Color(0f, 0f, 0f, 0.45f)
+                    );
+                }
             }
         }
 
@@ -346,35 +379,6 @@ public partial class Main : Node2D
             );
         }
 
-        // 敵(残 HP で色を濃くする。被弾直後は白フラッシュ。デバフ中は紫リング)
-        foreach (var enemy in _logic.Enemies)
-        {
-            var maxHp = enemy.Kind == EnemyKind.Mob ? config.MobMaxHp : config.BossMaxHp;
-            var radius = enemy.Kind == EnemyKind.Mob ? config.MobRadius : config.BossRadius;
-            var baseColor =
-                enemy.Kind == EnemyKind.Mob
-                    ? new Color(0.55f, 0.25f, 0.6f)
-                    : new Color(0.75f, 0.2f, 0.25f);
-            var hpRatio = enemy.Hp / (float)maxHp;
-            var color = _enemyFlashFrames.ContainsKey(enemy.Id)
-                ? new Color(1f, 1f, 1f)
-                : baseColor * hpRatio + new Color(0.3f, 0.15f, 0.3f);
-            DrawCircle(ToScreen(enemy.Pos), radius * ScaleFactor, color);
-            // デバフ中は敵の周りに紫のリングを出す(コンボの好機を可視化)
-            if (enemy.DebuffTicks > 0)
-            {
-                DrawArc(
-                    ToScreen(enemy.Pos),
-                    (radius + 4f) * ScaleFactor,
-                    0f,
-                    Mathf.Tau,
-                    32,
-                    new Color(0.8f, 0.4f, 1f, 0.9f),
-                    width: 3f
-                );
-            }
-        }
-
         // プレイヤー(ドッジ中は半透明)。キャラの見分けは専用スプライトが持つ
         var playerTint =
             _logic.PlayerAction == PlayerAction.Dodge
@@ -387,15 +391,39 @@ public partial class Main : Node2D
             MathF.Cos(_displayFacingAngle),
             MathF.Sin(_displayFacingAngle)
         );
-        // 向きは常にカーソルが決めるので、照準線も常に出す
+        // 向きは常にカーソルが決めるので、照準線も常に出す。床の上に敷いてスプライトの下に置く
         DrawLine(
             ToScreen(_logic.PlayerPos),
             ToScreen(_logic.PlayerPos + displayFacing * 60f),
             new Color(1f, 1f, 1f, 0.15f),
             width: 1f
         );
-        DrawPlayerSprite(displayFacing, playerTint);
-        DrawNose(_logic.PlayerPos, displayFacing, config.PlayerRadius, new Color(1f, 0.9f, 0.75f));
+
+        // 立っているものは Y 順に描く(足元が下にあるものほど手前。疑似 2.5D の前後関係)
+        _actors.Clear();
+        foreach (var enemy in _logic.Enemies)
+        {
+            _actors.Add((enemy.Pos.Y, enemy));
+        }
+        _actors.Add((_logic.PlayerPos.Y, null));
+        _actors.Sort(static (a, b) => a.Y.CompareTo(b.Y));
+        foreach (var (_, enemy) in _actors)
+        {
+            if (enemy is null)
+            {
+                DrawPlayerSprite(displayFacing, playerTint);
+                DrawNose(
+                    _logic.PlayerPos,
+                    displayFacing,
+                    config.PlayerRadius,
+                    new Color(1f, 0.9f, 0.75f)
+                );
+            }
+            else
+            {
+                DrawEnemy(enemy);
+            }
+        }
 
         // 弾
         foreach (var bullet in _logic.Bullets)
@@ -469,6 +497,9 @@ public partial class Main : Node2D
             [CharacterId.Attacker] = LoadSheet("attacker"),
             [CharacterId.Debuffer] = LoadSheet("debuffer"),
         };
+        _tileTexture = LoadSheet("tiles");
+        _mobTexture = LoadSheet("mob");
+        _bossTexture = LoadSheet("boss");
         _shotPlayer = new AudioStreamPlayer
         {
             Stream = AudioStreamWav.LoadFromFile(
@@ -606,15 +637,69 @@ public partial class Main : Node2D
     /// </summary>
     private (int Row, int Column, bool Mirror) PlayerSpriteCell(System.Numerics.Vector2 facing)
     {
-        // 斜めは最寄りの 4 方向へスナップする(絵柄が正面向きの疑似 2.5D なので回転はできない)
-        var (row, mirror) =
-            MathF.Abs(facing.X) > MathF.Abs(facing.Y)
-                ? (SpriteRowSide, facing.X < 0f)
-                : (facing.Y > 0f ? SpriteRowDown : SpriteRowUp, false);
+        var (row, mirror) = DirectionCell(facing);
         // 待機 → 左足 → 待機 → 右足 の 4 拍。止まっているときは待機で固定
         var column =
             _walkPhase < 0 ? 0 : WalkColumns[_walkPhase / WalkTicksPerFrame % WalkColumns.Length];
         return (row, column, mirror);
+    }
+
+    /// <summary>
+    /// 向きをシートの行(正面/背面/横)と左右反転へスナップする。絵柄が正面向きの疑似 2.5D で
+    /// スプライトを回転できないため、斜めは最寄りの 4 方向へ寄せ、左向きは横向きの反転で賄う。
+    /// </summary>
+    private static (int Row, bool Mirror) DirectionCell(System.Numerics.Vector2 facing) =>
+        MathF.Abs(facing.X) > MathF.Abs(facing.Y)
+            ? (SpriteRowSide, facing.X < 0f)
+            : (facing.Y > 0f ? SpriteRowDown : SpriteRowUp, false);
+
+    /// <summary>
+    /// 敵を 1 体描く。雑魚は 1 行だけのシート、強敵はプレイヤーを向いた行を選ぶ。
+    /// 被弾中は白シルエットのコマに差し替え、それ以外は残 HP ぶん暗くする。
+    /// </summary>
+    private void DrawEnemy(Enemy enemy)
+    {
+        var mob = enemy.Kind == EnemyKind.Mob;
+        var cell = mob ? MobCell : BossCell;
+        var flashing = _enemyFlashFrames.ContainsKey(enemy.Id);
+        // 強敵は常にプレイヤーを追うので、向きは追跡先で決まる
+        var (row, mirror) = mob ? (0, false) : DirectionCell(_logic.PlayerPos - enemy.Pos);
+        // 揺れは敵ごとに位相をずらす(揃うと群れが機械的に見える)
+        var column = flashing
+            ? EnemySpriteColumnFlash
+            : (_logic.TickCount / BobTicksPerFrame + enemy.Id) % 2;
+
+        var src = new Rect2(column * cell, row * cell, cell, cell);
+        if (mirror)
+        {
+            src = new Rect2(src.Position.X + cell, src.Position.Y, -cell, cell);
+        }
+        var maxHp = mob ? _logic.Config.MobMaxHp : _logic.Config.BossMaxHp;
+        var tint = flashing
+            ? Colors.White
+            : Colors.White.Lerp(new Color(0.5f, 0.42f, 0.5f), 1f - enemy.Hp / (float)maxHp);
+        var size = new Vector2(cell, cell) * ScaleFactor;
+        DrawTextureRectRegion(
+            mob ? _mobTexture : _bossTexture,
+            new Rect2(ToScreen(enemy.Pos) - size / 2f, size),
+            src,
+            tint
+        );
+
+        // デバフ中は敵の周りに紫のリングを出す(コンボの好機を可視化)
+        if (enemy.DebuffTicks > 0)
+        {
+            var radius = mob ? _logic.Config.MobRadius : _logic.Config.BossRadius;
+            DrawArc(
+                ToScreen(enemy.Pos),
+                (radius + 4f) * ScaleFactor,
+                0f,
+                Mathf.Tau,
+                32,
+                new Color(0.8f, 0.4f, 1f, 0.9f),
+                width: 3f
+            );
+        }
     }
 
     /// <summary>現在の見た目の向き(描画に使う滑らかな向き)。</summary>
@@ -644,6 +729,20 @@ public partial class Main : Node2D
 
     /// <summary>どのキャラの歩行シートを描くか。描画と State 公開の両方がここを通る。</summary>
     private CharacterId PlayerSheetCharacter() => _logic.ActiveCharacter;
+
+    /// <summary>
+    /// タイルシートから 1 コマぶんの矩形を選ぶ。列はセル座標だけで決まるので、
+    /// 同じマスは毎フレーム同じ絵になる(乱数を引くとちらつく)。
+    /// `col * a + row * b` のような線形式だと同じコマが斜めに並んで縞に見えるため、
+    /// ビットを撹拌してから列を取る。
+    /// </summary>
+    private static Rect2 TileSource(int sheetRow, int col, int row)
+    {
+        var hash = (uint)(col * 73856093) ^ (uint)(row * 19349663);
+        hash = (hash ^ (hash >> 13)) * 1274126177u;
+        var column = (int)((hash ^ (hash >> 16)) % TileSheetColumns);
+        return new Rect2(column * TileCell, sheetRow * TileCell, TileCell, TileCell);
+    }
 
     /// <summary>歩行シート(art/&lt;name&gt;.png)を読む。Godot の import 経路は使わない。</summary>
     private static Texture2D LoadSheet(string name) =>
