@@ -75,13 +75,18 @@ dotnet build <ターゲットのディレクトリ>   # 例: dotnet build sample
   `dotnet run --project src/Statee.Scenario -- run --script <foo.rb> --port 9310` で実行できる
 - 人間向け HTML レポート(`--report-dir` / `--report-state`。D-034)を出す場合は
   **--headless を付けずに**ターゲットを起動する(headless は描画が無くスクショ不可)
-- **画面ありで動かすときは、操作を始める前にポーズ状態を確認する**。ポーズ State
+- **画面ありで動かすときは、スクショを撮る直前にポーズ状態を確認する**。ポーズ State
   (MessBreak なら `game/messbreak` の `Paused`)が true なら
   `send --command key --arg key=escape` で解除し、false になったことを読み直して確認する。
   人がゲーム画面からターミナルへ切り替えるとき Esc を押すため、エージェントが操作して
   いなくてもポーズが入っている。tick はポーズを素通りするので進みはするが、画面が
   暗幕に覆われスクショが無意味になる(D-076)。headless では起こらないので、
   「エージェントが何もしていないのにポーズ」の切り分けは headless 起動と比べる
+  - **接続直後に一度読んで終わりにしない**。false を読めても、その後ウィンドウが
+    フォーカスを失った時点でポーズが入るので、「接続時 false → 撮影時 true」は普通に起きる
+  - **Esc はトグル**。状態を見ずに送ると逆にポーズが掛かる。必ず
+    「読む → true のときだけ `key escape` → 読み直して false → 撮影」の順で、
+    false を読めるまで数回繰り返す
 
 ## 4. 後始末と報告
 
