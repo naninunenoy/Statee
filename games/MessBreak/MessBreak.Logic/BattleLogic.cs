@@ -315,7 +315,7 @@ public sealed class BattleLogic
                 // デバッファー: ダメージなしで被ダメージ増幅デバフを付与
                 enemy.DebuffTicks = character.DebuffDurationTicks;
                 enemy.DebuffMultiplier = character.DebuffDamageMultiplier;
-                _events.Add(new BattleEvent(BattleEventKind.EnemyDebuffed, enemy.Pos));
+                _events.Add(new BattleEvent(BattleEventKind.EnemyDebuffed, enemy.Pos, enemy.Id));
             }
         }
     }
@@ -523,14 +523,14 @@ public sealed class BattleLogic
             damage *= enemy.DebuffMultiplier;
         }
         enemy.Hp = Math.Max(0, enemy.Hp - damage);
-        _events.Add(new BattleEvent(BattleEventKind.EnemyHit, hitPos));
+        _events.Add(new BattleEvent(BattleEventKind.EnemyHit, hitPos, enemy.Id));
         if (enemy.Hp > 0)
         {
             return;
         }
         KillCount++;
         _enemies.Remove(enemy);
-        _events.Add(new BattleEvent(BattleEventKind.EnemyKilled, enemy.Pos));
+        _events.Add(new BattleEvent(BattleEventKind.EnemyKilled, enemy.Pos, enemy.Id));
         if (enemy.Kind == EnemyKind.Mob)
         {
             if (!_enemies.Exists(e => e.Kind == EnemyKind.Mob))
