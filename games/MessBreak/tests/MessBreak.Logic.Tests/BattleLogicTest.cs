@@ -437,7 +437,10 @@ public class BattleLogicTest
     public void 初期状態_雑魚はステージの配置どおりにいて未制圧()
     {
         var logic = Create(
-            stage: Arena() with { MobSpawns = [new Vector2(200f, 180f), new Vector2(400f, 120f)] }
+            stage: Arena() with
+            {
+                MobSpawns = [new Vector2(200f, 180f), new Vector2(400f, 120f)],
+            }
         );
 
         logic.Enemies.Count.ShouldBe(2);
@@ -451,14 +454,16 @@ public class BattleLogicTest
     public void Tick_雑魚を撃破_制圧されZoneCapturedイベントが出る()
     {
         var logic = Create();
-        var mobPos = EnemyOf(logic, EnemyKind.Mob).Pos;
+        var mob = EnemyOf(logic, EnemyKind.Mob);
+        var mobPos = mob.Pos;
+        var mobId = mob.Id;
 
         ShootUntilKilled(logic, EnemyKind.Mob);
 
         logic.EnemyOf(EnemyKind.Mob).ShouldBeNull();
         logic.ZoneCaptured.ShouldBeTrue();
         logic.KillCount.ShouldBe(1);
-        logic.Events.ShouldContain(new BattleEvent(BattleEventKind.EnemyKilled, mobPos));
+        logic.Events.ShouldContain(new BattleEvent(BattleEventKind.EnemyKilled, mobPos, mobId));
         logic.Events.ShouldContain(new BattleEvent(BattleEventKind.ZoneCaptured, mobPos));
     }
 
@@ -467,7 +472,10 @@ public class BattleLogicTest
     {
         // 1体目は爆心 (240,180) の一撃で倒れるが、2体目 (480,120) は遠く無傷
         var logic = Create(
-            stage: Arena() with { MobSpawns = [new Vector2(240f, 180f), new Vector2(480f, 120f)] }
+            stage: Arena() with
+            {
+                MobSpawns = [new Vector2(240f, 180f), new Vector2(480f, 120f)],
+            }
         );
 
         logic.Tick(new TickInput(Skill: true, AimPoint: new Vector2(240f, 180f)));
@@ -480,7 +488,10 @@ public class BattleLogicTest
     public void Tick_複数の雑魚を全滅_制圧される()
     {
         var logic = Create(
-            stage: Arena() with { MobSpawns = [new Vector2(200f, 180f), new Vector2(220f, 180f)] }
+            stage: Arena() with
+            {
+                MobSpawns = [new Vector2(200f, 180f), new Vector2(220f, 180f)],
+            }
         );
 
         logic.Tick(new TickInput(Skill: true, AimPoint: new Vector2(210f, 180f)));
@@ -918,7 +929,7 @@ public class BattleLogicTest
         var mob = EnemyOf(logic, EnemyKind.Mob);
         mob.DebuffTicks.ShouldBe(logic.Config.Debuffer.DebuffDurationTicks);
         mob.Hp.ShouldBe(logic.Config.MobMaxHp);
-        logic.Events.ShouldContain(new BattleEvent(BattleEventKind.EnemyDebuffed, mob.Pos));
+        logic.Events.ShouldContain(new BattleEvent(BattleEventKind.EnemyDebuffed, mob.Pos, mob.Id));
     }
 
     [Fact]
@@ -1007,14 +1018,36 @@ public class BattleLogicTest
     }
 
     [Fact]
-    public void Tick_命中_EnemyHitイベントが発生する()
+    public void Tick_命中_EnemyHitイベントに被弾した敵のIdが入る()
     {
         var logic = Create(stage: MobStraightRight());
+        var mobId = EnemyOf(logic, EnemyKind.Mob).Id;
         logic.Tick(new TickInput(Fire: true));
 
         TickUntil(logic, () => logic.HitCount == 1, 120);
 
-        logic.Events.ShouldContain(e => e.Kind == BattleEventKind.EnemyHit);
+        logic.Events.Single(e => e.Kind == BattleEventKind.EnemyHit).EnemyId.ShouldBe(mobId);
+    }
+
+    [Fact]
+    public void Tick_雑魚が複数いて1体に命中_EnemyHitは被弾した1体のIdだけ()
+    {
+        // 真右 (480,180) の1体だけに当たる配置。もう1体 (480,60) は吸着角の外
+        var logic = Create(
+            stage: Arena() with
+            {
+                MobSpawns = [new Vector2(480f, 180f), new Vector2(480f, 60f)],
+            }
+        );
+        var hitId = logic.Enemies[0].Id;
+        logic.Tick(new TickInput(Fire: true));
+
+        TickUntil(logic, () => logic.HitCount == 1, 120);
+
+        logic
+            .Events.Where(e => e.Kind == BattleEventKind.EnemyHit)
+            .Select(e => e.EnemyId)
+            .ShouldBe([hitId]);
     }
 
     [Fact]

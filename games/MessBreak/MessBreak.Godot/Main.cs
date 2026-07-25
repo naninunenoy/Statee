@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using MessBreak.Logic;
 using Microsoft.Extensions.Logging;
@@ -57,6 +58,9 @@ public partial class Main : Node2D
     /// <summary>ヒットマーカーの表示フレーム数。</summary>
     private const int HitMarkerFrames = 12;
 
+    /// <summary>被弾した敵を白く光らせるフレーム数。</summary>
+    private const int EnemyFlashFrames = 4;
+
     /// <summary>射撃・構えをやめてからカーソルを向き続けるフレーム数(向きの瞬間反転防止)。</summary>
     private const int AimLingerFrames = 20;
 
@@ -82,7 +86,9 @@ public partial class Main : Node2D
 
     // ヒット演出(すべて表現なので Godot 層に置く。ロジックの Events から駆動する)
     private int _hitstopFrames;
-    private int _enemyFlashFrames;
+
+    /// <summary>被弾フラッシュの残フレーム数。敵 Id ごとに持つ(共有すると全敵が光る)。</summary>
+    private readonly Dictionary<int, int> _enemyFlashFrames = new();
     private readonly List<(System.Numerics.Vector2 Pos, int Frames)> _hitMarkers = [];
     private readonly List<(System.Numerics.Vector2 Pos, int Frames, float Radius)> _burstMarkers =
     [];
@@ -180,6 +186,29 @@ public partial class Main : Node2D
         {
             return;
         }
+        if (_time.IsFrozen)
+        {
+            return;
+        }
+        // ヒットストップ(命中の重み付け)。論理を数フレーム止めるだけの演出なので
+        // 論理 tick ではなく physics フレームで数える(論理を止める側だから同期できない)
+        if (_hitstopFrames > 0)
+        {
+            _hitstopFrames--;
+            return;
+        }
+        AdvanceEffectTimers();
+        _logic.Tick(ReadHumanInput());
+        _time.OnFrame();
+        RefreshView();
+    }
+
+    /// <summary>
+    /// 論理 tick 1 回ぶん演出タイマーを進める。自動 tick と tick コマンドの両方から呼ぶことで、
+    /// freeze + tick でも実時間と同じ歩調で減衰し、見た目の検証が決定論的になる(D-079)。
+    /// </summary>
+    private void AdvanceEffectTimers()
+    {
         for (var i = 0; i < _hitMarkers.Count; i++)
         {
             _hitMarkers[i] = _hitMarkers[i] with { Frames = _hitMarkers[i].Frames - 1 };
@@ -190,23 +219,13 @@ public partial class Main : Node2D
             _burstMarkers[i] = _burstMarkers[i] with { Frames = _burstMarkers[i].Frames - 1 };
         }
         _burstMarkers.RemoveAll(m => m.Frames <= 0);
-        if (_enemyFlashFrames > 0)
+        foreach (var id in _enemyFlashFrames.Keys.ToArray())
         {
-            _enemyFlashFrames--;
+            if (--_enemyFlashFrames[id] <= 0)
+            {
+                _enemyFlashFrames.Remove(id);
+            }
         }
-        if (_time.IsFrozen)
-        {
-            return;
-        }
-        // ヒットストップ(命中の重み付け)。論理を数フレーム止めるだけの演出
-        if (_hitstopFrames > 0)
-        {
-            _hitstopFrames--;
-            return;
-        }
-        _logic.Tick(ReadHumanInput());
-        _time.OnFrame();
-        RefreshView();
     }
 
     /// <summary>
@@ -317,10 +336,9 @@ public partial class Main : Node2D
                     ? new Color(0.55f, 0.25f, 0.6f)
                     : new Color(0.75f, 0.2f, 0.25f);
             var hpRatio = enemy.Hp / (float)maxHp;
-            var color =
-                _enemyFlashFrames > 0
-                    ? new Color(1f, 1f, 1f)
-                    : baseColor * hpRatio + new Color(0.3f, 0.15f, 0.3f);
+            var color = _enemyFlashFrames.ContainsKey(enemy.Id)
+                ? new Color(1f, 1f, 1f)
+                : baseColor * hpRatio + new Color(0.3f, 0.15f, 0.3f);
             DrawCircle(ToScreen(enemy.Pos), radius * ScaleFactor, color);
             // デバフ中は敵の周りに紫のリングを出す(コンボの好機を可視化)
             if (enemy.DebuffTicks > 0)
@@ -616,7 +634,7 @@ public partial class Main : Node2D
                     break;
                 case BattleEventKind.EnemyHit:
                     _hitMarkers.Add((battleEvent.Pos, HitMarkerFrames));
-                    _enemyFlashFrames = 4;
+                    _enemyFlashFrames[battleEvent.EnemyId] = EnemyFlashFrames;
                     _hitstopFrames = 2;
                     break;
                 case BattleEventKind.EnemyKilled:
@@ -851,7 +869,7 @@ public partial class Main : Node2D
         _hitMarkers.Clear();
         _burstMarkers.Clear();
         _hitstopFrames = 0;
-        _enemyFlashFrames = 0;
+        _enemyFlashFrames.Clear();
         _aimLingerFrames = 0;
         _displayFacingAngle = 0f;
         TogglePause();
@@ -887,7 +905,11 @@ public partial class Main : Node2D
                         : new System.Numerics.Vector2(ParseFloat(skillX), ParseFloat(skillY));
                 return ParseInput(args.GetString("input") ?? "", aim, aimPoint);
             },
-            step: input => _logic.Tick(input),
+            step: input =>
+            {
+                AdvanceEffectTimers();
+                _logic.Tick(input);
+            },
             result: () =>
             {
                 RefreshView();
