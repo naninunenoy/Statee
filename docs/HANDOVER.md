@@ -13,7 +13,7 @@
 
 Statee を使ってゲームを作る側(フレームワークを触らない人)は `docs/USING.md` が入口。
 
-## 現在地(2026-07-18 時点)
+## 現在地(2026-07-25 時点)
 
 - フレームワークとサンプル6つ(スイカ / ローグライク / STG / リバーシ / RaidBoss / TodoApp)は
   区切りまで完了し、すべて `main` にマージ済み。ネットワーク同期(Syncee: D-050〜D-059)も
@@ -22,8 +22,10 @@ Statee を使ってゲームを作る側(フレームワークを触らない人
   企画・設計は `games/MessBreak/docs/DESIGN.md` にあり、ドッグフーディングで見えた
   Statee 側の摩擦は `docs/adr/notes/game-dev-feedback-messbreak-slice1.md` を受け皿に、
   対応したら D-xxx / docs へ昇格して消す運用(D-070〜D-077 はこの流れで生まれた)
-- 最新の決定は D-077(CLI `watch`)。未着手の候補は `docs/ARCHITECTURE.md` の
-  「今後の候補」各節と、MessBreak 側は DESIGN.md を参照
+- 最新の決定は D-080(dotee の複数フレーム対応)。MessBreak はコンテンツ企画
+  (`games/MessBreak/docs/SYSTEMS.md`)とアセット素材(`games/MessBreak/art/`)が入り、
+  タイル・敵・設置物の Godot 層への配線が次の表現系スライス。未着手の候補は
+  `docs/ARCHITECTURE.md` の「今後の候補」各節と、MessBreak 側は DESIGN.md / SYSTEMS.md を参照
 
 ## 新しい環境のセットアップ
 

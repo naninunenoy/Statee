@@ -39,5 +39,12 @@ public enum BattleEventKind
 /// <summary>
 /// その tick に起きた出来事。ロジックが「何が起きたか」を決め、Godot 層が音・エフェクトに
 /// 翻訳する(効果音の再生自体は表現なので Godot 層の責務)。状態の差分から推測させない。
+/// <paramref name="EnemyId"/> は敵に紐づく出来事(EnemyHit / EnemyKilled / EnemyDebuffed)で
+/// 対象の <see cref="Enemy.Id"/> を指す。敵に紐づかない出来事では 0。
+/// 演出を特定の敵に結び付けるために必要(Pos だけでは弾の命中位置と敵を対応付けられない)。
 /// </summary>
-public readonly record struct BattleEvent(BattleEventKind Kind, System.Numerics.Vector2 Pos);
+public readonly record struct BattleEvent(
+    BattleEventKind Kind,
+    System.Numerics.Vector2 Pos,
+    int EnemyId = 0
+);
