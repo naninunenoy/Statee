@@ -64,6 +64,18 @@ public partial class Main : Node2D
     /// <summary>描画上の向きの追従率。ロジックの向きは即時で、見た目だけ滑らかに回す。</summary>
     private const float FacingLerp = 0.35f;
 
+    // 歩行シート(art/attacker.sprite.txt)。16x16 のコマを 3 列 × 3 行に並べたもの
+    private const int SpriteCell = 16;
+    private const int SpriteRowDown = 0;
+    private const int SpriteRowUp = 1;
+    private const int SpriteRowSide = 2;
+
+    /// <summary>歩行の列の並び(待機 → 左足 → 待機 → 右足)。</summary>
+    private static readonly int[] WalkColumns = [0, 1, 0, 2];
+
+    /// <summary>歩行 1 コマぶんの論理 tick 数。</summary>
+    private const int WalkTicksPerFrame = 8;
+
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly TimeControl _time = new();
     private readonly GameState _state = new();
@@ -95,6 +107,12 @@ public partial class Main : Node2D
 
     // 向きの表現(ロジックの PlayerFacing は即時。見た目だけ滑らかにする)
     private float _displayFacingAngle;
+
+    /// <summary>歩行位相(論理 tick 単位)。止まっている間は -1 で待機コマに固定。</summary>
+    private int _walkPhase = -1;
+
+    /// <summary>前 tick のプレイヤー位置。動いたかどうかの判定に使う。</summary>
+    private System.Numerics.Vector2 _lastPlayerPos;
 
     // HUD(下部 UI バーと左上のミッションガイド)とポーズメニュー。表示だけの存在なので Godot 層に置く
     private Label _missionLabel = null!;
@@ -158,12 +176,6 @@ public partial class Main : Node2D
     {
         _dispatcher.Pump();
         UpdateCamera();
-        // 見た目の向きは最短弧で滑らかに追従(ロジックの向きは即時)
-        _displayFacingAngle = Mathf.LerpAngle(
-            _displayFacingAngle,
-            MathF.Atan2(_logic.PlayerFacing.Y, _logic.PlayerFacing.X),
-            FacingLerp
-        );
         QueueRedraw();
     }
 
@@ -222,6 +234,17 @@ public partial class Main : Node2D
                 _enemyFlashFrames.Remove(id);
             }
         }
+        // 歩行は「実際に動いたか」で進める。入力ではなく位置差分を見るので、
+        // 壁に押し付けて動けていないときは足が止まる
+        _walkPhase = _logic.PlayerPos == _lastPlayerPos ? -1 : _walkPhase + 1;
+        _lastPlayerPos = _logic.PlayerPos;
+        // 見た目の向きも最短弧で滑らかに追従させる(ロジックの向きは即時)。
+        // 実時間ではなく論理 tick で回すので、freeze + tick で決定的に観測できる(D-079)
+        _displayFacingAngle = Mathf.LerpAngle(
+            _displayFacingAngle,
+            MathF.Atan2(_logic.PlayerFacing.Y, _logic.PlayerFacing.X),
+            FacingLerp
+        );
     }
 
     /// <summary>
@@ -376,13 +399,7 @@ public partial class Main : Node2D
             new Color(1f, 1f, 1f, 0.15f),
             width: 1f
         );
-        var spriteSize = _playerTexture.GetSize() * ScaleFactor;
-        DrawTextureRect(
-            _playerTexture,
-            new Rect2(ToScreen(_logic.PlayerPos) - spriteSize / 2f, spriteSize),
-            tile: false,
-            playerTint
-        );
+        DrawPlayerSprite(displayFacing, playerTint);
         DrawNose(_logic.PlayerPos, displayFacing, config.PlayerRadius, new Color(1f, 0.9f, 0.75f));
 
         // 弾
@@ -585,6 +602,49 @@ public partial class Main : Node2D
         );
     }
 
+    /// <summary>
+    /// 歩行シートのどのコマを描くかを決める。向きで行(正面/背面/横)を、歩行位相で
+    /// 列(待機/左足/右足)を選ぶ。左向きの絵は持たず、横向きの左右反転で賄う。
+    /// 描画と State 公開の両方がここを通るので、画面と State が食い違わない。
+    /// </summary>
+    private (int Row, int Column, bool Mirror) PlayerSpriteCell(System.Numerics.Vector2 facing)
+    {
+        // 斜めは最寄りの 4 方向へスナップする(絵柄が正面向きの疑似 2.5D なので回転はできない)
+        var (row, mirror) =
+            MathF.Abs(facing.X) > MathF.Abs(facing.Y)
+                ? (SpriteRowSide, facing.X < 0f)
+                : (facing.Y > 0f ? SpriteRowDown : SpriteRowUp, false);
+        // 待機 → 左足 → 待機 → 右足 の 4 拍。止まっているときは待機で固定
+        var column =
+            _walkPhase < 0 ? 0 : WalkColumns[_walkPhase / WalkTicksPerFrame % WalkColumns.Length];
+        return (row, column, mirror);
+    }
+
+    /// <summary>現在の見た目の向き(描画に使う滑らかな向き)。</summary>
+    private System.Numerics.Vector2 DisplayFacing =>
+        new(MathF.Cos(_displayFacingAngle), MathF.Sin(_displayFacingAngle));
+
+    /// <summary>
+    /// プレイヤーを歩行シートから 1 コマ選んで描く。
+    /// </summary>
+    private void DrawPlayerSprite(System.Numerics.Vector2 facing, Color tint)
+    {
+        var (row, column, mirror) = PlayerSpriteCell(facing);
+        var src = new Rect2(column * SpriteCell, row * SpriteCell, SpriteCell, SpriteCell);
+        if (mirror)
+        {
+            // 負の幅で左右反転する(左向き用のコマは持たない)
+            src = new Rect2(src.Position.X + SpriteCell, src.Position.Y, -SpriteCell, SpriteCell);
+        }
+        var size = new Vector2(SpriteCell, SpriteCell) * ScaleFactor;
+        DrawTextureRectRegion(
+            _playerTexture,
+            new Rect2(ToScreen(_logic.PlayerPos) - size / 2f, size),
+            src,
+            tint
+        );
+    }
+
     /// <summary>論理座標→描画座標の実効倍率(基本倍率 × カメラズーム)。</summary>
     private float ScaleFactor => Zoom * _camZoom;
 
@@ -761,6 +821,7 @@ public partial class Main : Node2D
         };
 
         // 見た目の State(ui/hud)は、ここで組んだ値の再計算ではなくノードの実表示・実レイアウトから写す
+        var spriteCell = PlayerSpriteCell(DisplayFacing);
         _hudState.Update(
             new HudState.Snapshot(
                 MissionText: _missionLabel.Text,
@@ -775,10 +836,22 @@ public partial class Main : Node2D
                 SwitchText: _switchLabel.Text,
                 UiBarRect: RectText(_uiBar.GetGlobalRect()),
                 GameRect: RectText(GameRect),
-                PauseMenuVisible: _pauseLayer?.Visible ?? false
+                PauseMenuVisible: _pauseLayer?.Visible ?? false,
+                PlayerSpriteDirection: SpriteDirectionName(spriteCell.Row),
+                PlayerSpriteColumn: spriteCell.Column,
+                PlayerSpriteMirrored: spriteCell.Mirror
             )
         );
     }
+
+    /// <summary>歩行シートの行を State 用の名前に写す。</summary>
+    private static string SpriteDirectionName(int row) =>
+        row switch
+        {
+            SpriteRowDown => "down",
+            SpriteRowUp => "up",
+            _ => "side",
+        };
 
     /// <summary>Rect を State 用の "x,y,w,h"(整数丸め)に写す。</summary>
     private static string RectText(Rect2 rect) =>
@@ -851,6 +924,8 @@ public partial class Main : Node2D
         _hitstopFrames = 0;
         _enemyFlashFrames.Clear();
         _displayFacingAngle = 0f;
+        _walkPhase = -1;
+        _lastPlayerPos = _logic.PlayerPos;
         TogglePause();
         RefreshView();
         _logger.ZLogInformation($"ミッションをはじめから(seed={_logic.Seed})");

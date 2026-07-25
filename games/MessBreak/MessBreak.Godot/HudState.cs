@@ -27,10 +27,30 @@ public partial class HudState
         string SwitchText,
         string UiBarRect,
         string GameRect,
-        bool PauseMenuVisible
+        bool PauseMenuVisible,
+        string PlayerSpriteDirection,
+        int PlayerSpriteColumn,
+        bool PlayerSpriteMirrored
     );
 
-    private volatile Snapshot _current = new("", "", "", 0f, "", "", "", "", "", "", "", "", false);
+    private volatile Snapshot _current = new(
+        "",
+        "",
+        "",
+        0f,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        false,
+        "down",
+        0,
+        false
+    );
 
     /// <summary>ゲーム領域左上のミッションガイドに表示中の文字列。</summary>
     [StateeField]
@@ -83,6 +103,21 @@ public partial class HudState
     /// <summary>ポーズメニューが画面に出ているか。</summary>
     [StateeField]
     public bool PauseMenuVisible => _current.PauseMenuVisible;
+
+    /// <summary>
+    /// 描いているプレイヤースプライトの向き("down" / "up" / "side")。
+    /// 向きは常にカーソル方向で、斜めは最寄りの 4 方向へスナップする。
+    /// </summary>
+    [StateeField]
+    public string PlayerSpriteDirection => _current.PlayerSpriteDirection;
+
+    /// <summary>歩行シートの列(0=待機 / 1=左足 / 2=右足)。止まっている間は 0。</summary>
+    [StateeField]
+    public int PlayerSpriteColumn => _current.PlayerSpriteColumn;
+
+    /// <summary>左向きか("side" を左右反転して描いているか)。</summary>
+    [StateeField]
+    public bool PlayerSpriteMirrored => _current.PlayerSpriteMirrored;
 
     /// <summary>メインスレッドから呼ぶ。画面に出ている値・実レイアウトをそのまま渡すこと。</summary>
     public void Update(Snapshot snapshot)
