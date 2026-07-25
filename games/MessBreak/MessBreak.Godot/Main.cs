@@ -76,6 +76,15 @@ public partial class Main : Node2D
     /// <summary>歩行 1 コマぶんの論理 tick 数。</summary>
     private const int WalkTicksPerFrame = 8;
 
+    // 敵シート(art/mob.sprite.txt / art/boss.sprite.txt)。列 = 待機 / 揺れ / 被弾フラッシュ、
+    // 行 = 雑魚は 1 行のみ、強敵は down / up / side(プレイヤースプライトと同じ並び)
+    private const int MobCell = 16;
+    private const int BossCell = 32;
+    private const int EnemySpriteColumnFlash = 2;
+
+    /// <summary>敵の揺れ 1 コマぶんの論理 tick 数。</summary>
+    private const int BobTicksPerFrame = 20;
+
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly TimeControl _time = new();
     private readonly GameState _state = new();
@@ -87,6 +96,16 @@ public partial class Main : Node2D
 
     /// <summary>キャラごとの歩行シート。切り替えでそのまま見た目が変わる。</summary>
     private Dictionary<CharacterId, Texture2D> _characterTextures = null!;
+
+    /// <summary>敵のシート(雑魚・強敵)。</summary>
+    private Texture2D _mobTexture = null!;
+    private Texture2D _bossTexture = null!;
+
+    /// <summary>
+    /// Y ソートして描く対象(敵、または null = プレイヤー)。毎フレーム作り直さないよう使い回す。
+    /// </summary>
+    private readonly List<(float Y, Enemy? Enemy)> _actors = [];
+
     private AudioStreamPlayer _shotPlayer = null!;
     private AudioStreamPlayer _skillPlayer = null!;
 
@@ -346,35 +365,6 @@ public partial class Main : Node2D
             );
         }
 
-        // 敵(残 HP で色を濃くする。被弾直後は白フラッシュ。デバフ中は紫リング)
-        foreach (var enemy in _logic.Enemies)
-        {
-            var maxHp = enemy.Kind == EnemyKind.Mob ? config.MobMaxHp : config.BossMaxHp;
-            var radius = enemy.Kind == EnemyKind.Mob ? config.MobRadius : config.BossRadius;
-            var baseColor =
-                enemy.Kind == EnemyKind.Mob
-                    ? new Color(0.55f, 0.25f, 0.6f)
-                    : new Color(0.75f, 0.2f, 0.25f);
-            var hpRatio = enemy.Hp / (float)maxHp;
-            var color = _enemyFlashFrames.ContainsKey(enemy.Id)
-                ? new Color(1f, 1f, 1f)
-                : baseColor * hpRatio + new Color(0.3f, 0.15f, 0.3f);
-            DrawCircle(ToScreen(enemy.Pos), radius * ScaleFactor, color);
-            // デバフ中は敵の周りに紫のリングを出す(コンボの好機を可視化)
-            if (enemy.DebuffTicks > 0)
-            {
-                DrawArc(
-                    ToScreen(enemy.Pos),
-                    (radius + 4f) * ScaleFactor,
-                    0f,
-                    Mathf.Tau,
-                    32,
-                    new Color(0.8f, 0.4f, 1f, 0.9f),
-                    width: 3f
-                );
-            }
-        }
-
         // プレイヤー(ドッジ中は半透明)。キャラの見分けは専用スプライトが持つ
         var playerTint =
             _logic.PlayerAction == PlayerAction.Dodge
@@ -387,15 +377,39 @@ public partial class Main : Node2D
             MathF.Cos(_displayFacingAngle),
             MathF.Sin(_displayFacingAngle)
         );
-        // 向きは常にカーソルが決めるので、照準線も常に出す
+        // 向きは常にカーソルが決めるので、照準線も常に出す。床の上に敷いてスプライトの下に置く
         DrawLine(
             ToScreen(_logic.PlayerPos),
             ToScreen(_logic.PlayerPos + displayFacing * 60f),
             new Color(1f, 1f, 1f, 0.15f),
             width: 1f
         );
-        DrawPlayerSprite(displayFacing, playerTint);
-        DrawNose(_logic.PlayerPos, displayFacing, config.PlayerRadius, new Color(1f, 0.9f, 0.75f));
+
+        // 立っているものは Y 順に描く(足元が下にあるものほど手前。疑似 2.5D の前後関係)
+        _actors.Clear();
+        foreach (var enemy in _logic.Enemies)
+        {
+            _actors.Add((enemy.Pos.Y, enemy));
+        }
+        _actors.Add((_logic.PlayerPos.Y, null));
+        _actors.Sort(static (a, b) => a.Y.CompareTo(b.Y));
+        foreach (var (_, enemy) in _actors)
+        {
+            if (enemy is null)
+            {
+                DrawPlayerSprite(displayFacing, playerTint);
+                DrawNose(
+                    _logic.PlayerPos,
+                    displayFacing,
+                    config.PlayerRadius,
+                    new Color(1f, 0.9f, 0.75f)
+                );
+            }
+            else
+            {
+                DrawEnemy(enemy);
+            }
+        }
 
         // 弾
         foreach (var bullet in _logic.Bullets)
@@ -469,6 +483,8 @@ public partial class Main : Node2D
             [CharacterId.Attacker] = LoadSheet("attacker"),
             [CharacterId.Debuffer] = LoadSheet("debuffer"),
         };
+        _mobTexture = LoadSheet("mob");
+        _bossTexture = LoadSheet("boss");
         _shotPlayer = new AudioStreamPlayer
         {
             Stream = AudioStreamWav.LoadFromFile(
@@ -606,15 +622,69 @@ public partial class Main : Node2D
     /// </summary>
     private (int Row, int Column, bool Mirror) PlayerSpriteCell(System.Numerics.Vector2 facing)
     {
-        // 斜めは最寄りの 4 方向へスナップする(絵柄が正面向きの疑似 2.5D なので回転はできない)
-        var (row, mirror) =
-            MathF.Abs(facing.X) > MathF.Abs(facing.Y)
-                ? (SpriteRowSide, facing.X < 0f)
-                : (facing.Y > 0f ? SpriteRowDown : SpriteRowUp, false);
+        var (row, mirror) = DirectionCell(facing);
         // 待機 → 左足 → 待機 → 右足 の 4 拍。止まっているときは待機で固定
         var column =
             _walkPhase < 0 ? 0 : WalkColumns[_walkPhase / WalkTicksPerFrame % WalkColumns.Length];
         return (row, column, mirror);
+    }
+
+    /// <summary>
+    /// 向きをシートの行(正面/背面/横)と左右反転へスナップする。絵柄が正面向きの疑似 2.5D で
+    /// スプライトを回転できないため、斜めは最寄りの 4 方向へ寄せ、左向きは横向きの反転で賄う。
+    /// </summary>
+    private static (int Row, bool Mirror) DirectionCell(System.Numerics.Vector2 facing) =>
+        MathF.Abs(facing.X) > MathF.Abs(facing.Y)
+            ? (SpriteRowSide, facing.X < 0f)
+            : (facing.Y > 0f ? SpriteRowDown : SpriteRowUp, false);
+
+    /// <summary>
+    /// 敵を 1 体描く。雑魚は 1 行だけのシート、強敵はプレイヤーを向いた行を選ぶ。
+    /// 被弾中は白シルエットのコマに差し替え、それ以外は残 HP ぶん暗くする。
+    /// </summary>
+    private void DrawEnemy(Enemy enemy)
+    {
+        var mob = enemy.Kind == EnemyKind.Mob;
+        var cell = mob ? MobCell : BossCell;
+        var flashing = _enemyFlashFrames.ContainsKey(enemy.Id);
+        // 強敵は常にプレイヤーを追うので、向きは追跡先で決まる
+        var (row, mirror) = mob ? (0, false) : DirectionCell(_logic.PlayerPos - enemy.Pos);
+        // 揺れは敵ごとに位相をずらす(揃うと群れが機械的に見える)
+        var column = flashing
+            ? EnemySpriteColumnFlash
+            : (_logic.TickCount / BobTicksPerFrame + enemy.Id) % 2;
+
+        var src = new Rect2(column * cell, row * cell, cell, cell);
+        if (mirror)
+        {
+            src = new Rect2(src.Position.X + cell, src.Position.Y, -cell, cell);
+        }
+        var maxHp = mob ? _logic.Config.MobMaxHp : _logic.Config.BossMaxHp;
+        var tint = flashing
+            ? Colors.White
+            : Colors.White.Lerp(new Color(0.5f, 0.42f, 0.5f), 1f - enemy.Hp / (float)maxHp);
+        var size = new Vector2(cell, cell) * ScaleFactor;
+        DrawTextureRectRegion(
+            mob ? _mobTexture : _bossTexture,
+            new Rect2(ToScreen(enemy.Pos) - size / 2f, size),
+            src,
+            tint
+        );
+
+        // デバフ中は敵の周りに紫のリングを出す(コンボの好機を可視化)
+        if (enemy.DebuffTicks > 0)
+        {
+            var radius = mob ? _logic.Config.MobRadius : _logic.Config.BossRadius;
+            DrawArc(
+                ToScreen(enemy.Pos),
+                (radius + 4f) * ScaleFactor,
+                0f,
+                Mathf.Tau,
+                32,
+                new Color(0.8f, 0.4f, 1f, 0.9f),
+                width: 3f
+            );
+        }
     }
 
     /// <summary>現在の見た目の向き(描画に使う滑らかな向き)。</summary>
