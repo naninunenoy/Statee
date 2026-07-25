@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using MessBreak.Logic;
 using Statee.Core;
 
@@ -11,9 +13,17 @@ namespace MessBreak;
 [StateeState("game/messbreak")]
 public partial class GameState
 {
+    /// <summary>
+    /// 生存している敵1体。Id はフレームを跨いで安定(GUIDELINE 3.4)。
+    /// 撃破された敵はリストから消えるため、雑魚の全滅は Kind=Mob の不在で判定できる。
+    /// </summary>
+    public sealed record EnemyEntry(int Id, string Kind, int Hp, float X, float Y, int DebuffTicks);
+
     private sealed record Snapshot(
         int Seed,
         int TickCount,
+        IReadOnlyList<string> StageRows,
+        float TileSize,
         int PlayerHp,
         float PlayerX,
         float PlayerY,
@@ -27,16 +37,11 @@ public partial class GameState
         int AttackerSkillCooldown,
         int DebufferSkillCooldown,
         int BulletCount,
-        int MobHp,
-        int MobDebuffTicks,
+        IReadOnlyList<EnemyEntry> Enemies,
         bool ZoneCaptured,
         bool TurretPlaced,
         int TurretFireCooldown,
         bool BossAppeared,
-        int BossHp,
-        float BossX,
-        float BossY,
-        int BossDebuffTicks,
         bool MissionCleared,
         int ShotCount,
         int HitCount,
@@ -47,6 +52,8 @@ public partial class GameState
     private volatile Snapshot _current = new(
         0,
         0,
+        [],
+        0f,
         0,
         0f,
         0f,
@@ -60,16 +67,11 @@ public partial class GameState
         0,
         0,
         0,
-        0,
-        0,
+        [],
         false,
         false,
         0,
         false,
-        0,
-        0f,
-        0f,
-        0,
         false,
         0,
         0,
@@ -82,6 +84,14 @@ public partial class GameState
 
     [StateeField]
     public int TickCount => _current.TickCount;
+
+    /// <summary>ステージ形状を1行1文字列で公開する('#' が壁、それ以外は床)。</summary>
+    [StateeField]
+    public IReadOnlyList<string> StageRows => _current.StageRows;
+
+    /// <summary>ステージのセル1辺のワールド単位長。座標と StageRows の対応付けに使う。</summary>
+    [StateeField]
+    public float TileSize => _current.TileSize;
 
     /// <summary>プレイヤーの残 HP(減らす手段は未実装で、当面は常に満タン)。</summary>
     [StateeField]
@@ -123,12 +133,9 @@ public partial class GameState
     [StateeField]
     public int BulletCount => _current.BulletCount;
 
-    /// <summary>雑魚の残 HP(0 なら撃破済み)。</summary>
+    /// <summary>生存している敵の全体(雑魚も強敵も含む)。撃破済みの敵は含まれない。</summary>
     [StateeField]
-    public int MobHp => _current.MobHp;
-
-    [StateeField]
-    public int MobDebuffTicks => _current.MobDebuffTicks;
+    public IReadOnlyList<EnemyEntry> Enemies => _current.Enemies;
 
     [StateeField]
     public bool ZoneCaptured => _current.ZoneCaptured;
@@ -141,19 +148,6 @@ public partial class GameState
 
     [StateeField]
     public bool BossAppeared => _current.BossAppeared;
-
-    /// <summary>強敵の残 HP(未出現・撃破済みは 0)。</summary>
-    [StateeField]
-    public int BossHp => _current.BossHp;
-
-    [StateeField]
-    public float BossX => _current.BossX;
-
-    [StateeField]
-    public float BossY => _current.BossY;
-
-    [StateeField]
-    public int BossDebuffTicks => _current.BossDebuffTicks;
 
     [StateeField]
     public bool MissionCleared => _current.MissionCleared;
@@ -174,11 +168,11 @@ public partial class GameState
     /// <summary>メインスレッドから呼ぶ。スナップショットを不可分に差し替える。</summary>
     public void Update(BattleLogic logic, bool paused)
     {
-        var mob = logic.EnemyOf(EnemyKind.Mob);
-        var boss = logic.EnemyOf(EnemyKind.Boss);
         _current = new Snapshot(
             logic.Seed,
             logic.TickCount,
+            logic.Stage.Rows,
+            logic.Stage.TileSize,
             logic.PlayerHp,
             logic.PlayerPos.X,
             logic.PlayerPos.Y,
@@ -192,16 +186,20 @@ public partial class GameState
             logic.SkillCooldownOf(CharacterId.Attacker),
             logic.SkillCooldownOf(CharacterId.Debuffer),
             logic.Bullets.Count,
-            mob?.Hp ?? 0,
-            mob?.DebuffTicks ?? 0,
+            logic
+                .Enemies.Select(e => new EnemyEntry(
+                    e.Id,
+                    e.Kind.ToString(),
+                    e.Hp,
+                    e.Pos.X,
+                    e.Pos.Y,
+                    e.DebuffTicks
+                ))
+                .ToArray(),
             logic.ZoneCaptured,
             logic.TurretPlaced,
             logic.TurretFireCooldown,
             logic.BossAppeared,
-            boss?.Hp ?? 0,
-            boss?.Pos.X ?? 0f,
-            boss?.Pos.Y ?? 0f,
-            boss?.DebuffTicks ?? 0,
             logic.MissionCleared,
             logic.ShotCount,
             logic.HitCount,
