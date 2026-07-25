@@ -96,6 +96,11 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
   参照するのではなく、Godot 層が自分の表示を報告する)。注意: Godot の Control
   レイアウトはフレーム末に確定するため、**起動直後(tick 0)の Rect は仮値**。
   1 tick 進めてから読む。ゲーム内ポーズは `tick` コマンドを止めない(素通りが仕様。D-076)
+- **画面ありで動かすときは、プレイ前に `Paused` を確認し true なら解除して再開する**
+  (`send --command key --arg key=escape` → `Paused` が false になったことを確認)。
+  人がゲーム画面からターミナルへ切り替えるとき Esc を押すので、エージェントが
+  操作していなくてもポーズが入っている。tick は素通りするので進みはするが、
+  画面がポーズ暗幕に覆われスクショが無意味になる(D-076)
 - **本番ビルド(ExportRelease)には TCP 待ち受けを含めない**(D-065)。
   `StateeTcpServer` の起動・停止は `Main.StateeServer.cs`(partial + partial method)に隔離し、
   csproj で `ExportRelease` のとき `Compile Remove` + `Statee.Remote` 参照を条件付きにする。
