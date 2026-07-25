@@ -61,9 +61,6 @@ public partial class Main : Node2D
     /// <summary>被弾した敵を白く光らせるフレーム数。</summary>
     private const int EnemyFlashFrames = 4;
 
-    /// <summary>射撃・構えをやめてからカーソルを向き続けるフレーム数(向きの瞬間反転防止)。</summary>
-    private const int AimLingerFrames = 20;
-
     /// <summary>描画上の向きの追従率。ロジックの向きは即時で、見た目だけ滑らかに回す。</summary>
     private const float FacingLerp = 0.35f;
 
@@ -97,7 +94,6 @@ public partial class Main : Node2D
     private const int BurstMarkerFrames = 18;
 
     // 向きの表現(ロジックの PlayerFacing は即時。見た目だけ滑らかにする)
-    private int _aimLingerFrames;
     private float _displayFacingAngle;
 
     // HUD(下部 UI バーと左上のミッションガイド)とポーズメニュー。表示だけの存在なので Godot 層に置く
@@ -373,16 +369,13 @@ public partial class Main : Node2D
             MathF.Cos(_displayFacingAngle),
             MathF.Sin(_displayFacingAngle)
         );
-        // 照準線はエイム中(構え・射撃・余韻)だけ出す。移動での向き変化を目立たせない
-        if (_aimLingerFrames > 0)
-        {
-            DrawLine(
-                ToScreen(_logic.PlayerPos),
-                ToScreen(_logic.PlayerPos + displayFacing * 60f),
-                new Color(1f, 1f, 1f, 0.15f),
-                width: 1f
-            );
-        }
+        // 向きは常にカーソルが決めるので、照準線も常に出す
+        DrawLine(
+            ToScreen(_logic.PlayerPos),
+            ToScreen(_logic.PlayerPos + displayFacing * 60f),
+            new Color(1f, 1f, 1f, 0.15f),
+            width: 1f
+        );
         var spriteSize = _playerTexture.GetSize() * ScaleFactor;
         DrawTextureRect(
             _playerTexture,
@@ -498,27 +491,14 @@ public partial class Main : Node2D
         {
             dir.Y += 1f;
         }
-        // AimDir を送るのは「構え(右クリック保持)中」か「射撃中」。
-        // 構え=精密モード(ストレイフ+ズーム)、非構えの左クリック=カーソル位置への
-        // クイックショット。どちらでもないときは零を送り、ロジック側で移動方向を向く
-        // (docs/DESIGN.md「向き(構え)の仕様」「左クリックの役割」)
+        // マウスは常にカーソル方向を送る(CS2D 方式)。向きは常にカーソルが決め、
+        // 移動は向きに関与しない。構え(右クリック)はズームと精密射撃の担当で、
+        // 向きには影響しない(docs/DESIGN.md「向きと射撃」)
         var fire =
             Input.IsMouseButtonPressed(MouseButton.Left)
             || Input.IsPhysicalKeyPressed(Key.Z)
             || Input.IsPhysicalKeyPressed(Key.J);
-        // 離した直後もしばらくカーソルを向き続ける(余韻)。連打時のかくつき防止
-        if (Input.IsMouseButtonPressed(MouseButton.Right) || fire)
-        {
-            _aimLingerFrames = AimLingerFrames;
-        }
-        else if (_aimLingerFrames > 0)
-        {
-            _aimLingerFrames--;
-        }
-        var aim =
-            _aimLingerFrames > 0
-                ? ToLogic(GetGlobalMousePosition()) - _logic.PlayerPos
-                : System.Numerics.Vector2.Zero;
+        var aim = ToLogic(GetGlobalMousePosition()) - _logic.PlayerPos;
         return new TickInput(
             dir,
             aim,
@@ -870,7 +850,6 @@ public partial class Main : Node2D
         _burstMarkers.Clear();
         _hitstopFrames = 0;
         _enemyFlashFrames.Clear();
-        _aimLingerFrames = 0;
         _displayFacingAngle = 0f;
         TogglePause();
         RefreshView();

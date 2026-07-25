@@ -164,18 +164,14 @@ public sealed class BattleLogic
     }
 
     /// <summary>
-    /// 向きの更新。エイム入力があればその方向(構え=ストレイフ)、
-    /// なければ移動方向(非構え)。どちらもなければ前回を維持(docs/DESIGN.md「向き(構え)の仕様」)。
+    /// 向きの更新。向きを決めるのはエイム入力だけで、移動は一切関与しない
+    /// (docs/DESIGN.md「向きと射撃」)。エイム入力がなければ前回の向きを維持する。
     /// </summary>
     private void Aim(TickInput input)
     {
         if (input.AimDir != Vector2.Zero)
         {
             PlayerFacing = Vector2.Normalize(input.AimDir);
-        }
-        else if (input.MoveDir != Vector2.Zero)
-        {
-            PlayerFacing = Vector2.Normalize(input.MoveDir);
         }
     }
 
