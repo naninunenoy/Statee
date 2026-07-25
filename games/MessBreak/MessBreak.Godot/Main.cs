@@ -85,7 +85,8 @@ public partial class Main : Node2D
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
 
-    private Texture2D _playerTexture = null!;
+    /// <summary>キャラごとの歩行シート。切り替えでそのまま見た目が変わる。</summary>
+    private Dictionary<CharacterId, Texture2D> _characterTextures = null!;
     private AudioStreamPlayer _shotPlayer = null!;
     private AudioStreamPlayer _skillPlayer = null!;
 
@@ -374,20 +375,14 @@ public partial class Main : Node2D
             }
         }
 
-        // プレイヤー(ドッジ中は半透明)。向き=エイム方向は銃身と細い照準線で見せる
-        // キャラの見分け: アタッカーは素のスプライト、デバッファーは青緑がかったティント
-        // (専用スプライトができるまでの色違い)
-        var characterTint =
-            _logic.ActiveCharacter == CharacterId.Debuffer
-                ? new Color(0.55f, 0.9f, 1f)
-                : Colors.White;
+        // プレイヤー(ドッジ中は半透明)。キャラの見分けは専用スプライトが持つ
         var playerTint =
             _logic.PlayerAction == PlayerAction.Dodge
-                ? characterTint with
+                ? Colors.White with
                 {
                     A = 0.5f,
                 }
-                : characterTint;
+                : Colors.White;
         var displayFacing = new System.Numerics.Vector2(
             MathF.Cos(_displayFacingAngle),
             MathF.Sin(_displayFacingAngle)
@@ -469,9 +464,11 @@ public partial class Main : Node2D
     {
         // ドット絵は最近傍拡大で描く(にじみ防止)
         TextureFilter = TextureFilterEnum.Nearest;
-        _playerTexture = ImageTexture.CreateFromImage(
-            Image.LoadFromFile(ProjectSettings.GlobalizePath("res://../art/attacker.png"))
-        );
+        _characterTextures = new Dictionary<CharacterId, Texture2D>
+        {
+            [CharacterId.Attacker] = LoadSheet("attacker"),
+            [CharacterId.Debuffer] = LoadSheet("debuffer"),
+        };
         _shotPlayer = new AudioStreamPlayer
         {
             Stream = AudioStreamWav.LoadFromFile(
@@ -638,12 +635,21 @@ public partial class Main : Node2D
         }
         var size = new Vector2(SpriteCell, SpriteCell) * ScaleFactor;
         DrawTextureRectRegion(
-            _playerTexture,
+            _characterTextures[PlayerSheetCharacter()],
             new Rect2(ToScreen(_logic.PlayerPos) - size / 2f, size),
             src,
             tint
         );
     }
+
+    /// <summary>どのキャラの歩行シートを描くか。描画と State 公開の両方がここを通る。</summary>
+    private CharacterId PlayerSheetCharacter() => _logic.ActiveCharacter;
+
+    /// <summary>歩行シート(art/&lt;name&gt;.png)を読む。Godot の import 経路は使わない。</summary>
+    private static Texture2D LoadSheet(string name) =>
+        ImageTexture.CreateFromImage(
+            Image.LoadFromFile(ProjectSettings.GlobalizePath($"res://../art/{name}.png"))
+        );
 
     /// <summary>論理座標→描画座標の実効倍率(基本倍率 × カメラズーム)。</summary>
     private float ScaleFactor => Zoom * _camZoom;
@@ -837,6 +843,7 @@ public partial class Main : Node2D
                 UiBarRect: RectText(_uiBar.GetGlobalRect()),
                 GameRect: RectText(GameRect),
                 PauseMenuVisible: _pauseLayer?.Visible ?? false,
+                PlayerSpriteCharacter: PlayerSheetCharacter().ToString(),
                 PlayerSpriteDirection: SpriteDirectionName(spriteCell.Row),
                 PlayerSpriteColumn: spriteCell.Column,
                 PlayerSpriteMirrored: spriteCell.Mirror

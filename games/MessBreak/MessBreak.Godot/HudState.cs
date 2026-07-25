@@ -28,6 +28,7 @@ public partial class HudState
         string UiBarRect,
         string GameRect,
         bool PauseMenuVisible,
+        string PlayerSpriteCharacter,
         string PlayerSpriteDirection,
         int PlayerSpriteColumn,
         bool PlayerSpriteMirrored
@@ -47,6 +48,7 @@ public partial class HudState
         "",
         "",
         false,
+        "Attacker",
         "down",
         0,
         false
@@ -103,6 +105,13 @@ public partial class HudState
     /// <summary>ポーズメニューが画面に出ているか。</summary>
     [StateeField]
     public bool PauseMenuVisible => _current.PauseMenuVisible;
+
+    /// <summary>
+    /// どのキャラの歩行シートを選んで描いているか("Attacker" / "Debuffer")。
+    /// 描画と同じ判定を通すので、シート選択が切り替えに追従しているかを確認できる。
+    /// </summary>
+    [StateeField]
+    public string PlayerSpriteCharacter => _current.PlayerSpriteCharacter;
 
     /// <summary>
     /// 描いているプレイヤースプライトの向き("down" / "up" / "side")。
