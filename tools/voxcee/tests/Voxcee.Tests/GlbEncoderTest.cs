@@ -31,4 +31,20 @@ public class GlbEncoderTest
         var binTypeOffset = 12 + 8 + jsonLength;
         Encoding.ASCII.GetString(glb, binTypeOffset + 4, 3).ShouldBe("BIN");
     }
+
+    [Fact]
+    public void 属性名POSITIONが大文字のまま残る()
+    {
+        var mesh = MeshBuilder.Build(
+            VoxelModel.FromVoxels([new Voxel(0, 0, 0, new Rgba(0xFF, 0, 0, 0xFF))])
+        );
+        var glb = GlbEncoder.Encode(mesh);
+        var jsonLength = BinaryPrimitives.ReadInt32LittleEndian(glb.AsSpan(12));
+        var json = Encoding.UTF8.GetString(glb, 20, jsonLength).TrimEnd();
+
+        json.ShouldContain("\"POSITION\"");
+        json.ShouldContain("\"NORMAL\"");
+        json.ShouldContain("\"COLOR_0\"");
+        // Shouldly の ShouldNotContain は既定で大小無視なので、Contains で十分
+    }
 }

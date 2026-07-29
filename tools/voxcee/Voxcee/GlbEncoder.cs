@@ -43,11 +43,13 @@ public static class GlbEncoder
                     {
                         new
                         {
-                            attributes = new
+                            // 属性名は glTF 仕様どおり大文字。CamelCase ポリシーが
+                            // POSITION → pOSITION に壊すのを避けるため Dictionary キーで書く
+                            attributes = new Dictionary<string, int>
                             {
-                                POSITION = 0,
-                                NORMAL = 1,
-                                COLOR_0 = 2,
+                                ["POSITION"] = 0,
+                                ["NORMAL"] = 1,
+                                ["COLOR_0"] = 2,
                             },
                             indices = 3,
                             mode = 4,

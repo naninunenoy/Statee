@@ -539,6 +539,11 @@ public partial class Main : Node3D
 
     private void SyncWorld()
     {
+        if (_playerNode is null)
+        {
+            return;
+        }
+
         // プレイヤー
         _playerNode.Position = ToWorld(_logic.PlayerPos);
         var facing = _logic.PlayerFacing;
