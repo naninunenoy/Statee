@@ -1,15 +1,17 @@
 #!/bin/sh
-# PostToolUse hook: .cs ファイルの編集後に dotnet format と CSharpier を実行する
+# PostToolUse / afterFileEdit hook: .cs 編集後に dotnet format と CSharpier を実行する
 # macOS / Linux / Windows (Git Bash) 用。Git Bash の無い Windows 環境では format-cs.ps1 を使う
-# stdin: フックペイロード JSON(tool_input.file_path を参照)
+# stdin: Claude Code(PostToolUse: tool_input.file_path) または Cursor(afterFileEdit: file_path)
 
 payload=$(cat)
 
-# tool_input.file_path を抽出(jq があれば jq、無ければ sed でフォールバック)
+# file_path を抽出(Claude Code / Cursor 両対応。jq があれば jq、無ければ sed)
 if command -v jq >/dev/null 2>&1; then
-  file_path=$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty')
+  file_path=$(printf '%s' "$payload" | jq -r '.tool_input.file_path // .file_path // empty')
+  workspace_root=$(printf '%s' "$payload" | jq -r '.workspace_roots[0] // empty')
 else
-  file_path=$(printf '%s' "$payload" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+  file_path=$(printf '%s' "$payload" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+  workspace_root=""
 fi
 [ -n "$file_path" ] || exit 0
 
@@ -21,7 +23,11 @@ case "$file_path" in
   *) exit 0 ;;
 esac
 
-project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+if [ -n "$workspace_root" ]; then
+  project_dir="$workspace_root"
+else
+  project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+fi
 project_dir=$(printf '%s' "$project_dir" | tr '\\' '/' | tr -s '/')
 cd "$project_dir" 2>/dev/null || exit 0
 proj=$(pwd)
