@@ -1,0 +1,64 @@
+# タレット。変換: dotnet run --project tools/voxcee/Voxcee -- render -i games/MessBreak/art/turret.voxel.txt
+palette:
+. = #00000000
+B = #3A4A3C
+b = #2A3830
+G = #6A8A70
+M = #C8D0C0
+R = #E05040
+layers:
+..BBBB..
+.BBBBBB.
+.BBBBBB.
+.BBBBBB.
+.BBBBBB.
+..BBBB..
+
+..bbbb..
+.bBBBBb.
+.bBBBBb.
+.bBBBBb.
+.bBBBBb.
+..bbbb..
+
+...GG...
+..GGGG..
+..GGGG..
+..GGGG..
+..GGGG..
+...GG...
+
+...GG...
+..GMMG..
+..GMMG..
+..GMMG..
+..GMMG..
+...GG...
+
+....G...
+...GMG..
+...GMG..
+...GMG..
+...GMG..
+....G...
+
+....G...
+...GMG..
+...GMG..
+...GMG..
+...GMG..
+....G...
+
+....R...
+...RRR..
+...RRR..
+...RRR..
+...RRR..
+....R...
+
+....R...
+....R...
+....R...
+....R...
+....R...
+....R...

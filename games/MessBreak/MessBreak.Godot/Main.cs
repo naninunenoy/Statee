@@ -11,90 +11,44 @@ using ZLogger;
 namespace MessBreak;
 
 /// <summary>
-/// MessBreak の Godot 層エントリポイント。描画・入力→TickInput 変換・Statee 配線
+/// MessBreak の Godot 層エントリポイント(3D TPS)。描画・入力→TickInput 変換・Statee 配線
 /// だけを担い、ゲームルールはすべて MessBreak.Logic に置く(docs/USING.md「境界の掟」)。
-/// 論理は _PhysicsProcess(60Hz)で 1 Tick ずつ進む固定タイムステップ(ShootingGame の D-048 と同型)。
+/// 論理は _PhysicsProcess(60Hz)で 1 Tick。論理座標は 2D(X,Y)のまま、
+/// 表示は Logic(X,Y) → World(X, 0, Y) に写す。モデルは voxcee 生成の GLB。
 /// </summary>
-public partial class Main : Node2D
+public partial class Main : Node3D
 {
     private const int DefaultPort = 9310;
     private const int DefaultSeed = 12345;
-
-    /// <summary>tick コマンド1回で進められる上限(暴走防止。60Hz の1分ぶん)。</summary>
     private const int MaxTickFrames = 3600;
-
-    /// <summary>論理座標→描画座標の基本倍率(カメラズーム 1.0 のとき)。</summary>
-    private const float Zoom = 3f;
 
     /// <summary>UI バー(画面下部)の高さ。ゲーム画面はウィンドウからこの帯を除いた領域。</summary>
     private const float UiBarHeight = 96f;
 
-    /// <summary>
-    /// ゲーム画面領域(ウィンドウから下部 UI バーを除いた部分)。HUD はこの外に置く。
-    /// ストレッチは使わず、UI は実ピクセルで一定・ゲームはウィンドウが広いほど視界が広がる。
-    /// </summary>
-    private Rect2 GameRect
-    {
-        get
-        {
-            var window = GetViewportRect().Size;
-            return new Rect2(0f, 0f, window.X, window.Y - UiBarHeight);
-        }
-    }
-
-    /// <summary>ゲーム画面中心の描画座標。</summary>
-    private Vector2 ScreenCenter => GameRect.GetCenter();
-
-    /// <summary>カメラをプレイヤーからカーソル側へ寄せる割合(非構え / 構え)。</summary>
-    private const float LookAheadWeight = 0.12f;
-    private const float LookAheadWeightAds = 0.3f;
-
-    /// <summary>カメラ位置の追従率(毎フレーム)。小さいほどゆっくり=揺れにくい。</summary>
-    private const float CameraLerp = 0.06f;
-
-    /// <summary>構え(右クリック)中のズーム倍率。覗き込みの 2D 翻訳。</summary>
-    private const float AdsZoom = 1.15f;
-
-    /// <summary>ヒットマーカーの表示フレーム数。</summary>
+    private const float HpBarWidth = 200f;
     private const int HitMarkerFrames = 12;
-
-    /// <summary>被弾した敵を白く光らせるフレーム数。</summary>
     private const int EnemyFlashFrames = 4;
+    private const int BurstMarkerFrames = 18;
 
-    /// <summary>描画上の向きの追従率。ロジックの向きは即時で、見た目だけ滑らかに回す。</summary>
-    private const float FacingLerp = 0.35f;
+    /// <summary>マウス感度(ラジアン / ピクセル)。</summary>
+    private const float MouseSensitivity = 0.0035f;
 
-    // 歩行シート(art/attacker.sprite.txt)。16x16 のコマを 3 列 × 3 行に並べたもの
-    private const int SpriteCell = 16;
-    private const int SpriteRowDown = 0;
-    private const int SpriteRowUp = 1;
-    private const int SpriteRowSide = 2;
+    private const float PitchMin = -0.55f;
+    private const float PitchMax = 0.35f;
 
-    /// <summary>歩行の列の並び(待機 → 左足 → 待機 → 右足)。</summary>
-    private static readonly int[] WalkColumns = [0, 1, 0, 2];
+    private const float CameraDistance = 28f;
+    private const float CameraDistanceAds = 16f;
+    private const float CameraHeight = 14f;
+    private const float CameraShoulder = 6f;
+    private const float CameraFov = 70f;
+    private const float CameraFovAds = 50f;
+    private const float CameraLerp = 0.18f;
 
-    /// <summary>歩行 1 コマぶんの論理 tick 数。</summary>
-    private const int WalkTicksPerFrame = 8;
+    /// <summary>ボクセルモデルの基準スケール(1 voxel → ワールド単位)。</summary>
+    private const float VoxelScale = 2.5f;
 
-    // 敵シート(art/mob.sprite.txt / art/boss.sprite.txt)。列 = 待機 / 揺れ / 被弾フラッシュ、
-    // 行 = 雑魚は 1 行のみ、強敵は down / up / side(プレイヤースプライトと同じ並び)
-    private const int MobCell = 16;
-    private const int BossCell = 32;
-    private const int EnemySpriteColumnFlash = 2;
-
-    /// <summary>敵の揺れ 1 コマぶんの論理 tick 数。</summary>
-    private const int BobTicksPerFrame = 20;
-
-    // 床・壁のタイルシート(art/tiles.sprite.txt)。1 コマ = ステージ 1 マス
-    private const int TileCell = 40;
-    private const int TileSheetRowFloor = 0;
-    private const int TileSheetRowWall = 1;
-
-    /// <summary>同じ用途の見た目違いの数(シートの列数)。</summary>
-    private const int TileSheetColumns = 4;
-
-    /// <summary>壁が下隣の床へ落とす影の深さ(ワールド単位)。</summary>
-    private const float WallShadowDepth = 6f;
+    /// <summary>床・壁タイルの XY スケール(8 voxel → TileSize 40)。</summary>
+    private const float TileVoxelScale = 5f;
 
     private readonly MainThreadDispatcher _dispatcher = new();
     private readonly TimeControl _time = new();
@@ -105,50 +59,48 @@ public partial class Main : Node2D
     private ILoggerFactory? _loggerFactory;
     private ILogger _logger = null!;
 
-    /// <summary>キャラごとの歩行シート。切り替えでそのまま見た目が変わる。</summary>
-    private Dictionary<CharacterId, Texture2D> _characterTextures = null!;
+    private Node3D _world = null!;
+    private Node3D _stageRoot = null!;
+    private Node3D _actorsRoot = null!;
+    private Node3D _fxRoot = null!;
+    private Camera3D _camera = null!;
+    private Node3D _playerNode = null!;
+    private Node3D? _attackerModel;
+    private Node3D? _debufferModel;
+    private Node3D? _turretNode;
+    private Node3D? _bossSpawnMarker;
+    private Node3D? _turretSlotMarker;
 
-    /// <summary>床・壁のタイルシート。</summary>
-    private Texture2D _tileTexture = null!;
-
-    /// <summary>敵のシート(雑魚・強敵)。</summary>
-    private Texture2D _mobTexture = null!;
-    private Texture2D _bossTexture = null!;
-
-    /// <summary>
-    /// Y ソートして描く対象(敵、または null = プレイヤー)。毎フレーム作り直さないよう使い回す。
-    /// </summary>
-    private readonly List<(float Y, Enemy? Enemy)> _actors = [];
+    private readonly Dictionary<int, Node3D> _enemyNodes = new();
+    private readonly Dictionary<int, MeshInstance3D> _bulletNodes = new();
+    private Node3D _floorProto = null!;
+    private Node3D _wallProto = null!;
+    private Node3D _mobProto = null!;
+    private Node3D _bossProto = null!;
+    private Node3D _turretProto = null!;
+    private Node3D _attackerProto = null!;
+    private Node3D _debufferProto = null!;
 
     private AudioStreamPlayer _shotPlayer = null!;
     private AudioStreamPlayer _skillPlayer = null!;
 
-    // カメラ(論理座標系。エイム側へ寄り、構えで少し拡大する)
-    private System.Numerics.Vector2 _camPos;
-    private float _camZoom = 1f;
+    // TPS カメラ(マウスルック)。yaw=0 で Logic Facing=(1,0)=ワールド +X
+    private float _yaw;
+    private float _pitch;
+    private float _camDistance = CameraDistance;
+    private float _camFov = CameraFov;
+    private Vector3 _camPos;
 
-    // ヒット演出(すべて表現なので Godot 層に置く。ロジックの Events から駆動する)
     private int _hitstopFrames;
-
-    /// <summary>被弾フラッシュの残フレーム数。敵 Id ごとに持つ(共有すると全敵が光る)。</summary>
     private readonly Dictionary<int, int> _enemyFlashFrames = new();
     private readonly List<(System.Numerics.Vector2 Pos, int Frames)> _hitMarkers = [];
     private readonly List<(System.Numerics.Vector2 Pos, int Frames, float Radius)> _burstMarkers =
     [];
+    private readonly List<MeshInstance3D> _hitMarkerMeshes = [];
+    private readonly List<MeshInstance3D> _burstMeshes = [];
 
-    /// <summary>スキル爆発リングの表示フレーム数。</summary>
-    private const int BurstMarkerFrames = 18;
-
-    // 向きの表現(ロジックの PlayerFacing は即時。見た目だけ滑らかにする)
-    private float _displayFacingAngle;
-
-    /// <summary>歩行位相(論理 tick 単位)。止まっている間は -1 で待機コマに固定。</summary>
-    private int _walkPhase = -1;
-
-    /// <summary>前 tick のプレイヤー位置。動いたかどうかの判定に使う。</summary>
     private System.Numerics.Vector2 _lastPlayerPos;
 
-    // HUD(下部 UI バーと左上のミッションガイド)とポーズメニュー。表示だけの存在なので Godot 層に置く
     private Label _missionLabel = null!;
     private Panel _uiBar = null!;
     private Label _hpLabel = null!;
@@ -157,24 +109,25 @@ public partial class Main : Node2D
     private Label _char1Label = null!;
     private Label _char2Label = null!;
     private Label _switchLabel = null!;
+    private Control _crosshair = null!;
     private CanvasLayer _pauseLayer = null!;
     private Button _resumeButton = null!;
-
-    /// <summary>HP バーの塗り部分の最大幅(実ピクセル)。</summary>
-    private const float HpBarWidth = 200f;
-
-    /// <summary>ポーズメニュー(Esc)で論理 tick を止めているか。Statee の freeze とは独立。</summary>
     private bool _paused;
+    private bool _ads;
+
+    private Rect2 GameRect
+    {
+        get
+        {
+            var window = GetViewport().GetVisibleRect().Size;
+            return new Rect2(0f, 0f, window.X, window.Y - UiBarHeight);
+        }
+    }
 
     public override void _Ready()
     {
-        // freeze 中も Statee のコマンド処理(Pump)を動かし続ける
         ProcessMode = ProcessModeEnum.Always;
 
-        // OS カーソルは隠し、_Draw で自前のレティクルを描く
-        Input.MouseMode = Input.MouseModeEnum.Hidden;
-
-        // UI バーが画面を食い潰さない程度の下限(headless では Window が無いので触らない)
         if (GetWindow() is { } window)
         {
             window.MinSize = new Vector2I(640, 360);
@@ -189,28 +142,36 @@ public partial class Main : Node2D
             Stages.Room1(),
             CmdlineArgs.ParseInt("--seed=", DefaultSeed)
         );
-        _camPos = _logic.PlayerPos;
+        _yaw = MathF.Atan2(_logic.PlayerFacing.Y, _logic.PlayerFacing.X);
+        _lastPlayerPos = _logic.PlayerPos;
+        _camPos = ToWorld(_logic.PlayerPos) + Vector3.Up * CameraHeight;
 
-        // 起動直後から実時間で tick が進むと接続タイミングで盤面が変わるため、
-        // 再現シナリオでは --frozen で tick 0 から凍結した状態で始められる(D-073)
         if (CmdlineArgs.HasFlag("--frozen"))
         {
             _time.Freeze();
         }
 
+        BuildWorld();
         LoadAssets();
+        BuildStage();
+        BuildPlayer();
+        BuildMarkers();
         BuildHud();
         BuildPauseMenu();
+        ApplyMouseMode();
         RefreshView();
         StartStatee(buffer);
-        _logger.ZLogInformation($"MessBreak 起動 seed={_logic.Seed}");
+        _logger.ZLogInformation($"MessBreak 3D TPS 起動 seed={_logic.Seed}");
     }
 
     public override void _Process(double delta)
     {
         _dispatcher.Pump();
-        UpdateCamera();
-        QueueRedraw();
+        if (!_paused)
+        {
+            UpdateCamera();
+        }
+        SyncWorld();
     }
 
     public override void _Input(InputEvent @event)
@@ -218,22 +179,29 @@ public partial class Main : Node2D
         if (@event is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape })
         {
             TogglePause();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        if (_paused)
+        {
+            return;
+        }
+
+        if (@event is InputEventMouseMotion motion && Input.MouseMode == Input.MouseModeEnum.Captured)
+        {
+            _yaw += motion.Relative.X * MouseSensitivity;
+            _pitch = Math.Clamp(_pitch - motion.Relative.Y * MouseSensitivity, PitchMin, PitchMax);
+            GetViewport().SetInputAsHandled();
         }
     }
 
     public override void _PhysicsProcess(double delta)
     {
-        // ポーズ中は論理も演出タイマーも止める(Statee のコマンド処理だけ _Process で動き続ける)
-        if (_paused)
+        if (_paused || _time.IsFrozen)
         {
             return;
         }
-        if (_time.IsFrozen)
-        {
-            return;
-        }
-        // ヒットストップ(命中の重み付け)。論理を数フレーム止めるだけの演出なので
-        // 論理 tick ではなく physics フレームで数える(論理を止める側だから同期できない)
         if (_hitstopFrames > 0)
         {
             _hitstopFrames--;
@@ -245,10 +213,12 @@ public partial class Main : Node2D
         RefreshView();
     }
 
-    /// <summary>
-    /// 論理 tick 1 回ぶん演出タイマーを進める。自動 tick と tick コマンドの両方から呼ぶことで、
-    /// freeze + tick でも実時間と同じ歩調で減衰し、見た目の検証が決定論的になる(D-079)。
-    /// </summary>
+    public override void _ExitTree()
+    {
+        StopStateeServer();
+        _loggerFactory?.Dispose();
+    }
+
     private void AdvanceEffectTimers()
     {
         for (var i = 0; i < _hitMarkers.Count; i++)
@@ -268,238 +238,185 @@ public partial class Main : Node2D
                 _enemyFlashFrames.Remove(id);
             }
         }
-        // 歩行は「実際に動いたか」で進める。入力ではなく位置差分を見るので、
-        // 壁に押し付けて動けていないときは足が止まる
-        _walkPhase = _logic.PlayerPos == _lastPlayerPos ? -1 : _walkPhase + 1;
         _lastPlayerPos = _logic.PlayerPos;
-        // 見た目の向きも最短弧で滑らかに追従させる(ロジックの向きは即時)。
-        // 実時間ではなく論理 tick で回すので、freeze + tick で決定的に観測できる(D-079)
-        _displayFacingAngle = Mathf.LerpAngle(
-            _displayFacingAngle,
-            MathF.Atan2(_logic.PlayerFacing.Y, _logic.PlayerFacing.X),
-            FacingLerp
-        );
     }
 
     /// <summary>
-    /// カメラをプレイヤーとカーソルの間へ置き、エイムした方へ視界が伸びるようにする。
-    /// 構え(右クリック)中は寄りを強め、わずかにズームイン(TPS の覗き込みの 2D 翻訳)。
+    /// 肩越し TPS カメラ。向きはマウスルックの yaw/pitch。構え中は寄りと FOV を絞る。
     /// </summary>
     private void UpdateCamera()
     {
-        var ads = Input.IsMouseButtonPressed(MouseButton.Right);
-        var aimPoint = ToLogic(GetGlobalMousePosition());
-        var weight = ads ? LookAheadWeightAds : LookAheadWeight;
-        var desired = _logic.PlayerPos + (aimPoint - _logic.PlayerPos) * weight;
+        _ads = Input.IsMouseButtonPressed(MouseButton.Right);
+        var distTarget = _ads ? CameraDistanceAds : CameraDistance;
+        var fovTarget = _ads ? CameraFovAds : CameraFov;
+        _camDistance += (distTarget - _camDistance) * 0.15f;
+        _camFov += (fovTarget - _camFov) * 0.15f;
+        _camera.Fov = _camFov;
 
-        var zoomTarget = ads ? AdsZoom : 1f;
-        _camZoom += (zoomTarget - _camZoom) * 0.1f;
-
-        // 画面が部屋の外を映さない範囲にクランプ。
-        // 視界が部屋より広い(大きなウィンドウ)軸は部屋の中心に固定する
-        var halfW = ScreenCenter.X / ScaleFactor;
-        var halfH = ScreenCenter.Y / ScaleFactor;
-        desired = new System.Numerics.Vector2(
-            ClampCameraAxis(desired.X, halfW, _logic.Stage.Width),
-            ClampCameraAxis(desired.Y, halfH, _logic.Stage.Height)
-        );
+        var forward = Facing3();
+        var right = new Vector3(-forward.Z, 0f, forward.X);
+        var player = ToWorld(_logic.PlayerPos) + Vector3.Up * 10f;
+        var desired =
+            player
+            - forward * _camDistance * MathF.Cos(_pitch)
+            + Vector3.Up * (_camDistance * MathF.Sin(_pitch) + CameraHeight * 0.2f)
+            + right * CameraShoulder;
         _camPos += (desired - _camPos) * CameraLerp;
+        _camera.GlobalPosition = _camPos;
+        _camera.LookAt(player + forward * 8f, Vector3.Up);
     }
 
-    /// <summary>カメラ中心の1軸クランプ。視界の半分が部屋の半分を超えるなら中心固定。</summary>
-    private static float ClampCameraAxis(float value, float halfView, float roomSize) =>
-        halfView * 2f >= roomSize
-            ? roomSize / 2f
-            : Math.Clamp(value, halfView, roomSize - halfView);
+    /// <summary>論理座標(X,Y)をワールド(X,0,Y)へ。</summary>
+    private static Vector3 ToWorld(System.Numerics.Vector2 pos, float y = 0f) =>
+        new(pos.X, y, pos.Y);
 
-    public override void _Draw()
+    /// <summary>水平面の向き(マウス yaw)。Logic Facing = (cos yaw, sin yaw)。</summary>
+    private System.Numerics.Vector2 Facing2() => new(MathF.Cos(_yaw), MathF.Sin(_yaw));
+
+    private Vector3 Facing3()
     {
-        var config = _logic.Config;
-
-        // 床と壁(タイルシートから 1 マスずつ)
-        var stage = _logic.Stage;
-        var tileSize = stage.TileSize * ScaleFactor;
-        for (var row = 0; row < stage.Rows.Count; row++)
-        {
-            for (var col = 0; col < stage.Rows[row].Length; col++)
-            {
-                var solid = stage.IsSolidCell(col, row);
-                var topLeft = ToScreen(
-                    new System.Numerics.Vector2(col * stage.TileSize, row * stage.TileSize)
-                );
-                DrawTextureRectRegion(
-                    _tileTexture,
-                    new Rect2(topLeft, new Vector2(tileSize, tileSize)),
-                    TileSource(solid ? TileSheetRowWall : TileSheetRowFloor, col, row)
-                );
-                // 壁の下隣が床なら、そこへ影を落とす(壁に厚みを感じさせる)
-                if (!solid && row > 0 && stage.IsSolidCell(col, row - 1))
-                {
-                    DrawRect(
-                        new Rect2(topLeft, new Vector2(tileSize, WallShadowDepth * ScaleFactor)),
-                        new Color(0f, 0f, 0f, 0.45f)
-                    );
-                }
-            }
-        }
-
-        // 設置スロット(制圧後に見える。設置済みは塗り、未設置は枠だけ)
-        if (_logic.ZoneCaptured)
-        {
-            var slotScreen = ToScreen(stage.TurretSlot);
-            var half = 8f * ScaleFactor;
-            var slotRect = new Rect2(
-                slotScreen - new Vector2(half, half),
-                new Vector2(half * 2f, half * 2f)
-            );
-            if (_logic.TurretPlaced)
-            {
-                DrawRect(slotRect, new Color(0.45f, 0.8f, 0.5f));
-                DrawCircle(slotScreen, 3f * ScaleFactor, new Color(0.2f, 0.35f, 0.25f));
-            }
-            else
-            {
-                DrawRect(slotRect, new Color(0.45f, 0.8f, 0.5f, 0.8f), filled: false, width: 2f);
-            }
-        }
-
-        // 強敵の出現ポイント(アトラクト前だけ菱形マーカーを出す)
-        if (!_logic.BossAppeared)
-        {
-            var spawnScreen = ToScreen(stage.BossSpawn);
-            var r = 6f * ScaleFactor;
-            DrawPolygon(
-                [
-                    spawnScreen + new Vector2(0, -r),
-                    spawnScreen + new Vector2(r, 0),
-                    spawnScreen + new Vector2(0, r),
-                    spawnScreen + new Vector2(-r, 0),
-                ],
-                [new Color(1f, 0.35f, 0.35f, 0.75f)]
-            );
-        }
-
-        // プレイヤー(ドッジ中は半透明)。キャラの見分けは専用スプライトが持つ
-        var playerTint =
-            _logic.PlayerAction == PlayerAction.Dodge
-                ? Colors.White with
-                {
-                    A = 0.5f,
-                }
-                : Colors.White;
-        var displayFacing = new System.Numerics.Vector2(
-            MathF.Cos(_displayFacingAngle),
-            MathF.Sin(_displayFacingAngle)
-        );
-        // 向きは常にカーソルが決めるので、照準線も常に出す。床の上に敷いてスプライトの下に置く
-        DrawLine(
-            ToScreen(_logic.PlayerPos),
-            ToScreen(_logic.PlayerPos + displayFacing * 60f),
-            new Color(1f, 1f, 1f, 0.15f),
-            width: 1f
-        );
-
-        // 立っているものは Y 順に描く(足元が下にあるものほど手前。疑似 2.5D の前後関係)
-        _actors.Clear();
-        foreach (var enemy in _logic.Enemies)
-        {
-            _actors.Add((enemy.Pos.Y, enemy));
-        }
-        _actors.Add((_logic.PlayerPos.Y, null));
-        _actors.Sort(static (a, b) => a.Y.CompareTo(b.Y));
-        foreach (var (_, enemy) in _actors)
-        {
-            if (enemy is null)
-            {
-                DrawPlayerSprite(displayFacing, playerTint);
-                DrawNose(
-                    _logic.PlayerPos,
-                    displayFacing,
-                    config.PlayerRadius,
-                    new Color(1f, 0.9f, 0.75f)
-                );
-            }
-            else
-            {
-                DrawEnemy(enemy);
-            }
-        }
-
-        // 弾
-        foreach (var bullet in _logic.Bullets)
-        {
-            DrawCircle(
-                ToScreen(bullet.Pos),
-                config.BulletRadius * ScaleFactor,
-                new Color(1f, 0.85f, 0.4f)
-            );
-        }
-
-        // スキル爆発(爆心に半径いっぱいまで広がるリング)
-        foreach (var (pos, frames, radius) in _burstMarkers)
-        {
-            var t = 1f - frames / (float)BurstMarkerFrames;
-            DrawArc(
-                ToScreen(pos),
-                radius * t * ScaleFactor,
-                0f,
-                Mathf.Tau,
-                48,
-                new Color(1f, 0.6f, 0.25f, 1f - t),
-                width: 4f
-            );
-        }
-
-        // ヒットマーカー(命中位置に広がって消えるリング)
-        foreach (var (pos, frames) in _hitMarkers)
-        {
-            var t = 1f - frames / (float)HitMarkerFrames;
-            DrawArc(
-                ToScreen(pos),
-                (4f + 8f * t) * ScaleFactor,
-                0f,
-                Mathf.Tau,
-                24,
-                new Color(1f, 1f, 1f, 1f - t),
-                width: 2f
-            );
-        }
-
-        // 画面外の敵の方向インジケーター(画面端の三角矢印)
-        foreach (var enemy in _logic.Enemies)
-        {
-            DrawOffscreenIndicator(ToScreen(enemy.Pos));
-        }
-
-        // レティクル(OS カーソルの代わり)。ポーズ中はメニュー操作用に OS カーソルを出すので消す
-        if (!_paused)
-        {
-            DrawReticle(GetGlobalMousePosition(), Input.IsMouseButtonPressed(MouseButton.Right));
-        }
+        var f = Facing2();
+        return new Vector3(f.X, 0f, f.Y);
     }
 
-    public override void _ExitTree()
+    /// <summary>カメラ中心レイと床(Y=0)の交点を論理座標で返す。</summary>
+    private System.Numerics.Vector2 AimPointOnFloor()
     {
-        StopStateeServer();
-        _loggerFactory?.Dispose();
+        var origin = _camera.GlobalPosition;
+        var dir = -_camera.GlobalTransform.Basis.Z;
+        if (MathF.Abs(dir.Y) < 1e-4f)
+        {
+            var f = Facing2();
+            return _logic.PlayerPos + f * 80f;
+        }
+        var t = -origin.Y / dir.Y;
+        if (t < 0f)
+        {
+            var f = Facing2();
+            return _logic.PlayerPos + f * 80f;
+        }
+        var hit = origin + dir * t;
+        return new System.Numerics.Vector2(hit.X, hit.Z);
     }
 
-    /// <summary>
-    /// スプライトと効果音を実行時ロードする。定義テキスト(art/*.sprite.txt, audio/*.sfx.txt)が
-    /// 単一ソースで、生成物をゲームディレクトリから直接読む(Godot の import 経路を使わない)。
-    /// </summary>
+    private TickInput ReadHumanInput()
+    {
+        // WASD はカメラ向き基準(TPS)。エージェントの tick トークンはワールド絶対のまま
+        var local = System.Numerics.Vector2.Zero;
+        if (Input.IsPhysicalKeyPressed(Key.A))
+        {
+            local.X -= 1f;
+        }
+        if (Input.IsPhysicalKeyPressed(Key.D))
+        {
+            local.X += 1f;
+        }
+        if (Input.IsPhysicalKeyPressed(Key.W))
+        {
+            local.Y += 1f;
+        }
+        if (Input.IsPhysicalKeyPressed(Key.S))
+        {
+            local.Y -= 1f;
+        }
+        // 矢印も WASD と同じ相対移動
+        if (Input.IsPhysicalKeyPressed(Key.Left))
+        {
+            local.X -= 1f;
+        }
+        if (Input.IsPhysicalKeyPressed(Key.Right))
+        {
+            local.X += 1f;
+        }
+        if (Input.IsPhysicalKeyPressed(Key.Up))
+        {
+            local.Y += 1f;
+        }
+        if (Input.IsPhysicalKeyPressed(Key.Down))
+        {
+            local.Y -= 1f;
+        }
+
+        var forward = Facing2();
+        var right = new System.Numerics.Vector2(-forward.Y, forward.X);
+        var move = forward * local.Y + right * local.X;
+
+        var fire =
+            Input.IsMouseButtonPressed(MouseButton.Left)
+            || Input.IsPhysicalKeyPressed(Key.Z)
+            || Input.IsPhysicalKeyPressed(Key.J);
+
+        return new TickInput(
+            move,
+            forward,
+            Fire: fire,
+            Dodge: Input.IsPhysicalKeyPressed(Key.Space),
+            Sprint: Input.IsPhysicalKeyPressed(Key.Shift),
+            Skill: Input.IsPhysicalKeyPressed(Key.E),
+            AimPoint: AimPointOnFloor(),
+            SwitchTo: Input.IsPhysicalKeyPressed(Key.Key1) ? CharacterId.Attacker
+                : Input.IsPhysicalKeyPressed(Key.Key2) ? CharacterId.Debuffer
+                : null,
+            Interact: Input.IsPhysicalKeyPressed(Key.F)
+        );
+    }
+
+    private void BuildWorld()
+    {
+        _world = new Node3D { Name = "World" };
+        AddChild(_world);
+
+        var env = new WorldEnvironment
+        {
+            Environment = new Godot.Environment
+            {
+                BackgroundMode = Godot.Environment.BGMode.Color,
+                BackgroundColor = new Color(0.45f, 0.62f, 0.85f),
+                AmbientLightSource = Godot.Environment.AmbientSource.Color,
+                AmbientLightColor = new Color(0.75f, 0.78f, 0.85f),
+                AmbientLightEnergy = 0.85f,
+            },
+        };
+        _world.AddChild(env);
+
+        var sun = new DirectionalLight3D
+        {
+            RotationDegrees = new Vector3(-50f, 35f, 0f),
+            LightEnergy = 1.1f,
+            ShadowEnabled = true,
+        };
+        _world.AddChild(sun);
+
+        _stageRoot = new Node3D { Name = "Stage" };
+        _world.AddChild(_stageRoot);
+        _actorsRoot = new Node3D { Name = "Actors" };
+        _world.AddChild(_actorsRoot);
+        _fxRoot = new Node3D { Name = "Fx" };
+        _world.AddChild(_fxRoot);
+
+        _camera = new Camera3D
+        {
+            Current = true,
+            Fov = CameraFov,
+            Near = 0.1f,
+            Far = 2000f,
+        };
+        AddChild(_camera);
+    }
+
     private void LoadAssets()
     {
-        // ドット絵は最近傍拡大で描く(にじみ防止)
-        TextureFilter = TextureFilterEnum.Nearest;
-        _characterTextures = new Dictionary<CharacterId, Texture2D>
-        {
-            [CharacterId.Attacker] = LoadSheet("attacker"),
-            [CharacterId.Debuffer] = LoadSheet("debuffer"),
-        };
-        _tileTexture = LoadSheet("tiles");
-        _mobTexture = LoadSheet("mob");
-        _bossTexture = LoadSheet("boss");
+        _floorProto = LoadGlbModel("floor", new Vector3(TileVoxelScale, 2f, TileVoxelScale));
+        _wallProto = LoadGlbModel(
+            "wall",
+            new Vector3(TileVoxelScale, TileVoxelScale, TileVoxelScale)
+        );
+        _mobProto = LoadGlbModel("mob", new Vector3(VoxelScale, VoxelScale, VoxelScale));
+        _bossProto = LoadGlbModel("boss", new Vector3(VoxelScale, VoxelScale, VoxelScale));
+        _turretProto = LoadGlbModel("turret", new Vector3(VoxelScale, VoxelScale, VoxelScale));
+        _attackerProto = LoadGlbModel("attacker", new Vector3(VoxelScale, VoxelScale, VoxelScale));
+        _debufferProto = LoadGlbModel("debuffer", new Vector3(VoxelScale, VoxelScale, VoxelScale));
+
         _shotPlayer = new AudioStreamPlayer
         {
             Stream = AudioStreamWav.LoadFromFile(
@@ -516,258 +433,327 @@ public partial class Main : Node2D
         AddChild(_skillPlayer);
     }
 
-    /// <summary>人間プレイの入力(押されているキーの集合)を TickInput へ写す。</summary>
-    private TickInput ReadHumanInput()
-    {
-        var dir = System.Numerics.Vector2.Zero;
-        if (Input.IsPhysicalKeyPressed(Key.Left) || Input.IsPhysicalKeyPressed(Key.A))
-        {
-            dir.X -= 1f;
-        }
-        if (Input.IsPhysicalKeyPressed(Key.Right) || Input.IsPhysicalKeyPressed(Key.D))
-        {
-            dir.X += 1f;
-        }
-        if (Input.IsPhysicalKeyPressed(Key.Up) || Input.IsPhysicalKeyPressed(Key.W))
-        {
-            dir.Y -= 1f;
-        }
-        if (Input.IsPhysicalKeyPressed(Key.Down) || Input.IsPhysicalKeyPressed(Key.S))
-        {
-            dir.Y += 1f;
-        }
-        // マウスは常にカーソル方向を送る(CS2D 方式)。向きは常にカーソルが決め、
-        // 移動は向きに関与しない。構え(右クリック)はズームと精密射撃の担当で、
-        // 向きには影響しない(docs/DESIGN.md「向きと射撃」)
-        var fire =
-            Input.IsMouseButtonPressed(MouseButton.Left)
-            || Input.IsPhysicalKeyPressed(Key.Z)
-            || Input.IsPhysicalKeyPressed(Key.J);
-        var aim = ToLogic(GetGlobalMousePosition()) - _logic.PlayerPos;
-        return new TickInput(
-            dir,
-            aim,
-            Fire: fire,
-            Dodge: Input.IsPhysicalKeyPressed(Key.Space),
-            Sprint: Input.IsPhysicalKeyPressed(Key.Shift),
-            Skill: Input.IsPhysicalKeyPressed(Key.E),
-            AimPoint: ToLogic(GetGlobalMousePosition()), // マウスにはレティクル位置が常にある
-            SwitchTo: Input.IsPhysicalKeyPressed(Key.Key1) ? CharacterId.Attacker
-                : Input.IsPhysicalKeyPressed(Key.Key2) ? CharacterId.Debuffer
-                : null,
-            Interact: Input.IsPhysicalKeyPressed(Key.F)
-        );
-    }
-
     /// <summary>
-    /// 的が画面外にいるとき、画面端に的の方向を指す三角矢印を描く。画面内なら何もしない。
+    /// voxcee 生成 GLB を実行時ロードし、原点を足元中央へずらす。
+    /// Godot の import 経路は使わない(dotee PNG と同じ方針)。
     /// </summary>
-    private void DrawOffscreenIndicator(Vector2 targetScreen)
+    private static Node3D LoadGlbModel(string name, Vector3 scale)
     {
-        const float Margin = 28f;
-        if (GameRect.HasPoint(targetScreen))
+        var path = ProjectSettings.GlobalizePath($"res://../art/{name}.glb");
+        var doc = new GltfDocument();
+        var state = new GltfState();
+        var err = doc.AppendFromFile(path, state);
+        if (err != Error.Ok)
         {
-            return;
+            throw new InvalidOperationException($"GLB を読めません: {path} ({err})");
         }
-        var toTarget = targetScreen - ScreenCenter;
-        if (toTarget == Vector2.Zero)
-        {
-            return;
-        }
-        // 画面中心から的への半直線と、マージン分内側の矩形との交点に矢印を置く
-        var scaleX =
-            toTarget.X == 0 ? float.MaxValue : (ScreenCenter.X - Margin) / Math.Abs(toTarget.X);
-        var scaleY =
-            toTarget.Y == 0 ? float.MaxValue : (ScreenCenter.Y - Margin) / Math.Abs(toTarget.Y);
-        var edge = ScreenCenter + toTarget * Math.Min(scaleX, scaleY);
+        var imported = doc.GenerateScene(state) as Node3D
+            ?? throw new InvalidOperationException($"GLB ルートが Node3D ではありません: {path}");
+        var root = new Node3D { Name = name };
+        root.AddChild(imported);
 
-        var dir = toTarget.Normalized();
-        var perp = new Vector2(-dir.Y, dir.X);
-        DrawPolygon(
-            [edge + dir * 12f, edge - dir * 4f + perp * 8f, edge - dir * 4f - perp * 8f],
-            [new Color(1f, 0.6f, 0.9f, 0.9f)]
-        );
+        // ボクセル原点は角。既知サイズで足元中央へずらす(AABB 走査より単純で安定)
+        var size = EstimateVoxelSize(name);
+        imported.Position = new Vector3(-size.X * 0.5f, 0f, -size.Z * 0.5f);
+        root.Scale = scale;
+        return root;
     }
 
-    /// <summary>マウス位置にレティクルを描く。構え中は十字+小円、非構えは薄いリング。</summary>
-    private void DrawReticle(Vector2 pos, bool ads)
-    {
-        if (ads)
+    /// <summary>art/*.voxel.txt の寸法と一致するローカルサイズ(スケール前)。</summary>
+    private static Vector3 EstimateVoxelSize(string name) =>
+        name switch
         {
-            var color = new Color(1f, 1f, 1f, 0.9f);
-            const float Gap = 4f;
-            const float Arm = 8f;
-            DrawLine(pos + new Vector2(Gap, 0), pos + new Vector2(Gap + Arm, 0), color, 1.5f);
-            DrawLine(pos - new Vector2(Gap, 0), pos - new Vector2(Gap + Arm, 0), color, 1.5f);
-            DrawLine(pos + new Vector2(0, Gap), pos + new Vector2(0, Gap + Arm), color, 1.5f);
-            DrawLine(pos - new Vector2(0, Gap), pos - new Vector2(0, Gap + Arm), color, 1.5f);
-            DrawCircle(pos, 1.5f, color);
+            "floor" => new Vector3(8f, 1f, 8f),
+            "wall" => new Vector3(8f, 12f, 8f),
+            "mob" => new Vector3(8f, 5f, 6f),
+            "boss" => new Vector3(10f, 8f, 10f),
+            "turret" => new Vector3(8f, 8f, 6f),
+            "attacker" or "debuffer" => new Vector3(8f, 12f, 8f),
+            _ => new Vector3(8f, 8f, 8f),
+        };
+
+    private static Node3D InstantiateModel(Node3D proto) => (Node3D)proto.Duplicate();
+
+    private void BuildStage()
+    {
+        foreach (var child in _stageRoot.GetChildren())
+        {
+            child.QueueFree();
         }
-        else
+        var stage = _logic.Stage;
+        var tile = stage.TileSize;
+        for (var row = 0; row < stage.Rows.Count; row++)
         {
-            DrawArc(pos, 7f, 0f, Mathf.Tau, 24, new Color(1f, 1f, 1f, 0.5f), width: 1.5f);
-            DrawCircle(pos, 1.5f, new Color(1f, 1f, 1f, 0.5f));
-        }
-    }
-
-    /// <summary>スキルクールダウンの HUD 表記(READY か残り秒数)。</summary>
-    private string CooldownText(int ticks) =>
-        ticks == 0 ? "READY" : $"{ticks / (float)_logic.Config.TicksPerSecond:0.0}s";
-
-    /// <summary>中心から向きを示す短い銃身(ノーズ)を描く。円だけでは向きが分からない対策。</summary>
-    private void DrawNose(
-        System.Numerics.Vector2 center,
-        System.Numerics.Vector2 dir,
-        float radius,
-        Color color
-    )
-    {
-        DrawLine(
-            ToScreen(center + dir * radius * 0.5f),
-            ToScreen(center + dir * radius * 1.8f),
-            color,
-            width: 3f
-        );
-    }
-
-    /// <summary>
-    /// 歩行シートのどのコマを描くかを決める。向きで行(正面/背面/横)を、歩行位相で
-    /// 列(待機/左足/右足)を選ぶ。左向きの絵は持たず、横向きの左右反転で賄う。
-    /// 描画と State 公開の両方がここを通るので、画面と State が食い違わない。
-    /// </summary>
-    private (int Row, int Column, bool Mirror) PlayerSpriteCell(System.Numerics.Vector2 facing)
-    {
-        var (row, mirror) = DirectionCell(facing);
-        // 待機 → 左足 → 待機 → 右足 の 4 拍。止まっているときは待機で固定
-        var column =
-            _walkPhase < 0 ? 0 : WalkColumns[_walkPhase / WalkTicksPerFrame % WalkColumns.Length];
-        return (row, column, mirror);
-    }
-
-    /// <summary>
-    /// 向きをシートの行(正面/背面/横)と左右反転へスナップする。絵柄が正面向きの疑似 2.5D で
-    /// スプライトを回転できないため、斜めは最寄りの 4 方向へ寄せ、左向きは横向きの反転で賄う。
-    /// </summary>
-    private static (int Row, bool Mirror) DirectionCell(System.Numerics.Vector2 facing) =>
-        MathF.Abs(facing.X) > MathF.Abs(facing.Y)
-            ? (SpriteRowSide, facing.X < 0f)
-            : (facing.Y > 0f ? SpriteRowDown : SpriteRowUp, false);
-
-    /// <summary>
-    /// 敵を 1 体描く。雑魚は 1 行だけのシート、強敵はプレイヤーを向いた行を選ぶ。
-    /// 被弾中は白シルエットのコマに差し替え、それ以外は残 HP ぶん暗くする。
-    /// </summary>
-    private void DrawEnemy(Enemy enemy)
-    {
-        var mob = enemy.Kind == EnemyKind.Mob;
-        var cell = mob ? MobCell : BossCell;
-        var flashing = _enemyFlashFrames.ContainsKey(enemy.Id);
-        // 強敵は常にプレイヤーを追うので、向きは追跡先で決まる
-        var (row, mirror) = mob ? (0, false) : DirectionCell(_logic.PlayerPos - enemy.Pos);
-        // 揺れは敵ごとに位相をずらす(揃うと群れが機械的に見える)
-        var column = flashing
-            ? EnemySpriteColumnFlash
-            : (_logic.TickCount / BobTicksPerFrame + enemy.Id) % 2;
-
-        var src = new Rect2(column * cell, row * cell, cell, cell);
-        if (mirror)
-        {
-            src = new Rect2(src.Position.X + cell, src.Position.Y, -cell, cell);
-        }
-        var maxHp = mob ? _logic.Config.MobMaxHp : _logic.Config.BossMaxHp;
-        var tint = flashing
-            ? Colors.White
-            : Colors.White.Lerp(new Color(0.5f, 0.42f, 0.5f), 1f - enemy.Hp / (float)maxHp);
-        var size = new Vector2(cell, cell) * ScaleFactor;
-        DrawTextureRectRegion(
-            mob ? _mobTexture : _bossTexture,
-            new Rect2(ToScreen(enemy.Pos) - size / 2f, size),
-            src,
-            tint
-        );
-
-        // デバフ中は敵の周りに紫のリングを出す(コンボの好機を可視化)
-        if (enemy.DebuffTicks > 0)
-        {
-            var radius = mob ? _logic.Config.MobRadius : _logic.Config.BossRadius;
-            DrawArc(
-                ToScreen(enemy.Pos),
-                (radius + 4f) * ScaleFactor,
-                0f,
-                Mathf.Tau,
-                32,
-                new Color(0.8f, 0.4f, 1f, 0.9f),
-                width: 3f
-            );
+            for (var col = 0; col < stage.Rows[row].Length; col++)
+            {
+                var solid = stage.IsSolidCell(col, row);
+                var cell = InstantiateModel(solid ? _wallProto : _floorProto);
+                cell.Position = new Vector3((col + 0.5f) * tile, 0f, (row + 0.5f) * tile);
+                _stageRoot.AddChild(cell);
+            }
         }
     }
 
-    /// <summary>現在の見た目の向き(描画に使う滑らかな向き)。</summary>
-    private System.Numerics.Vector2 DisplayFacing =>
-        new(MathF.Cos(_displayFacingAngle), MathF.Sin(_displayFacingAngle));
-
-    /// <summary>
-    /// プレイヤーを歩行シートから 1 コマ選んで描く。
-    /// </summary>
-    private void DrawPlayerSprite(System.Numerics.Vector2 facing, Color tint)
+    private void BuildPlayer()
     {
-        var (row, column, mirror) = PlayerSpriteCell(facing);
-        var src = new Rect2(column * SpriteCell, row * SpriteCell, SpriteCell, SpriteCell);
-        if (mirror)
+        _playerNode = new Node3D { Name = "Player" };
+        _actorsRoot.AddChild(_playerNode);
+        _attackerModel = InstantiateModel(_attackerProto);
+        _debufferModel = InstantiateModel(_debufferProto);
+        _playerNode.AddChild(_attackerModel);
+        _playerNode.AddChild(_debufferModel);
+        _debufferModel.Visible = false;
+    }
+
+    private void BuildMarkers()
+    {
+        _bossSpawnMarker = MakeDiamondMarker(new Color(1f, 0.35f, 0.35f, 0.85f));
+        _actorsRoot.AddChild(_bossSpawnMarker);
+        _bossSpawnMarker.Position = ToWorld(_logic.Stage.BossSpawn, 2f);
+
+        _turretSlotMarker = MakeDiamondMarker(new Color(0.45f, 0.8f, 0.5f, 0.85f));
+        _actorsRoot.AddChild(_turretSlotMarker);
+        _turretSlotMarker.Position = ToWorld(_logic.Stage.TurretSlot, 2f);
+        _turretSlotMarker.Visible = false;
+    }
+
+    private static Node3D MakeDiamondMarker(Color color)
+    {
+        var root = new Node3D();
+        var mesh = new MeshInstance3D
         {
-            // 負の幅で左右反転する(左向き用のコマは持たない)
-            src = new Rect2(src.Position.X + SpriteCell, src.Position.Y, -SpriteCell, SpriteCell);
-        }
-        var size = new Vector2(SpriteCell, SpriteCell) * ScaleFactor;
-        DrawTextureRectRegion(
-            _characterTextures[PlayerSheetCharacter()],
-            new Rect2(ToScreen(_logic.PlayerPos) - size / 2f, size),
-            src,
-            tint
-        );
+            Mesh = new PrismMesh
+            {
+                Size = new Vector3(6f, 8f, 6f),
+            },
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = color,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            },
+        };
+        root.AddChild(mesh);
+        return root;
     }
 
-    /// <summary>どのキャラの歩行シートを描くか。描画と State 公開の両方がここを通る。</summary>
-    private CharacterId PlayerSheetCharacter() => _logic.ActiveCharacter;
-
-    /// <summary>
-    /// タイルシートから 1 コマぶんの矩形を選ぶ。列はセル座標だけで決まるので、
-    /// 同じマスは毎フレーム同じ絵になる(乱数を引くとちらつく)。
-    /// `col * a + row * b` のような線形式だと同じコマが斜めに並んで縞に見えるため、
-    /// ビットを撹拌してから列を取る。
-    /// </summary>
-    private static Rect2 TileSource(int sheetRow, int col, int row)
+    private void SyncWorld()
     {
-        var hash = (uint)(col * 73856093) ^ (uint)(row * 19349663);
-        hash = (hash ^ (hash >> 13)) * 1274126177u;
-        var column = (int)((hash ^ (hash >> 16)) % TileSheetColumns);
-        return new Rect2(column * TileCell, sheetRow * TileCell, TileCell, TileCell);
+        // プレイヤー
+        _playerNode.Position = ToWorld(_logic.PlayerPos);
+        var facing = _logic.PlayerFacing;
+        if (facing != System.Numerics.Vector2.Zero)
+        {
+            // モデルは -Z 正面想定。LookAt で -Z を向きへ揃える
+            var look = ToWorld(_logic.PlayerPos + facing, 1f);
+            _playerNode.LookAt(look, Vector3.Up);
+        }
+        var attacker = _logic.ActiveCharacter == CharacterId.Attacker;
+        if (_attackerModel is not null)
+        {
+            _attackerModel.Visible = attacker;
+        }
+        if (_debufferModel is not null)
+        {
+            _debufferModel.Visible = !attacker;
+        }
+        _playerNode.ModulateAlpha(_logic.PlayerAction == PlayerAction.Dodge ? 0.5f : 1f);
+
+        // 敵
+        var alive = new HashSet<int>();
+        foreach (var enemy in _logic.Enemies)
+        {
+            alive.Add(enemy.Id);
+            if (!_enemyNodes.TryGetValue(enemy.Id, out var node))
+            {
+                node = InstantiateModel(enemy.Kind == EnemyKind.Mob ? _mobProto : _bossProto);
+                _actorsRoot.AddChild(node);
+                _enemyNodes[enemy.Id] = node;
+            }
+            node.Position = ToWorld(enemy.Pos);
+            if (enemy.Kind == EnemyKind.Boss)
+            {
+                var toPlayer = _logic.PlayerPos - enemy.Pos;
+                if (toPlayer != System.Numerics.Vector2.Zero)
+                {
+                    node.LookAt(
+                        ToWorld(enemy.Pos + System.Numerics.Vector2.Normalize(toPlayer), 1f),
+                        Vector3.Up
+                    );
+                }
+            }
+            node.SetMeta("flashing", _enemyFlashFrames.ContainsKey(enemy.Id));
+            EnsureDebuffRing(node, enemy.DebuffTicks > 0);
+        }
+        foreach (var id in _enemyNodes.Keys.ToArray())
+        {
+            if (!alive.Contains(id))
+            {
+                _enemyNodes[id].QueueFree();
+                _enemyNodes.Remove(id);
+            }
+        }
+
+        // 弾
+        var bulletIds = new HashSet<int>();
+        foreach (var bullet in _logic.Bullets)
+        {
+            bulletIds.Add(bullet.Id);
+            if (!_bulletNodes.TryGetValue(bullet.Id, out var mesh))
+            {
+                mesh = new MeshInstance3D
+                {
+                    Mesh = new SphereMesh
+                    {
+                        Radius = _logic.Config.BulletRadius,
+                        Height = _logic.Config.BulletRadius * 2f,
+                    },
+                    MaterialOverride = new StandardMaterial3D
+                    {
+                        AlbedoColor = new Color(1f, 0.85f, 0.4f),
+                        ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                    },
+                };
+                _fxRoot.AddChild(mesh);
+                _bulletNodes[bullet.Id] = mesh;
+            }
+            mesh.Position = ToWorld(bullet.Pos, 8f);
+        }
+        foreach (var id in _bulletNodes.Keys.ToArray())
+        {
+            if (!bulletIds.Contains(id))
+            {
+                _bulletNodes[id].QueueFree();
+                _bulletNodes.Remove(id);
+            }
+        }
+
+        // タレット
+        if (_logic.TurretPlaced)
+        {
+            if (_turretNode is null)
+            {
+                _turretNode = InstantiateModel(_turretProto);
+                _actorsRoot.AddChild(_turretNode);
+                _turretNode.Position = ToWorld(_logic.Stage.TurretSlot);
+            }
+            _turretNode.Visible = true;
+        }
+        else if (_turretNode is not null)
+        {
+            _turretNode.Visible = false;
+        }
+
+        if (_bossSpawnMarker is not null)
+        {
+            _bossSpawnMarker.Visible = !_logic.BossAppeared;
+        }
+        if (_turretSlotMarker is not null)
+        {
+            _turretSlotMarker.Visible = _logic.ZoneCaptured && !_logic.TurretPlaced;
+        }
+
+        SyncFxMeshes();
     }
 
-    /// <summary>歩行シート(art/&lt;name&gt;.png)を読む。Godot の import 経路は使わない。</summary>
-    private static Texture2D LoadSheet(string name) =>
-        ImageTexture.CreateFromImage(
-            Image.LoadFromFile(ProjectSettings.GlobalizePath($"res://../art/{name}.png"))
-        );
+    private void SyncFxMeshes()
+    {
+        while (_hitMarkerMeshes.Count < _hitMarkers.Count)
+        {
+            var m = new MeshInstance3D
+            {
+                Mesh = new TorusMesh { InnerRadius = 2f, OuterRadius = 4f },
+                MaterialOverride = new StandardMaterial3D
+                {
+                    AlbedoColor = Colors.White,
+                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                },
+            };
+            _fxRoot.AddChild(m);
+            _hitMarkerMeshes.Add(m);
+        }
+        for (var i = 0; i < _hitMarkerMeshes.Count; i++)
+        {
+            if (i >= _hitMarkers.Count)
+            {
+                _hitMarkerMeshes[i].Visible = false;
+                continue;
+            }
+            var (pos, frames) = _hitMarkers[i];
+            var t = 1f - frames / (float)HitMarkerFrames;
+            _hitMarkerMeshes[i].Visible = true;
+            _hitMarkerMeshes[i].Position = ToWorld(pos, 8f);
+            _hitMarkerMeshes[i].Scale = Vector3.One * (1f + t * 2f);
+            if (_hitMarkerMeshes[i].MaterialOverride is StandardMaterial3D mat)
+            {
+                mat.AlbedoColor = new Color(1f, 1f, 1f, 1f - t);
+            }
+        }
 
-    /// <summary>論理座標→描画座標の実効倍率(基本倍率 × カメラズーム)。</summary>
-    private float ScaleFactor => Zoom * _camZoom;
+        while (_burstMeshes.Count < _burstMarkers.Count)
+        {
+            var m = new MeshInstance3D
+            {
+                Mesh = new TorusMesh { InnerRadius = 0.5f, OuterRadius = 1f },
+                MaterialOverride = new StandardMaterial3D
+                {
+                    AlbedoColor = new Color(1f, 0.6f, 0.25f),
+                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                },
+            };
+            _fxRoot.AddChild(m);
+            _burstMeshes.Add(m);
+        }
+        for (var i = 0; i < _burstMeshes.Count; i++)
+        {
+            if (i >= _burstMarkers.Count)
+            {
+                _burstMeshes[i].Visible = false;
+                continue;
+            }
+            var (pos, frames, radius) = _burstMarkers[i];
+            var t = 1f - frames / (float)BurstMarkerFrames;
+            _burstMeshes[i].Visible = true;
+            _burstMeshes[i].Position = ToWorld(pos, 2f);
+            _burstMeshes[i].Scale = Vector3.One * MathF.Max(0.1f, radius * t);
+            if (_burstMeshes[i].MaterialOverride is StandardMaterial3D mat)
+            {
+                mat.AlbedoColor = new Color(1f, 0.6f, 0.25f, 1f - t);
+            }
+        }
+    }
 
-    /// <summary>描画座標を論理座標へ写す(マウス位置の変換用)。カメラを考慮する。</summary>
-    private System.Numerics.Vector2 ToLogic(Vector2 screen) =>
-        new(
-            (screen.X - ScreenCenter.X) / ScaleFactor + _camPos.X,
-            (screen.Y - ScreenCenter.Y) / ScaleFactor + _camPos.Y
-        );
+    private static void EnsureDebuffRing(Node3D enemyNode, bool active)
+    {
+        var ring = enemyNode.GetNodeOrNull<MeshInstance3D>("DebuffRing");
+        if (active)
+        {
+            if (ring is null)
+            {
+                ring = new MeshInstance3D
+                {
+                    Name = "DebuffRing",
+                    Mesh = new TorusMesh { InnerRadius = 8f, OuterRadius = 10f },
+                    Position = new Vector3(0f, 2f, 0f),
+                    MaterialOverride = new StandardMaterial3D
+                    {
+                        AlbedoColor = new Color(0.8f, 0.4f, 1f, 0.9f),
+                        Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                        ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                    },
+                };
+                enemyNode.AddChild(ring);
+            }
+            ring.Visible = true;
+        }
+        else if (ring is not null)
+        {
+            ring.Visible = false;
+        }
+    }
 
-    /// <summary>論理座標(左上原点)を描画座標へ写す。カメラを考慮する。</summary>
-    private Vector2 ToScreen(System.Numerics.Vector2 position) =>
-        new(
-            (position.X - _camPos.X) * ScaleFactor + ScreenCenter.X,
-            (position.Y - _camPos.Y) * ScaleFactor + ScreenCenter.Y
-        );
-
-    /// <summary>tick 後の状態を State と描画へ反映し、イベントを音・演出へ翻訳する。</summary>
     private void RefreshView()
     {
         foreach (var battleEvent in _logic.Events)
@@ -775,6 +761,7 @@ public partial class Main : Node2D
             switch (battleEvent.Kind)
             {
                 case BattleEventKind.BulletFired:
+                case BattleEventKind.TurretFired:
                     _shotPlayer.Play();
                     break;
                 case BattleEventKind.EnemyHit:
@@ -784,9 +771,6 @@ public partial class Main : Node2D
                     break;
                 case BattleEventKind.EnemyKilled:
                     _hitstopFrames = 6;
-                    break;
-                case BattleEventKind.TurretFired:
-                    _shotPlayer.Play();
                     break;
                 case BattleEventKind.BossAppeared:
                     _hitstopFrames = 6;
@@ -807,22 +791,20 @@ public partial class Main : Node2D
                     break;
             }
         }
+        // tick コマンド経路では人間のマウスルックと独立して向きが変わるので追従する
+        if (_logic.PlayerFacing != System.Numerics.Vector2.Zero)
+        {
+            _yaw = MathF.Atan2(_logic.PlayerFacing.Y, _logic.PlayerFacing.X);
+        }
         _state.Update(_logic, _paused);
         UpdateHud();
-        QueueRedraw();
     }
 
-    /// <summary>
-    /// 下部 UI バーを組み立てる。ゲーム画面(GameRect)の外に置き、盤面へ被せない。
-    /// 内容は厳選: ミッションガイド / キャラ2枠(スキル CD)/ 切替 CD / 撃破・命中率。
-    /// 詳細な検証値(tick・shot 数等)は画面でなく State(game/messbreak)で見る。
-    /// </summary>
     private void BuildHud()
     {
         var layer = new CanvasLayer();
         AddChild(layer);
 
-        // バーはウィンドウ下端に実ピクセルでアンカー(リサイズしても高さ・文字サイズは一定)
         var bar = new Panel();
         _uiBar = bar;
         bar.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
@@ -836,7 +818,6 @@ public partial class Main : Node2D
         bar.AddThemeStyleboxOverride("panel", style);
         layer.AddChild(bar);
 
-        // プレイヤー HP(数値+バー)。バーは背景の上に残量ぶんの塗りを重ねる
         _hpLabel = MakeLabel(bar, new Vector2(24f, 14f), 18, new Color(0.6f, 1f, 0.65f));
         _hpBack = new ColorRect
         {
@@ -852,7 +833,6 @@ public partial class Main : Node2D
         };
         _hpBack.AddChild(_hpFill);
 
-        // ミッションガイドはゲーム領域の左上に重ねる(視線移動を減らす)。縁取りで盤面から浮かせる
         var overlay = new CanvasLayer();
         AddChild(overlay);
         _missionLabel = new Label { Position = new Vector2(16f, 12f) };
@@ -862,16 +842,50 @@ public partial class Main : Node2D
         _missionLabel.AddThemeConstantOverride("outline_size", 6);
         overlay.AddChild(_missionLabel);
 
-        // キャラ枠と切替 CD はバーの水平中央に追従させる
         _char1Label = MakeLabel(bar, new Vector2(0f, 14f), 18, Colors.White);
         _char2Label = MakeLabel(bar, new Vector2(0f, 50f), 18, Colors.White);
         _switchLabel = MakeLabel(bar, new Vector2(0f, 32f), 14, new Color(1f, 1f, 1f, 0.6f));
         AnchorToBarCenter(_char1Label, -120f);
         AnchorToBarCenter(_char2Label, -120f);
         AnchorToBarCenter(_switchLabel, 110f);
+
+        // 画面中央クロスヘア(ゲーム領域の中心。UI バー分を上へずらす)
+        _crosshair = new Control();
+        _crosshair.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        overlay.AddChild(_crosshair);
+        var cross = new ColorRect
+        {
+            Size = new Vector2(4f, 4f),
+            Color = new Color(1f, 1f, 1f, 0.9f),
+        };
+        cross.SetAnchorsPreset(Control.LayoutPreset.Center);
+        cross.OffsetLeft = -2f;
+        cross.OffsetTop = -2f - UiBarHeight * 0.5f;
+        cross.OffsetRight = 2f;
+        cross.OffsetBottom = 2f - UiBarHeight * 0.5f;
+        _crosshair.AddChild(cross);
+        foreach (var (dx, dy, w, h) in new (float, float, float, float)[]
+                 {
+                     (-10f, -1f, 6f, 2f),
+                     (4f, -1f, 6f, 2f),
+                     (-1f, -10f, 2f, 6f),
+                     (-1f, 4f, 2f, 6f),
+                 })
+        {
+            var arm = new ColorRect
+            {
+                Size = new Vector2(w, h),
+                Color = new Color(1f, 1f, 1f, 0.75f),
+            };
+            arm.SetAnchorsPreset(Control.LayoutPreset.Center);
+            arm.OffsetLeft = dx;
+            arm.OffsetTop = dy - UiBarHeight * 0.5f;
+            arm.OffsetRight = dx + w;
+            arm.OffsetBottom = dy + h - UiBarHeight * 0.5f;
+            _crosshair.AddChild(arm);
+        }
     }
 
-    /// <summary>ラベルをバーの水平中央から offsetX の位置に追従させる(縦位置は今のまま)。</summary>
     private static void AnchorToBarCenter(Label label, float offsetX)
     {
         var top = label.Position.Y;
@@ -890,14 +904,16 @@ public partial class Main : Node2D
         return label;
     }
 
-    /// <summary>UI バーの表示をロジックの現在値から作り直す(tick 後・ポーズ切替時に呼ぶ)。</summary>
+    private string CooldownText(int ticks) =>
+        ticks == 0 ? "READY" : $"{ticks / (float)_logic.Config.TicksPerSecond:0.0}s";
+
     private void UpdateHud()
     {
         _missionLabel.Text =
             _logic.MissionCleared ? "ミッション達成!"
             : !_logic.ZoneCaptured ? "雑魚を倒してエリアを制圧しよう"
-            : !_logic.TurretPlaced ? "スロット(緑枠)の近くで F: タレット設置"
-            : !_logic.BossAppeared ? "出現ポイント(赤菱形)の近くで F: 強敵を呼ぶ"
+            : !_logic.TurretPlaced ? "スロット(緑)の近くで F: タレット設置"
+            : !_logic.BossAppeared ? "出現ポイント(赤)の近くで F: 強敵を呼ぶ"
             : "強敵を倒せ!(デバフ→大技のコンボが有効)";
 
         var active = _logic.ActiveCharacter;
@@ -925,8 +941,9 @@ public partial class Main : Node2D
             X = HpBarWidth * Math.Clamp(_logic.PlayerHp / (float)maxHp, 0f, 1f),
         };
 
-        // 見た目の State(ui/hud)は、ここで組んだ値の再計算ではなくノードの実表示・実レイアウトから写す
-        var spriteCell = PlayerSpriteCell(DisplayFacing);
+        _crosshair.Visible = !_paused;
+        _ads = !_paused && Input.IsMouseButtonPressed(MouseButton.Right);
+
         _hudState.Update(
             new HudState.Snapshot(
                 MissionText: _missionLabel.Text,
@@ -942,28 +959,16 @@ public partial class Main : Node2D
                 UiBarRect: RectText(_uiBar.GetGlobalRect()),
                 GameRect: RectText(GameRect),
                 PauseMenuVisible: _pauseLayer?.Visible ?? false,
-                PlayerSpriteCharacter: PlayerSheetCharacter().ToString(),
-                PlayerSpriteDirection: SpriteDirectionName(spriteCell.Row),
-                PlayerSpriteColumn: spriteCell.Column,
-                PlayerSpriteMirrored: spriteCell.Mirror
+                PlayerModelCharacter: _logic.ActiveCharacter.ToString(),
+                AdsActive: _ads,
+                CrosshairVisible: _crosshair.Visible
             )
         );
     }
 
-    /// <summary>歩行シートの行を State 用の名前に写す。</summary>
-    private static string SpriteDirectionName(int row) =>
-        row switch
-        {
-            SpriteRowDown => "down",
-            SpriteRowUp => "up",
-            _ => "side",
-        };
-
-    /// <summary>Rect を State 用の "x,y,w,h"(整数丸め)に写す。</summary>
     private static string RectText(Rect2 rect) =>
         $"{rect.Position.X:0},{rect.Position.Y:0},{rect.Size.X:0},{rect.Size.Y:0}";
 
-    /// <summary>ポーズメニュー(Esc)。全画面の暗幕+中央の縦ボタン列。</summary>
     private void BuildPauseMenu()
     {
         _pauseLayer = new CanvasLayer { Layer = 10, Visible = false };
@@ -973,8 +978,6 @@ public partial class Main : Node2D
         dim.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _pauseLayer.AddChild(dim);
 
-        // VBox へ直接 Center アンカーを設定するとサイズ確定前の左上角が中心に置かれるため、
-        // 全画面の CenterContainer に包ませて常に画面中心へレイアウトさせる
         var center = new CenterContainer();
         center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _pauseLayer.AddChild(center);
@@ -990,7 +993,6 @@ public partial class Main : Node2D
         _resumeButton = MakeMenuButton(menu, "再開", () => TogglePause());
         MakeMenuButton(menu, "はじめから", RestartMission);
         var abortButton = MakeMenuButton(menu, "中断", () => { });
-        // 戻り先(タイトル画面)ができるまで押せない。選択肢の枠だけ先に用意しておく
         abortButton.Disabled = true;
         abortButton.TooltipText = "タイトル画面の実装後に有効化";
         MakeMenuButton(menu, "ゲーム終了", () => GetTree().Quit());
@@ -1004,36 +1006,57 @@ public partial class Main : Node2D
         return button;
     }
 
-    /// <summary>ポーズの開閉。開いている間は OS カーソルを出してメニューを操作させる。</summary>
+    private void ApplyMouseMode()
+    {
+        Input.MouseMode = _paused
+            ? Input.MouseModeEnum.Visible
+            : Input.MouseModeEnum.Captured;
+    }
+
     private void TogglePause()
     {
         _paused = !_paused;
         _pauseLayer.Visible = _paused;
-        Input.MouseMode = _paused ? Input.MouseModeEnum.Visible : Input.MouseModeEnum.Hidden;
+        ApplyMouseMode();
         if (_paused)
         {
             _resumeButton.GrabFocus();
         }
         _state.Update(_logic, _paused);
         UpdateHud();
-        QueueRedraw();
     }
 
-    /// <summary>「はじめから」。同じ seed でロジックを作り直し、演出の残骸も消して再開する。</summary>
     private void RestartMission()
     {
         _logic = new BattleLogic(new BattleConfig(), Stages.Room1(), _logic.Seed);
-        _camPos = _logic.PlayerPos;
-        _camZoom = 1f;
+        _yaw = MathF.Atan2(_logic.PlayerFacing.Y, _logic.PlayerFacing.X);
+        _pitch = 0f;
+        _camDistance = CameraDistance;
+        _camFov = CameraFov;
+        _camPos = ToWorld(_logic.PlayerPos) + Vector3.Up * CameraHeight;
         _hitMarkers.Clear();
         _burstMarkers.Clear();
         _hitstopFrames = 0;
         _enemyFlashFrames.Clear();
-        _displayFacingAngle = 0f;
-        _walkPhase = -1;
         _lastPlayerPos = _logic.PlayerPos;
+        foreach (var node in _enemyNodes.Values)
+        {
+            node.QueueFree();
+        }
+        _enemyNodes.Clear();
+        foreach (var node in _bulletNodes.Values)
+        {
+            node.QueueFree();
+        }
+        _bulletNodes.Clear();
+        if (_turretNode is not null)
+        {
+            _turretNode.QueueFree();
+            _turretNode = null;
+        }
         TogglePause();
         RefreshView();
+        SyncWorld();
         _logger.ZLogInformation($"ミッションをはじめから(seed={_logic.Seed})");
     }
 
@@ -1044,10 +1067,6 @@ public partial class Main : Node2D
         host.RegisterStateProvider(_hudState);
         host.RegisterTimeControl(_time);
         StandardCommands.Register(host, this, _logger);
-        // 継続入力つきで論理を進めるコマンド(エージェントのプレイ経路)。
-        // freeze と組み合わせて「入力を指定して N Tick 進める」を実現する。
-        // 例: send --command tick --arg frames=30,input=right+fire,aimx=1,aimy=-0.5
-        // (CLI の --arg は複数指定をカンマで区切るため、入力トークンは + で連結する)
         host.RegisterTickCommand(
             _time,
             parseInput: args =>
@@ -1056,7 +1075,6 @@ public partial class Main : Node2D
                     ParseFloat(args.GetString("aimx")),
                     ParseFloat(args.GetString("aimy"))
                 );
-                // skillx/skilly はスキル爆心の絶対座標(省略時は向いている方向の射程いっぱい)
                 var skillX = args.GetString("skillx");
                 var skillY = args.GetString("skilly");
                 System.Numerics.Vector2? aimPoint =
@@ -1073,6 +1091,7 @@ public partial class Main : Node2D
             result: () =>
             {
                 RefreshView();
+                SyncWorld();
                 _logger.ZLogInformation(
                     $"tick → tick={_logic.TickCount} hits={_logic.HitCount}/{_logic.ShotCount}"
                 );
@@ -1093,17 +1112,17 @@ public partial class Main : Node2D
         StartStateeServer(host);
     }
 
-    // TCP 待ち受け(外部 CLI/MCP の入口)は Main.StateeServer.cs に隔離している。
-    // ExportRelease ではファイルごとビルドから除外され、この呼び出しは丸ごと消える(D-065)
     partial void StartStateeServer(StateeHost host);
 
     partial void StopStateeServer();
 
-    /// <summary>tick コマンドの aimx / aimy 引数(未指定は 0)を読む。</summary>
     private static float ParseFloat(string? value) =>
         value is null ? 0f : float.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
 
-    /// <summary>"right+fire" のような + 区切りトークンと aim を TickInput へ写す。</summary>
+    /// <summary>
+    /// エージェント用。left/right/up/down はワールド絶対(Logic 座標)。
+    /// 人間の WASD(カメラ相対)とは別経路。
+    /// </summary>
     private static TickInput ParseInput(
         string tokens,
         System.Numerics.Vector2 aim,
@@ -1122,7 +1141,7 @@ public partial class Main : Node2D
             switch (token.Trim().ToLowerInvariant())
             {
                 case "-":
-                    break; // 無入力
+                    break;
                 case "left":
                     dir.X -= 1f;
                     break;
@@ -1163,5 +1182,25 @@ public partial class Main : Node2D
             }
         }
         return new TickInput(dir, aim, fire, dodge, sprint, skill, aimPoint, switchTo, interact);
+    }
+}
+
+/// <summary>Node3D の子メッシュに一括でアルファを載せるための拡張。</summary>
+file static class Node3DAlphaExtensions
+{
+    public static void ModulateAlpha(this Node3D node, float alpha)
+    {
+        void Walk(Node n)
+        {
+            if (n is GeometryInstance3D gi)
+            {
+                gi.Transparency = 1f - alpha;
+            }
+            foreach (var child in n.GetChildren())
+            {
+                Walk(child);
+            }
+        }
+        Walk(node);
     }
 }

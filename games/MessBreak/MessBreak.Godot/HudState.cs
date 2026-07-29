@@ -28,10 +28,9 @@ public partial class HudState
         string UiBarRect,
         string GameRect,
         bool PauseMenuVisible,
-        string PlayerSpriteCharacter,
-        string PlayerSpriteDirection,
-        int PlayerSpriteColumn,
-        bool PlayerSpriteMirrored
+        string PlayerModelCharacter,
+        bool AdsActive,
+        bool CrosshairVisible
     );
 
     private volatile Snapshot _current = new(
@@ -49,9 +48,8 @@ public partial class HudState
         "",
         false,
         "Attacker",
-        "down",
-        0,
-        false
+        false,
+        true
     );
 
     /// <summary>ゲーム領域左上のミッションガイドに表示中の文字列。</summary>
@@ -107,26 +105,19 @@ public partial class HudState
     public bool PauseMenuVisible => _current.PauseMenuVisible;
 
     /// <summary>
-    /// どのキャラの歩行シートを選んで描いているか("Attacker" / "Debuffer")。
-    /// 描画と同じ判定を通すので、シート選択が切り替えに追従しているかを確認できる。
+    /// 表示中のプレイヤー 3D モデル("Attacker" / "Debuffer")。
+    /// キャラ切り替えでモデルが差し替わることを State で確認できる。
     /// </summary>
     [StateeField]
-    public string PlayerSpriteCharacter => _current.PlayerSpriteCharacter;
+    public string PlayerModelCharacter => _current.PlayerModelCharacter;
 
-    /// <summary>
-    /// 描いているプレイヤースプライトの向き("down" / "up" / "side")。
-    /// 向きは常にカーソル方向で、斜めは最寄りの 4 方向へスナップする。
-    /// </summary>
+    /// <summary>構え(ADS)中か。カメラ寄りと FOV が変わる。</summary>
     [StateeField]
-    public string PlayerSpriteDirection => _current.PlayerSpriteDirection;
+    public bool AdsActive => _current.AdsActive;
 
-    /// <summary>歩行シートの列(0=待機 / 1=左足 / 2=右足)。止まっている間は 0。</summary>
+    /// <summary>画面中央のクロスヘアが表示されているか(ポーズ中は隠す)。</summary>
     [StateeField]
-    public int PlayerSpriteColumn => _current.PlayerSpriteColumn;
-
-    /// <summary>左向きか("side" を左右反転して描いているか)。</summary>
-    [StateeField]
-    public bool PlayerSpriteMirrored => _current.PlayerSpriteMirrored;
+    public bool CrosshairVisible => _current.CrosshairVisible;
 
     /// <summary>メインスレッドから呼ぶ。画面に出ている値・実レイアウトをそのまま渡すこと。</summary>
     public void Update(Snapshot snapshot)

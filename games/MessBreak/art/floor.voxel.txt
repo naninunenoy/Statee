@@ -1,0 +1,15 @@
+# 床タイル。変換: dotnet run --project tools/voxcee/Voxcee -- render -i games/MessBreak/art/floor.voxel.txt
+palette:
+. = #00000000
+F = #5A6A58
+f = #4A5848
+D = #3E4A3C
+layers:
+FFFFffff
+FFFFffff
+FFFFffff
+FFFFffff
+ffffDDDD
+ffffDDDD
+ffffDDDD
+ffffDDDD

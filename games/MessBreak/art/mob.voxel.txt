@@ -1,0 +1,42 @@
+# 雑魚。変換: dotnet run --project tools/voxcee/Voxcee -- render -i games/MessBreak/art/mob.voxel.txt
+palette:
+. = #00000000
+q = #4A1F63
+p = #6E3390
+P = #9457BF
+E = #F2E45C
+layers:
+..qqqq..
+.qppppq.
+.qPPEEq.
+.qPPEEq.
+.qPPPPq.
+..qppq..
+
+.qppppq.
+qPPPPPPq
+qPPEEPPq
+qPPEEPPq
+qPPPPPPq
+.qPPPPq.
+
+.qppppq.
+qPPPPPPq
+qPPEEPPq
+qPPEEPPq
+qPPPPPPq
+.qPPPPq.
+
+..qppq..
+.qPPPPq.
+.qPPPPq.
+.qPPPPq.
+.qppppq.
+..qqqq..
+
+...qq...
+..qppq..
+..qPPq..
+..qPPq..
+..qppq..
+...qq...
