@@ -82,6 +82,7 @@
 | [D-069](D-069.md) | 本気のゲーム開発は games/ 配下に自己完結ディレクトリで置く |
 | [D-070](D-070.md) | ドット絵生成ツール dotee を tools/dotee に置く |
 | [D-071](D-071.md) | 効果音生成ツール wavee を tools/wavee に置く |
+| [D-080](D-080.md) | ボクセル生成ツール voxcee を tools/voxcee に置く |
 | [D-072](D-072.md) | リアルタイムゲームの tick コマンド定型を RegisterTickCommand として Statee.Core へ吸収 |
 | [D-073](D-073.md) | 起動引数 --frozen(起動直後から freeze) |
 | [D-074](D-074.md) | State スナップショットの自動生成(Generator 拡張)は見送り |
