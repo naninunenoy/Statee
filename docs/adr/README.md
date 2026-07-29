@@ -90,6 +90,7 @@
 | [D-077](D-077.md) | CLI に人間向けの watch サブコマンドを追加 |
 | [D-078](D-078.md) | 検証用 State は敵とステージ形状を実体単位で公開する |
 | [D-079](D-079.md) | 演出タイマーは論理 tick に同期し、敵に紐づく演出は対象ごとに持つ |
+| [D-080](D-080.md) | ボクセル生成ツール voxcee を tools/voxcee に置く |
 | [D-081](D-081.md) | Claude Code 設定を Cursor でも共有する(.claude/ 正本 + symlink) |
 
 ## notes(書き捨てメモ)

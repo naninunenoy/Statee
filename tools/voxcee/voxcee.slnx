@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/tool/">
+    <Project Path="Voxcee/Voxcee.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Voxcee.Tests/Voxcee.Tests.csproj" />
+  </Folder>
+</Solution>
