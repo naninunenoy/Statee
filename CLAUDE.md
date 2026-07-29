@@ -30,6 +30,8 @@ AI Agent がゲームの動作確認を自動で行うための汎用フレー�
 - 固定フレーム数・固定秒数の待機は書かない。State や本番側の状態シグナルを待つ
 - 後方互換は求められない限り維持しない。警告ゼロを維持する
 - `.cs` 編集時のフォーマット(dotnet format + CSharpier)は hooks が自動実行する。手動整形は不要
+  (Claude Code: `.claude/settings.json`、Cursor: `.cursor/hooks.json`。初回 clone 後は
+  `tools/link-agent-config.ps1` / `tools/link-agent-config.sh` で symlink を張る → D-081)
 - HTML レポート等の成果物を生成したら、ブラウザにそのまま貼れるフルパス
   (Windows の 8.3 短縮形ではなく通常表記)をチャットに提示する
 
