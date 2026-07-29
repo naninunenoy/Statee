@@ -38,8 +38,10 @@ public class VoxceeCommands
 
     private static VoxelModel LoadModel(string input)
     {
-        if (input.EndsWith(".voxel.txt", StringComparison.OrdinalIgnoreCase)
-            || input.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+        if (
+            input.EndsWith(".voxel.txt", StringComparison.OrdinalIgnoreCase)
+            || input.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
+        )
         {
             return VoxelDocument.Parse(File.ReadAllText(input)).ToModel();
         }

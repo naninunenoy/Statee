@@ -80,7 +80,9 @@ public sealed class VoxelDocument
             {
                 if (palette.Count == 0)
                 {
-                    throw new FormatException($"{lineNo} 行目: layers: の前に palette: 節が必要です");
+                    throw new FormatException(
+                        $"{lineNo} 行目: layers: の前に palette: 節が必要です"
+                    );
                 }
                 section = Section.Layers;
                 continue;

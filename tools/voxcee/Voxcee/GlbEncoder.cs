@@ -160,8 +160,18 @@ public static class GlbEncoder
 
     private static (float[] Min, float[] Max) MinMaxVec3(float[] values)
     {
-        var min = new float[] { float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity };
-        var max = new float[] { float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity };
+        var min = new float[]
+        {
+            float.PositiveInfinity,
+            float.PositiveInfinity,
+            float.PositiveInfinity,
+        };
+        var max = new float[]
+        {
+            float.NegativeInfinity,
+            float.NegativeInfinity,
+            float.NegativeInfinity,
+        };
         for (var i = 0; i < values.Length; i += 3)
         {
             for (var axis = 0; axis < 3; axis++)

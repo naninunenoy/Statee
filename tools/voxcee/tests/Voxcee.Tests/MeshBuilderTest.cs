@@ -18,9 +18,7 @@ public class MeshBuilderTest
     public void 隣接面はカリングされる()
     {
         var color = new Rgba(0xFF, 0, 0, 0xFF);
-        var model = VoxelModel.FromVoxels(
-            [new Voxel(0, 0, 0, color), new Voxel(1, 0, 0, color)]
-        );
+        var model = VoxelModel.FromVoxels([new Voxel(0, 0, 0, color), new Voxel(1, 0, 0, color)]);
         var mesh = MeshBuilder.Build(model);
 
         mesh.TriangleCount.ShouldBe(20);
