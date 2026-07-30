@@ -43,11 +43,13 @@ public static class GlbEncoder
                     {
                         new
                         {
-                            attributes = new
+                            // 属性セマンティクスは glTF 規定どおり大文字。CamelCase ポリシーが
+                            // POSITION→position / COLOR_0→coloR_0 に壊すので Dictionary キーで固定する
+                            attributes = new Dictionary<string, int>
                             {
-                                POSITION = 0,
-                                NORMAL = 1,
-                                COLOR_0 = 2,
+                                ["POSITION"] = 0,
+                                ["NORMAL"] = 1,
+                                ["COLOR_0"] = 2,
                             },
                             indices = 3,
                             mode = 4,
