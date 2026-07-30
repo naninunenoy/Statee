@@ -11,7 +11,7 @@ namespace MessBreak;
 /// MessBreak の Godot 層エントリポイント。描画・入力→TickInput 変換・Statee 配線
 /// だけを担い、ゲームルールはすべて MessBreak.Logic に置く(docs/USING.md「境界の掟」)。
 /// 論理は _PhysicsProcess(60Hz)で 1 Tick ずつ進む固定タイムステップ(ShootingGame の D-048 と同型)。
-/// 上下関係のある責務は独立レイヤーへ分離する:
+/// 上下関係のある責務は独立レイヤーへ分離する(Main の目安はおおよそ 400 行):
 /// GameCamera / BattleSprites / BattleView / HudView / TickInputReader。
 /// 同層のコンパイル条件分岐だけ Main.StateeServer.cs(partial)に残す(D-065)。
 /// </summary>
