@@ -16,7 +16,8 @@
     <ProjectReference
       Include="..\..\..\src\Statee.Generator\Statee.Generator.csproj"
       OutputItemType="Analyzer"
-      ReferenceOutputAssembly="false" />
+      ReferenceOutputAssembly="false"
+    />
   </ItemGroup>
   <!-- 外部 CLI/MCP の入口(TCP 待ち受け)は本番ビルドに含めない(D-065) -->
   <ItemGroup Condition="'$(Configuration)' != 'ExportRelease'">
