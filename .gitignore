@@ -10,6 +10,11 @@ artifacts/
 # Godot cache and build artifacts
 .godot/
 
+# tools/export-web が生成(カスタムテンプレートの絶対パスがマシン依存。D-082)
+**/export_presets.cfg
+**/export_presets.cfg.uid
+
+
 # IDE metadata
 .idea/
 .vs/

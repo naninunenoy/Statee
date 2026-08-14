@@ -120,6 +120,12 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
 - **固定秒数・固定フレームの待機は書かない**。ping リトライか `wait` コマンドで条件を待つ
 - 終了は必ず `quit`(exit 0 の確認まで含む)
 
+### Web エクスポート(ブラウザ)
+
+公式 Godot 4 では C# を Web に出せない。0環境から出す手順は `/export-web`
+(`tools/export-web.sh` / `.ps1`)。GitHub Releases から godot-dn2cpp の
+プレビルドを取得し、`GODOT_BIN` は使わない(D-082)。
+
 ### エージェントプレイとリプレイ検証
 
 State に全情報を公開しておけば、エージェントは画面なしで
@@ -140,5 +146,5 @@ State 公開すればフレーム精度リプレイまで成立する(規約と�
 |---|---|
 | この USING.md | 入口。まずこれ |
 | docs/GUIDELINE.md | **必読**。テスト設計・4段階ワークフロー・コーディング規約 |
-| ルート CLAUDE.md「環境の知識」 | Godot の起動方法(`GODOT_BIN`)・ビルドの注意 |
+| ルート CLAUDE.md「環境の知識」 | Godot の起動方法(`GODOT_BIN`)・Web 出力(`GODOT_DN2CPP_*`) |
 | docs/ARCHITECTURE.md / HANDOVER.md / adr/ | フレームワーク開発者向け。設計判断の背景が必要になったときだけ |

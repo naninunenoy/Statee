@@ -92,6 +92,7 @@
 | [D-079](D-079.md) | 演出タイマーは論理 tick に同期し、敵に紐づく演出は対象ごとに持つ |
 | [D-080](D-080.md) | ボクセル生成ツール voxcee を tools/voxcee に置く |
 | [D-081](D-081.md) | Claude Code 設定を Cursor でも共有する(.claude/ 正本 + symlink) |
+| [D-082](D-082.md) | C# Godot の Web 出力は godot-dn2cpp のプレビルドを取得して行う |
 
 ## notes(書き捨てメモ)
 

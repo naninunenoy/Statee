@@ -1,0 +1,4 @@
+# tools/export-web が取得する godot-dn2cpp リリース。
+# ABI は 4.7.1-stable 固定なので latest は追わない(D-082)。
+REPO=takuma-komatsu/godot-dn2cpp
+VERSION=4.7.1-dn2cpp.4.0

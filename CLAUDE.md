@@ -43,6 +43,9 @@ AI Agent がゲームの動作確認を自動で行うための汎用フレー�
   Windows は `*_console.exe`、macOS は `Godot_mono.app/Contents/MacOS/Godot` を指す
 - Godot の headless 実行: `$env:GODOT_BIN --headless --path samples/SuikaGame.Godot`(sh は `"$GODOT_BIN"`)。
   初回は `--import` が必要だが、import は完了後にクラッシュするので exit code を無視する(D-016)
+- C# の Web エクスポートは公式 Godot ではできない。`/export-web` skill と
+  `tools/export-web.sh` が godot-dn2cpp のプレビルドを GitHub Releases から取得する。
+  パスは `GODOT_DN2CPP_BIN` / `GODOT_DN2CPP_WEB_TEMPLATE`(`GODOT_BIN` と混ぜない。D-082)
 - ソリューションは分割されている(D-046): フレームワークは `Statee.slnx`、
   各ゲームは `samples/<Name>.slnx`。フレームワーク変更後は `tools/build-all.ps1`
   (macOS / Linux は `tools/build-all.sh`)で全 slnx の追従を確認する。CSharpier はローカルツール(初回は `dotnet tool restore`)
