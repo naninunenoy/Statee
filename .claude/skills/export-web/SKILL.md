@@ -46,10 +46,10 @@ tools/export-web.sh --fetch-template-only
 
 既に両変数が実在ファイルを指していれば取得を省略する。
 
-### スクリプトが使えないときの手動手順
+### スクリプトが使えないときの手動手順(プレビルドがあるホスト)
 
 ホストは **Windows 10/11 x86_64** または **macOS 13+ Apple Silicon**。
-Linux 向けエディタは配布されていない。
+Linux 向けエディタは Releases に無い → 次節「フォーク自前ビルド」。
 
 1. リリース https://github.com/takuma-komatsu/godot-dn2cpp/releases/tag/4.7.1-dn2cpp.4.0
 2. `SHA256SUMS.txt` と次を取る
@@ -63,8 +63,66 @@ Linux 向けエディタは配布されていない。
    - `GODOT_DN2CPP_BIN` = 展開した `Contents/MacOS/Godot` または `Godot-dn2cpp.console.exe`
    - `GODOT_DN2CPP_WEB_TEMPLATE` = ダウンロードした web-template.zip のフルパス
 
-トランスパイラ本体(https://github.com/takuma-komatsu/dn2cpp)の clone も、
-Godot フォークの scons ビルドも、この skill ではやらない。プレビルドに同梱済み。
+## 0b. フォーク自前ビルド(Linux、またはプレビルドを使わないとき)
+
+**`godot-dn2cpp` を scons するだけでは足りない。** エディタに dn2cpp の
+toolchain(`bin/GodotSharp/Dn2Cpp/`)を同梱する必要があり、その正本は
+dn2cpp リポジトリの `gates/setup-godot-fork.sh` である。
+Web テンプレートは同じ emcc で焼いたものだけを使う(リリースの zip と混ぜない)。
+
+コピー可能なコマンドはピン込みで出せる:
+
+```sh
+tools/export-web.sh --print-build-fork
+```
+
+### 手順
+
+1. 依存: Godot 公式 [Compiling for LinuxBSD](https://docs.godotengine.org/en/4.7/engine_details/development/compiling/compiling_for_linuxbsd.html)
+   に加え **.NET 10 SDK** と **Python 3.10+**。cmake / ninja / Emscripten は
+   次の `setup-buildtools.sh` / `setup-emsdk.sh` がピン版を展開する
+2. **この Statee リポジトリの外**に、兄弟ディレクトリとして clone する
+   (setup スクリプトが `../godot-dn2cpp` を見る)。ピンは `tools/godot-dn2cpp.pin`
+
+```sh
+ws="${DN2CPP_WORKSPACE:-$HOME/src}"
+mkdir -p "$ws"
+cd "$ws"
+git clone https://github.com/takuma-komatsu/dn2cpp.git
+git clone https://github.com/takuma-komatsu/godot-dn2cpp.git
+git -C dn2cpp checkout "$(awk -F= '/^DN2CPP_COMMIT=/{print $2}' /path/to/Statee/tools/godot-dn2cpp.pin)"
+git -C godot-dn2cpp fetch origin --tags
+git -C godot-dn2cpp checkout "$(awk -F= '/^FORK_TAG=/{print $2}' /path/to/Statee/tools/godot-dn2cpp.pin)"
+```
+
+3. エディタ + toolchain 同梱 + Web テンプレート
+
+```sh
+cd "$ws/dn2cpp"
+./gates/setup-buildtools.sh
+./gates/setup-emsdk.sh
+./gates/setup-godot-fork.sh      # scons。初回は数十分〜数時間
+./gates/setup-godot-fork-web.sh
+```
+
+4. 変数を設定する。**実行ファイルだけを別場所へコピーしない**
+   (`GodotSharp/` が隣に必要)
+
+```sh
+root="${DN2CPP_GODOT_FORK_ROOT:-$HOME/.cache/dn2cpp-godot-fork}"
+export GODOT_DN2CPP_BIN="$(cat "$root/editor.txt")"
+export GODOT_DN2CPP_WEB_TEMPLATE="$root/web_template.zip"
+```
+
+Linux のエディタ実体は概ね
+`$ws/godot-dn2cpp/bin/godot.linuxbsd.editor.x86_64.mono`。
+`editor.txt` を優先する。
+
+5. このリポジトリで `tools/export-web.sh --path samples/SuikaGame.Godot`
+
+エージェントがこの節を走らせるのは、プレビルドが無いホストで Web 出力を
+求められたときだけ。clone / scons を「念のため」始めない。
+メンテナのリリース切り(`docs/RELEASE.md`)とは別経路。
 
 ## 1. エクスポート
 
@@ -116,6 +174,7 @@ v1 の完了シグナルは **成果物 + HTTP 200**。Statee の `ping` は使�
 
 - `GODOT_BIN` で `--export-release`
 - テンプレート zip を展開して中身を指定する
-- dn2cpp / godot-dn2cpp を clone して scons する(メンテナのリリース手順)
+- **godot-dn2cpp だけを scons して終わる**(toolchain が同梱されずエクスポートが落ちる)
+- 自前ビルドのエディタに Releases の Web テンプレートを混ぜる(emcc が一致しない)
 - ネット同期サンプル(Reversi / RaidBoss)や `Task.Run` / `HttpClient` 依存を
   未確認のまま「ブラウザで遊べた」と書く

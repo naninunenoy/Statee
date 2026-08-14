@@ -123,8 +123,8 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
 ### Web エクスポート(ブラウザ)
 
 公式 Godot 4 では C# を Web に出せない。0環境から出す手順は `/export-web`
-(`tools/export-web.sh` / `.ps1`)。GitHub Releases から godot-dn2cpp の
-プレビルドを取得し、`GODOT_BIN` は使わない(D-082)。
+(`tools/export-web.sh` / `.ps1`)。Windows / macOS は GitHub Releases から
+プレビルドを取得し、Linux はフォークを自前ビルドする。`GODOT_BIN` は使わない(D-082)。
 
 ### エージェントプレイとリプレイ検証
 

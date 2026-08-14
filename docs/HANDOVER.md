@@ -43,10 +43,11 @@ Statee を使ってゲームを作る側(フレームワークを触らない人
    完了後にクラッシュするが exit code は無視してよい: D-016)
 5. MCP を使うなら `dotnet build src/Statee.Mcp` 後にセッションを再起動する
    (`.mcp.json` は登録済み。MCP サーバー実行中は Statee.Mcp を再ビルドできない点に注意)
-6. **C# をブラウザへ出す**ときは公式 Godot ではなく godot-dn2cpp のプレビルドを使う。
-   `tools/export-web.sh --fetch-only`(Windows は `tools/export-web.ps1 -FetchOnly`)が
-   GitHub Releases から取得する。パスは `GODOT_DN2CPP_BIN` /
-   `GODOT_DN2CPP_WEB_TEMPLATE`(`GODOT_BIN` と混ぜない。D-082)
+6. **C# をブラウザへ出す**ときは公式 Godot ではなく godot-dn2cpp を使う(D-082)。
+   Windows / macOS は `tools/export-web.sh --fetch-only` が Releases から取得する。
+   Linux はプレビルドが無いので `tools/export-web.sh --print-build-fork` の手順で
+   フォークを自前ビルドし、`GODOT_DN2CPP_BIN` / `GODOT_DN2CPP_WEB_TEMPLATE` を設定する
+   (`GODOT_BIN` と混ぜない)
 
 ## このプロジェクトは何か(30秒版)
 

@@ -10,7 +10,8 @@ param(
     [switch]$ForcePreset,
     [switch]$FetchOnly,
     [switch]$FetchTemplateOnly,
-    [switch]$PrintUrls
+    [switch]$PrintUrls,
+    [switch]$PrintBuildFork
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,11 +19,14 @@ $root = Split-Path $PSScriptRoot -Parent
 $pinPath = Join-Path $root "tools/godot-dn2cpp.pin"
 
 function Read-Pin {
-    $repo = $null
-    $version = $null
     Get-Content -LiteralPath $pinPath | ForEach-Object {
         if ($_ -match '^REPO=(.+)$') { $script:repoFromPin = $Matches[1] }
         if ($_ -match '^VERSION=(.+)$') { $script:versionFromPin = $Matches[1] }
+        if ($_ -match '^FORK_TAG=(.+)$') { $script:ForkTag = $Matches[1] }
+        if ($_ -match '^FORK_COMMIT=(.+)$') { $script:ForkCommit = $Matches[1] }
+        if ($_ -match '^DN2CPP_REPO=(.+)$') { $script:Dn2cppRepo = $Matches[1] }
+        if ($_ -match '^DN2CPP_COMMIT=(.+)$') { $script:Dn2cppCommit = $Matches[1] }
+        if ($_ -match '^GODOT_BASE_COMMIT=(.+)$') { $script:GodotBaseCommit = $Matches[1] }
     }
     $script:Repo = if ($env:GODOT_DN2CPP_RELEASE_REPO) { $env:GODOT_DN2CPP_RELEASE_REPO } else { $script:repoFromPin }
     $script:Version = if ($env:GODOT_DN2CPP_VERSION) { $env:GODOT_DN2CPP_VERSION } else { $script:versionFromPin }
@@ -167,6 +171,57 @@ function Print-Urls([string]$HostId) {
     if ($ed) { Write-Output "editor=$(Release-Base)/$ed" } else { Write-Output "editor=(none for host $HostId)" }
 }
 
+function Print-BuildFork {
+    $ws = if ($env:DN2CPP_WORKSPACE) { $env:DN2CPP_WORKSPACE } else { Join-Path $HOME "src" }
+    @"
+# フォーク自前ビルド(Linux 等、プレビルドが無いホスト向け。D-082)
+# godot-dn2cpp を scons するだけでは足りない。dn2cpp の toolchain を
+# エディタへ同梱する gates/setup-godot-fork.sh が正本。
+# 所要: 数十分〜数時間。Godot 公式の LinuxBSD ビルド依存 + .NET 10 SDK + Python 3.10+
+
+set -e
+ws="$ws"
+mkdir -p "`$ws"
+cd "`$ws"
+
+if [ ! -e dn2cpp/.git ]; then
+  git clone https://github.com/$($script:Dn2cppRepo).git dn2cpp
+fi
+git -C dn2cpp fetch origin
+git -C dn2cpp checkout $($script:Dn2cppCommit)
+
+if [ ! -e godot-dn2cpp/.git ]; then
+  git clone https://github.com/$($script:Repo).git godot-dn2cpp
+fi
+git -C godot-dn2cpp fetch origin --tags
+git -C godot-dn2cpp checkout $($script:ForkTag)
+
+cd "`$ws/dn2cpp"
+./gates/setup-buildtools.sh
+./gates/setup-emsdk.sh
+./gates/setup-godot-fork.sh
+./gates/setup-godot-fork-web.sh
+
+export GODOT_DN2CPP_BIN="`$(cat "`${DN2CPP_GODOT_FORK_ROOT:-`$HOME/.cache/dn2cpp-godot-fork}/editor.txt")"
+export GODOT_DN2CPP_WEB_TEMPLATE="`${DN2CPP_GODOT_FORK_ROOT:-`$HOME/.cache/dn2cpp-godot-fork}/web_template.zip"
+# 実行ファイルだけコピーしない。隣の bin/GodotSharp/ が必要。
+echo "GODOT_DN2CPP_BIN=`$GODOT_DN2CPP_BIN"
+echo "GODOT_DN2CPP_WEB_TEMPLATE=`$GODOT_DN2CPP_WEB_TEMPLATE"
+# ピン: fork=$($script:ForkCommit) dn2cpp=$($script:Dn2cppCommit) base=$($script:GodotBaseCommit) version=$($script:Version)
+"@
+}
+
+function No-PrebuiltEditor([string]$HostId) {
+    throw @"
+error: このホスト($HostId)向けのプレビルドエディタは無い。
+  Windows x86_64 / macOS Apple Silicon なら -FetchOnly で Releases から取得する。
+  それ以外(Linux 等)はフォークを自前ビルドして GODOT_DN2CPP_BIN を設定する:
+    tools/export-web.sh --print-build-fork
+  手順の本文: .claude/skills/export-web/SKILL.md 「フォーク自前ビルド」
+  リリース: https://github.com/$($script:Repo)/releases/tag/$($script:Version)
+"@
+}
+
 function Write-Preset([string]$Target, [string]$TemplateZip, [string]$ExportHtml) {
     $cfg = Join-Path $Target "export_presets.cfg"
     if ((Test-Path $cfg) -and -not (Select-String -LiteralPath $cfg -Pattern '^; generated-by: tools/export-web' -Quiet)) {
@@ -260,12 +315,7 @@ function Resolve-BinAndTemplate([string]$HostId) {
 
     if (-not (File-Ok $env:GODOT_DN2CPP_BIN)) {
         if ($HostId -ne "macos-arm64" -and $HostId -ne "windows-x86_64") {
-            throw @"
-error: このホスト($HostId)向けのプレビルドエディタは無い。
-  Windows x86_64 か macOS Apple Silicon で実行するか、
-  フォークを自前ビルドして GODOT_DN2CPP_BIN に実行ファイルを設定すること。
-  リリース: https://github.com/$($script:Repo)/releases/tag/$($script:Version)
-"@
+            No-PrebuiltEditor $HostId
         }
     }
 
@@ -309,6 +359,11 @@ if ($PrintUrls) {
     exit 0
 }
 
+if ($PrintBuildFork) {
+    Print-BuildFork
+    exit 0
+}
+
 if ($FetchTemplateOnly) {
     $zip = Fetch-Template (Cache-Dir)
     Write-Host "GODOT_DN2CPP_WEB_TEMPLATE=$zip"
@@ -331,12 +386,7 @@ if (-not (Test-Path (Join-Path $target "project.godot"))) {
 
 if (-not (File-Ok $env:GODOT_DN2CPP_BIN)) {
     if ($hostId -ne "macos-arm64" -and $hostId -ne "windows-x86_64") {
-        throw @"
-error: このホスト($hostId)向けのプレビルドエディタは無い。
-  Windows x86_64 か macOS Apple Silicon で実行するか、
-  フォークを自前ビルドして GODOT_DN2CPP_BIN に実行ファイルを設定すること。
-  リリース: https://github.com/$($script:Repo)/releases/tag/$($script:Version)
-"@
+            No-PrebuiltEditor $hostId
     }
 }
 
