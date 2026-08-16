@@ -92,7 +92,7 @@
 | [D-079](D-079.md) | 演出タイマーは論理 tick に同期し、敵に紐づく演出は対象ごとに持つ |
 | [D-080](D-080.md) | ボクセル生成ツール voxcee を tools/voxcee に置く |
 | [D-081](D-081.md) | Claude Code 設定を Cursor でも共有する(.claude/ 正本 + symlink) |
-| [D-082](D-082.md) | Godot 層の `_Ready` 起動経路では ZLog 補間を使わない(dn2cpp Web エクスポート) |
+| [D-082](D-082.md) | `_Ready` 起動経路では ZLog 補間を使わない(dn2cpp Web エクスポート) |
 
 ## notes(書き捨てメモ)
 

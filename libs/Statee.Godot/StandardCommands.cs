@@ -3,7 +3,6 @@ using System.IO;
 using Godot;
 using Microsoft.Extensions.Logging;
 using Statee.Core;
-using ZLogger;
 
 namespace Statee.Godot;
 
@@ -51,7 +50,7 @@ public static class StandardCommands
             args =>
             {
                 var message = args.GetString("message") ?? "ping";
-                logger.ZLogInformation($"ping を受信: {message}");
+                logger.LogInformation("ping を受信: {Message}", message);
                 return new { Pong = true, Message = message };
             }
         );
@@ -92,7 +91,7 @@ public static class StandardCommands
                         Pressed = false,
                     }
                 );
-                logger.ZLogInformation($"key {name}");
+                logger.LogInformation("key {Key}", name);
                 return new { Key = name };
             }
         );
@@ -114,7 +113,7 @@ public static class StandardCommands
                 {
                     throw new InvalidOperationException($"スクリーンショット保存失敗: {error}");
                 }
-                logger.ZLogInformation($"screenshot path={path}");
+                logger.LogInformation("screenshot path={Path}", path);
                 return new { Path = Path.GetFullPath(path) };
             }
         );
@@ -123,7 +122,7 @@ public static class StandardCommands
             "quit",
             _ =>
             {
-                logger.ZLogInformation($"quit を受信。終了する");
+                logger.LogInformation("quit を受信。終了する");
                 node.GetTree().Quit();
                 return new { Quitting = true };
             }
