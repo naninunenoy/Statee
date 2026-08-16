@@ -83,8 +83,10 @@ public partial class Main : Node2D
 
         RefreshView();
         StartStatee(buffer);
-        _logger.ZLogInformation(
-            $"RogueGame 起動 seed={CmdlineArgs.ParseInt("--seed=", DefaultSeed)} floor={_logic.CurrentFloor}"
+        _logger.LogInformation(
+            "RogueGame 起動 seed={Seed} floor={Floor}",
+            CmdlineArgs.ParseInt("--seed=", DefaultSeed),
+            _logic.CurrentFloor
         );
     }
 

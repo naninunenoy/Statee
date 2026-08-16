@@ -55,7 +55,7 @@ public partial class Main : Node2D
 
         RefreshView();
         StartStatee(buffer);
-        _logger.ZLogInformation($"ShootingGame 起動 seed={_logic.Seed}");
+        _logger.LogInformation("ShootingGame 起動 seed={Seed}", _logic.Seed);
     }
 
     public override void _Process(double delta)

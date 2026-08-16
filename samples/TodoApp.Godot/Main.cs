@@ -75,7 +75,7 @@ public partial class Main : Node2D
 
         RefreshView();
         StartStatee(buffer);
-        _logger.ZLogInformation($"TodoApp 起動");
+        _logger.LogInformation("TodoApp 起動");
     }
 
     public override void _Process(double delta)

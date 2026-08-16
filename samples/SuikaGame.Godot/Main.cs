@@ -95,7 +95,7 @@ public partial class Main : Node2D
             .Score.Subscribe(score =>
             {
                 RebuildUi();
-                _logger.ZLogInformation($"スコア: {score}");
+                _logger.LogInformation("スコア: {Score}", score);
             })
             .AddTo(ref subscriptions);
         _logic
@@ -103,7 +103,7 @@ public partial class Main : Node2D
             .Subscribe(_ =>
             {
                 _flow.EndGame();
-                _logger.ZLogInformation($"ゲームオーバー");
+                _logger.LogInformation("ゲームオーバー");
             })
             .AddTo(ref subscriptions);
         _flow.Phase.Subscribe(Flow_PhaseChanged).AddTo(ref subscriptions);
@@ -111,14 +111,14 @@ public partial class Main : Node2D
         _commands
             .ExitRequests.Subscribe(_ =>
             {
-                _logger.ZLogInformation($"終了要求を受信。終了する");
+                _logger.LogInformation("終了要求を受信。終了する");
                 GetTree().Quit();
             })
             .AddTo(ref subscriptions);
         _subscriptions = subscriptions.Build();
 
         StartStatee(buffer);
-        _logger.ZLogInformation($"SuikaGame 起動 next={_logic.PeekNext().ToString()}");
+        _logger.LogInformation("SuikaGame 起動 next={Next}", _logic.PeekNext().ToString());
 
         if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--smoke") >= 0)
         {

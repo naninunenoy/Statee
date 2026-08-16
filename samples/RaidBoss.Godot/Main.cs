@@ -110,7 +110,7 @@ public partial class Main : Node2D
         BuildLobbyUi();
         RefreshView();
         StartStatee(buffer);
-        _logger.ZLogInformation($"RaidBoss 起動 seed={_logic.Seed}");
+        _logger.LogInformation("RaidBoss 起動 seed={Seed}", _logic.Seed);
     }
 
     public override void _Process(double delta)

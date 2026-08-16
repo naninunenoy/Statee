@@ -81,7 +81,7 @@ public partial class Main : Node2D
         _hud.BuildPauseMenu(this, TogglePause, RestartMission, () => GetTree().Quit());
         RefreshView();
         StartStatee(buffer);
-        _logger.ZLogInformation($"MessBreak 起動 seed={_logic.Seed}");
+        _logger.LogInformation("MessBreak 起動 seed={Seed}", _logic.Seed);
     }
 
     public override void _Process(double delta)
