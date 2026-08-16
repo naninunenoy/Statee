@@ -93,6 +93,7 @@
 | [D-080](D-080.md) | ボクセル生成ツール voxcee を tools/voxcee に置く |
 | [D-081](D-081.md) | Claude Code 設定を Cursor でも共有する(.claude/ 正本 + symlink) |
 | [D-082](D-082.md) | `_Ready` 起動経路では ZLog 補間を使わない(dn2cpp Web エクスポート) |
+| [D-083](D-083.md) | ログ実装は PC=ZLogger、Web=GD.Print(dn2cpp) |
 
 ## notes(書き捨てメモ)
 

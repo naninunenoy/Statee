@@ -81,7 +81,7 @@ AI による自動確認の再現性を担保する要。
 | ECS | [Arch](https://github.com/genaray/Arch) | |
 | メッセージング | [VitalRouter](https://github.com/hadashiA/VitalRouter) | |
 | リアクティブ | [R3](https://github.com/Cysharp/R3) | システム全体で使用 |
-| ログ | [ZLogger](https://github.com/Cysharp/ZLogger) | AI がログを参照する機能も提供 |
+| ログ | [ZLogger](https://github.com/Cysharp/ZLogger)(PC) / `GD.Print`(Web) | 実装の差替は D-083。AI がログを参照する機能は PC |
 | ID 等 ValueObject | [UnitGenerator](https://github.com/Cysharp/UnitGenerator) | |
 | State シリアライズ | [ToonEncoder](https://github.com/Cysharp/ToonEncoder) | TOON 形式 |
 | CLI | [ConsoleAppFramework](https://github.com/Cysharp/ConsoleAppFramework) | |
