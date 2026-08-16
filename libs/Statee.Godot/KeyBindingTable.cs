@@ -34,8 +34,18 @@ public static class KeyBindingTable
     /// </summary>
     public static IStateProvider CreateInputStateProvider(KeyBinding[] bindings)
     {
+        var hasSceneFilter = false;
+        foreach (var binding in bindings)
+        {
+            if (binding.ActiveIn is not null)
+            {
+                hasSceneFilter = true;
+                break;
+            }
+        }
+
         // ActiveIn(場面)の概念が無いゲームでは列ごと出さない
-        object keys = Array.Exists(bindings, binding => binding.ActiveIn is not null)
+        object keys = hasSceneFilter
             ? Array.ConvertAll(
                 bindings,
                 binding =>
