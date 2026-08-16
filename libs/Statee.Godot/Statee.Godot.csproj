@@ -13,6 +13,7 @@
   <!-- dn2cpp はホスト RID で publish するが GodotTargetPlatform=web は渡る(D-083) -->
   <ItemGroup Condition="'$(GodotTargetPlatform)' == 'web'">
     <Compile Remove="StateeLogging.Desktop.cs" />
+    <Compile Remove="StandardCommands.Desktop.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(GodotTargetPlatform)' != 'web'">
     <Compile Remove="StateeLogging.Web.cs" />

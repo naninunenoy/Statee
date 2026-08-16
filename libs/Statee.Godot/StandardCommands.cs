@@ -10,7 +10,7 @@ namespace Statee.Godot;
 /// どのゲームにも共通の標準コマンド(ping / key / screenshot / quit)を一括登録する。
 /// ping は組み込みではないため、疎通確認の起点としてここで必ず登録する。
 /// </summary>
-public static class StandardCommands
+public static partial class StandardCommands
 {
     /// <summary>"ctrl+space" 形式のキー指定を分解する。修飾子は ctrl / shift / alt。</summary>
     private static (Key Key, bool Ctrl, bool Shift, bool Alt) ParseKey(string name)
@@ -42,9 +42,9 @@ public static class StandardCommands
 
     public static void Register(StateeHost host, Node node, ILogger logger)
     {
-        // 接続先プロセスの同一性確認(system/identity)。古いバイナリ・別プロセスへの
-        // 接続事故を検証の冒頭で検出できるよう、全ゲーム共通で公開する(D-075)
-        host.RegisterStateProvider(new IdentityStateProvider(node.GetType().Assembly));
+        // PC のみ system/identity を載せる。Web は TCP 入口が無く(D-065)、
+        // Process.GetCurrentProcess が dn2cpp 未対応の巨大グラフを引く(D-084)
+        RegisterIdentity(host, node);
         host.RegisterCommand(
             "ping",
             args =>
@@ -128,4 +128,6 @@ public static class StandardCommands
             }
         );
     }
+
+    static partial void RegisterIdentity(StateeHost host, Node node);
 }

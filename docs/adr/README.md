@@ -94,6 +94,7 @@
 | [D-081](D-081.md) | Claude Code 設定を Cursor でも共有する(.claude/ 正本 + symlink) |
 | [D-082](D-082.md) | `_Ready` 起動経路では ZLog 補間を使わない(dn2cpp Web エクスポート) |
 | [D-083](D-083.md) | ログ実装は PC=ZLogger、Web=GD.Print(dn2cpp) |
+| [D-084](D-084.md) | Web ビルドでは system/identity を起動経路に載せない |
 
 ## notes(書き捨てメモ)
 

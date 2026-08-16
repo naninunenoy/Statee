@@ -54,7 +54,8 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
 - `StandardCommands.Register(host, node, logger)` — ping / key / screenshot / quit と
   **`system/identity` State**(Pid / StartedAt / Mvid 等。D-075)を一括登録。
   **ping は組み込みではない**ので、これを外すと疎通確認の起点を失う。
-  検証シナリオの冒頭で identity を読めば「古いバイナリ・別プロセスに繋いでいた」事故を検出できる
+  検証シナリオの冒頭で identity を読めば「古いバイナリ・別プロセスに繋いでいた」事故を検出できる。
+  Web ビルドでは identity を載せない(D-084)
 - `KeyBinding` + `KeyBindingTable` — キーバインド表を1箇所に持ち、
   `TryHandle`(_UnhandledInput の処理)と `CreateInputStateProvider`(game/input State)の
   両方を同じ表から導出する。実装と公開情報が乖離しない
