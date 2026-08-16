@@ -1,10 +1,127 @@
+using System;
+using System.IO;
 using Godot;
+using Microsoft.Extensions.Logging;
 using Statee.Core;
 
 namespace Statee.Godot;
 
 public static partial class StandardCommands
 {
-    static partial void RegisterIdentity(StateeHost host, Node node) =>
+    /// <summary>"ctrl+space" 形式のキー指定を分解する。修飾子は ctrl / shift / alt。</summary>
+    private static (Key Key, bool Ctrl, bool Shift, bool Alt) ParseKey(string name)
+    {
+        var parts = name.Split('+', StringSplitOptions.TrimEntries);
+        var key = Enum.Parse<Key>(parts[^1], ignoreCase: true);
+        var ctrl = false;
+        var shift = false;
+        var alt = false;
+        foreach (var modifier in parts[..^1])
+        {
+            switch (modifier.ToLowerInvariant())
+            {
+                case "ctrl":
+                    ctrl = true;
+                    break;
+                case "shift":
+                    shift = true;
+                    break;
+                case "alt":
+                    alt = true;
+                    break;
+                default:
+                    throw new InvalidOperationException($"未知の修飾キー: {modifier}");
+            }
+        }
+        return (key, ctrl, shift, alt);
+    }
+
+    static partial void RegisterCore(StateeHost host, Node node, ILogger logger)
+    {
+        // 接続先プロセスの同一性確認(system/identity)。古いバイナリ・別プロセスへの
+        // 接続事故を検証の冒頭で検出できるよう、全ゲーム共通で公開する(D-075)
         host.RegisterStateProvider(new IdentityStateProvider(node.GetType().Assembly));
+        host.RegisterCommand(
+            "ping",
+            args =>
+            {
+                var message = args.GetString("message") ?? "ping";
+                logger.LogInformation("ping を受信: {Message}", message);
+                return new { Pong = true, Message = message };
+            }
+        );
+        // 実際の入力経路(PushInput)を通すため、入力配線ごと検証できる
+        host.RegisterMainThreadCommand(
+            "key",
+            args =>
+            {
+                var name =
+                    args.GetString("key")
+                    ?? throw new InvalidOperationException(
+                        "key を指定すること(例: space, ctrl+space)"
+                    );
+                var (key, ctrl, shift, alt) = ParseKey(name);
+                var viewport = node.GetViewport();
+                // 本物のキーイベントは Keycode と PhysicalKeycode の両方を持つ。片方しか
+                // 立てないと、キーレイアウト非依存のため PhysicalKeycode で判定している
+                // ゲーム(例: MessBreak の Esc ポーズ)に注入が届かない
+                viewport.PushInput(
+                    new InputEventKey
+                    {
+                        Keycode = key,
+                        PhysicalKeycode = key,
+                        CtrlPressed = ctrl,
+                        ShiftPressed = shift,
+                        AltPressed = alt,
+                        Pressed = true,
+                    }
+                );
+                viewport.PushInput(
+                    new InputEventKey
+                    {
+                        Keycode = key,
+                        PhysicalKeycode = key,
+                        CtrlPressed = ctrl,
+                        ShiftPressed = shift,
+                        AltPressed = alt,
+                        Pressed = false,
+                    }
+                );
+                logger.LogInformation("key {Key}", name);
+                return new { Key = name };
+            }
+        );
+        host.RegisterMainThreadCommand(
+            "screenshot",
+            args =>
+            {
+                var path =
+                    args.GetString("path")
+                    ?? throw new InvalidOperationException("path を指定すること(絶対パス)");
+                var image =
+                    node.GetViewport().GetTexture()?.GetImage()
+                    ?? throw new InvalidOperationException(
+                        "描画が無いため撮影できない(headless では screenshot は使えない。D-034)"
+                    );
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)) ?? ".");
+                var error = image.SavePng(path);
+                if (error != Error.Ok)
+                {
+                    throw new InvalidOperationException($"スクリーンショット保存失敗: {error}");
+                }
+                logger.LogInformation("screenshot path={Path}", path);
+                return new { Path = Path.GetFullPath(path) };
+            }
+        );
+        // 動作確認は「quit で exit 0」まで含めて検証する
+        host.RegisterMainThreadCommand(
+            "quit",
+            _ =>
+            {
+                logger.LogInformation("quit を受信。終了する");
+                node.GetTree().Quit();
+                return new { Quitting = true };
+            }
+        );
+    }
 }
