@@ -118,7 +118,7 @@ public partial class Main : Node2D
         _subscriptions = subscriptions.Build();
 
         StartStatee(buffer);
-        _logger.ZLogInformation($"SuikaGame 起動 next={_logic.PeekNext()}");
+        _logger.ZLogInformation($"SuikaGame 起動 next={_logic.PeekNext().ToString()}");
 
         if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--smoke") >= 0)
         {
@@ -270,7 +270,7 @@ public partial class Main : Node2D
                 var dropped =
                     Drop() ?? throw new InvalidOperationException("ゲームオーバー中は投下できない");
                 _logger.ZLogInformation(
-                    $"drop id={dropped.Id.AsPrimitive()} kind={dropped.Kind} x={dropped.X}"
+                    $"drop id={dropped.Id.AsPrimitive()} kind={dropped.Kind.ToString()} x={dropped.X}"
                 );
                 return new
                 {

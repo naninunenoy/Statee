@@ -125,7 +125,7 @@ public partial class Main : Node2D
             if (_game.TryPlace(cell.X, cell.Y))
             {
                 _logger.ZLogInformation(
-                    $"place {cell.X} {cell.Y} {player} → turn={_game.CurrentPlayer}"
+                    $"place {cell.X} {cell.Y} {player.ToString()} → turn={_game.CurrentPlayer.ToString()}"
                 );
                 RefreshView();
             }
@@ -289,7 +289,7 @@ public partial class Main : Node2D
                 if (_game.Phase == GamePhase.Title)
                 {
                     _game.Start(GameMode.LocalTwoPlayer);
-                    _logger.ZLogInformation($"対局開始 mode={_game.Mode}");
+                    _logger.ZLogInformation($"対局開始 mode={_game.Mode.ToString()}");
                     RefreshView();
                 }
                 break;
@@ -390,7 +390,7 @@ public partial class Main : Node2D
                 break;
         }
         _logger.ZLogInformation(
-            $"確定 #{envelope.Sequence} {envelope.Command} → phase={_game.Phase} turn={_game.CurrentPlayer}"
+            $"確定 #{envelope.Sequence} {envelope.Command} → phase={_game.Phase.ToString()} turn={_game.CurrentPlayer.ToString()}"
         );
     }
 
@@ -438,7 +438,7 @@ public partial class Main : Node2D
                 }
                 _game.Start(mode);
                 RefreshView();
-                _logger.ZLogInformation($"対局開始 mode={mode}");
+                _logger.ZLogInformation($"対局開始 mode={mode.ToString()}");
                 return TurnResult();
             }
         );
@@ -469,7 +469,7 @@ public partial class Main : Node2D
                     );
                 }
                 RefreshView();
-                _logger.ZLogInformation($"place {x} {y} {player} → turn={_game.CurrentPlayer}");
+                _logger.ZLogInformation($"place {x} {y} {player.ToString()} → turn={_game.CurrentPlayer.ToString()}");
                 return TurnResult();
             }
         );

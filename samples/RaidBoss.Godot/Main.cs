@@ -465,7 +465,7 @@ public partial class Main : Node2D
         if (actions.Any(a => a != PlayerAction.Idle))
         {
             _logger.ZLogInformation(
-                $"確定 tick={bundle.Tick} → boss={_logic.BossHp} players={string.Join(",", _logic.PlayerHps)} phase={_logic.Phase}"
+                $"確定 tick={bundle.Tick} → boss={_logic.BossHp} players={string.Join(",", _logic.PlayerHps)} phase={_logic.Phase.ToString()}"
             );
         }
     }
@@ -492,7 +492,7 @@ public partial class Main : Node2D
         // 自動Tick(D-059)で毎回送信するため、Idleはログに残さない
         if (action != PlayerAction.Idle)
         {
-            _logger.ZLogInformation($"input(tick={tick}, action={action}) をサーバへ送信");
+            _logger.ZLogInformation($"input(tick={tick}, action={action.ToString()}) をサーバへ送信");
         }
     }
 
@@ -542,7 +542,7 @@ public partial class Main : Node2D
                 var player2Action = ParseAction(args.GetString("player2"));
                 ActStep(player1Action, player2Action);
                 _logger.ZLogInformation(
-                    $"step({player1Action}, {player2Action}) → tick={_logic.TickCount}"
+                    $"step({player1Action.ToString()}, {player2Action.ToString()}) → tick={_logic.TickCount}"
                 );
                 return new
                 {

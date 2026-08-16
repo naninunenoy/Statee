@@ -133,7 +133,8 @@ AI の動作確認は再現できなければ意味がない。だから:
   追加 `CallDeferred` で次フレームへ(notes/suika-physics-boundary.md)
 - `.cs` のフォーマットは hooks が自動でやる。手動整形も CI 待ちも不要
 - **Godot.NET.Sdk は ImplicitUsings 無効**。`using System.Linq;` 等を明示する。
-  ZLogger のメッセージは補間文字列(`$"..."`)必須(素の文字列リテラルは CS9205)
+  ZLogger のメッセージは補間文字列(`$"..."`)必須(素の文字列リテラルは CS9205)。
+  Web 向け Godot 層ではその穴に enum を置かない(`{kind.ToString()}`。D-082)
 - **ソリューションは分割されている**(D-046)。フレームワーク(`Statee.slnx`)を変えたら
   `tools/build-all.ps1` で全ゲーム slnx の追従を確認する
 - `dotnet test` は**1テストプロジェクトずつ**実行する(複数指定は MSB1008 になる)

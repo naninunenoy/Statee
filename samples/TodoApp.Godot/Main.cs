@@ -400,7 +400,7 @@ public partial class Main : Node2D
     {
         if (_logic.SetFilter(filter))
         {
-            _logger.ZLogInformation($"フィルタ変更 → {filter}");
+            _logger.ZLogInformation($"フィルタ変更 → {filter.ToString()}");
             RefreshView();
         }
     }

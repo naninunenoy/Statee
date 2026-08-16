@@ -327,7 +327,7 @@ public partial class Main : Node2D
                 var direction = Enum.Parse<Direction>(name, ignoreCase: true);
                 Act(direction);
                 _logger.ZLogInformation(
-                    $"move {direction} → ({_logic.PlayerPos.X},{_logic.PlayerPos.Y}) floor={_logic.CurrentFloor}"
+                    $"move {direction.ToString()} → ({_logic.PlayerPos.X},{_logic.PlayerPos.Y}) floor={_logic.CurrentFloor}"
                 );
                 return ActionResult();
             }
@@ -339,7 +339,7 @@ public partial class Main : Node2D
                 var name = args.GetString("item") ?? nameof(ItemKind.Potion);
                 var kind = Enum.Parse<ItemKind>(name, ignoreCase: true);
                 ActUse(kind);
-                _logger.ZLogInformation($"use {kind} hp={_logic.PlayerHp}");
+                _logger.ZLogInformation($"use {kind.ToString()} hp={_logic.PlayerHp}");
                 return ActionResult();
             }
         );
