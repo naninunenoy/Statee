@@ -8,7 +8,6 @@ using Statee.Core;
 using Statee.Godot;
 using Syncee;
 using Syncee.LiteNetLib;
-using ZLogger;
 
 namespace RaidBoss;
 
@@ -367,13 +366,13 @@ public partial class Main : Node2D
                     new CommandRequest(command, new Dictionary<string, string> { ["room"] = room })
                 )
             );
-            _logger.ZLogInformation($"{command}(room={room}) をサーバへ送信");
+            _logger.LogInformation("{Command}(room={Room}) をサーバへ送信", command, room);
         };
         _network.Disconnected += OnNetworkDisconnected;
         var host = CmdlineArgs.ParseString("--game-host=", DefaultGameHost);
         var port = CmdlineArgs.ParseInt("--game-port=", DefaultGamePort);
         _network.Connect(host, port);
-        _logger.ZLogInformation($"RaidBoss.Server へ接続 host={host} port={port}");
+        _logger.LogInformation("RaidBoss.Server へ接続 host={Host} port={Port}", host, port);
     }
 
     /// <summary>
@@ -386,7 +385,7 @@ public partial class Main : Node2D
         var message = _connectedToServer
             ? "サーバから切断されました(合言葉が違う/同名の部屋が既にある可能性があります)"
             : "サーバへ接続できませんでした。RaidBoss.Server が起動しているか確認してください";
-        _logger.ZLogWarning($"{message}");
+        _logger.LogWarning("{Message}", message);
         ShowErrorDialog(message);
         Callable.From(ResetNetwork).CallDeferred();
     }
@@ -428,11 +427,11 @@ public partial class Main : Node2D
             {
                 _lobbyStatusLabel.Text = "先に部屋を立てるか、参加してください";
             }
-            _logger.ZLogWarning($"未接続のため start を送信できない(先に create/join が必要)");
+            _logger.LogWarning("未接続のため start を送信できない(先に create/join が必要)");
             return;
         }
         _network.Send(SyncWire.Serialize(new CommandRequest("start", null)));
-        _logger.ZLogInformation($"start をサーバへ送信");
+        _logger.LogInformation("start をサーバへ送信");
     }
 
     /// <summary>サーバから確定した1Tick分の入力バンドルを適用する(RaidBoss.Server の Committed ハンドラと同型)。</summary>
@@ -446,7 +445,7 @@ public partial class Main : Node2D
         if (bundle.Tick < 0)
         {
             RefreshView();
-            _logger.ZLogInformation($"ゲーム開始通知を受信 players={bundle.InputsByClient.Count}");
+            _logger.LogInformation("ゲーム開始通知を受信 players={Count}", bundle.InputsByClient.Count);
             return;
         }
         var actions = Enumerable
@@ -464,8 +463,12 @@ public partial class Main : Node2D
         // 自動Tick(D-059)で毎Tick確定するため、全員Idleの確定はログに残さない
         if (actions.Any(a => a != PlayerAction.Idle))
         {
-            _logger.ZLogInformation(
-                $"確定 tick={bundle.Tick} → boss={_logic.BossHp} players={string.Join(",", _logic.PlayerHps)} phase={_logic.Phase.ToString()}"
+            _logger.LogInformation(
+                "確定 tick={Tick} → boss={Boss} players={Players} phase={Phase}",
+                bundle.Tick,
+                _logic.BossHp,
+                string.Join(",", _logic.PlayerHps),
+                _logic.Phase.ToString()
             );
         }
     }
@@ -492,7 +495,7 @@ public partial class Main : Node2D
         // 自動Tick(D-059)で毎回送信するため、Idleはログに残さない
         if (action != PlayerAction.Idle)
         {
-            _logger.ZLogInformation($"input(tick={tick}, action={action.ToString()}) をサーバへ送信");
+            _logger.LogInformation("input(tick={Tick}, action={Action}) をサーバへ送信", tick, action.ToString());
         }
     }
 

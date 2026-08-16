@@ -61,7 +61,8 @@ skill が3プロジェクト(Logic / Logic.Tests / Godot)と Statee 配線済み
 - `CmdlineArgs.ParseInt("--seed=", ...)` — シード・ポートの起動引数。
   `CmdlineArgs.HasFlag("--frozen")` で「起動直後から freeze」に対応する(D-073。
   実時間で tick が進むと接続タイミングで盤面が変わるため、再現シナリオは tick 0 から書く)
-- `StateeLogging.CreateLoggerFactory(buffer)` — logs コマンド用バッファ+コンソールのロガー
+- `StateeLogging.CreateLoggerFactory(buffer)` — logs コマンド用バッファ+コンソールのロガー。
+  PC は ZLogger、Web は `GD.Print`(D-083)。ゲーム側は `ILogger` だけを使う
 - リアルタイムゲームの `tick` コマンド(入力を指定して N tick 進める)は
   `host.RegisterTickCommand(time, parseInput, step, result)`(Statee.Core、D-072)。
   ゲーム側に書くのは「引数 → 入力型の写像」と「1 tick 進める処理」だけ

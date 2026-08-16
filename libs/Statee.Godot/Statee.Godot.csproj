@@ -4,10 +4,17 @@
     <RootNamespace>Statee.Godot</RootNamespace>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(GodotTargetPlatform)' != 'web'">
     <PackageReference Include="ZLogger" Version="2.5.10" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Statee.Core\Statee.Core.csproj" />
+  </ItemGroup>
+  <!-- dn2cpp はホスト RID で publish するが GodotTargetPlatform=web は渡る(D-083) -->
+  <ItemGroup Condition="'$(GodotTargetPlatform)' == 'web'">
+    <Compile Remove="StateeLogging.Desktop.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(GodotTargetPlatform)' != 'web'">
+    <Compile Remove="StateeLogging.Web.cs" />
   </ItemGroup>
 </Project>

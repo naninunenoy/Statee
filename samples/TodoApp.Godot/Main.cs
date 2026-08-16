@@ -9,7 +9,6 @@ using Microsoft.Extensions.Logging;
 using Statee.Core;
 using Statee.Godot;
 using TodoApp.Logic;
-using ZLogger;
 using Button = Declaree.Button;
 using CheckBox = Declaree.CheckBox;
 using Label = Declaree.Label;
@@ -304,7 +303,7 @@ public partial class Main : Node2D
                 break;
             case EvCancelDelete:
                 _logic.CancelDelete();
-                _logger.ZLogInformation($"削除をキャンセル");
+                _logger.LogInformation("削除をキャンセル");
                 RefreshView();
                 break;
             case EvFilter:
@@ -330,7 +329,7 @@ public partial class Main : Node2D
                         break;
                     case "cancel":
                         _drag = null;
-                        _logger.ZLogInformation($"並び替えをキャンセル");
+                        _logger.LogInformation("並び替えをキャンセル");
                         RefreshView();
                         break;
                 }
@@ -352,7 +351,7 @@ public partial class Main : Node2D
         var id = _logic.Add(title);
         if (id is not null)
         {
-            _logger.ZLogInformation($"追加 #{id}「{_logic.Items[^1].Title}」");
+            _logger.LogInformation("追加 #{Id}「{Title}」", id, _logic.Items[^1].Title);
             RefreshView();
         }
     }
@@ -362,7 +361,7 @@ public partial class Main : Node2D
         if (_logic.Toggle(id))
         {
             var item = _logic.Items.First(x => x.Id == id);
-            _logger.ZLogInformation($"トグル #{id} → {(item.Completed ? "done" : "todo")}");
+            _logger.LogInformation("トグル #{Id} → {State}", id, item.Completed ? "done" : "todo");
             RefreshView();
         }
     }
@@ -372,7 +371,7 @@ public partial class Main : Node2D
         var id = _logic.EditingId;
         if (_logic.CommitEdit(title))
         {
-            _logger.ZLogInformation($"編集確定 #{id}「{title.Trim()}」");
+            _logger.LogInformation("編集確定 #{Id}「{Title}」", id, title.Trim());
             RefreshView();
         }
     }
@@ -381,7 +380,7 @@ public partial class Main : Node2D
     {
         if (_logic.RequestDelete(id))
         {
-            _logger.ZLogInformation($"削除確認ダイアログを表示 #{id}");
+            _logger.LogInformation("削除確認ダイアログを表示 #{Id}", id);
             RefreshView();
         }
     }
@@ -391,7 +390,7 @@ public partial class Main : Node2D
         var id = _logic.PendingDeleteId;
         if (_logic.ConfirmDelete())
         {
-            _logger.ZLogInformation($"削除 #{id}");
+            _logger.LogInformation("削除 #{Id}", id);
             RefreshView();
         }
     }
@@ -400,7 +399,7 @@ public partial class Main : Node2D
     {
         if (_logic.SetFilter(filter))
         {
-            _logger.ZLogInformation($"フィルタ変更 → {filter.ToString()}");
+            _logger.LogInformation("フィルタ変更 → {Filter}", filter.ToString());
             RefreshView();
         }
     }
@@ -408,7 +407,7 @@ public partial class Main : Node2D
     private void SetFontSize(int size)
     {
         _logic.SetFontSize(size);
-        _logger.ZLogInformation($"文字サイズ変更 → {_logic.FontSize}");
+        _logger.LogInformation("文字サイズ変更 → {FontSize}", _logic.FontSize);
         RefreshView();
     }
 
@@ -424,7 +423,7 @@ public partial class Main : Node2D
         var toIndex = _logic.Items.ToList().FindIndex(x => x.Id == visible[to].Id);
         if (_logic.Move(id, toIndex))
         {
-            _logger.ZLogInformation($"並び替え #{id} → {toIndex}");
+            _logger.LogInformation("並び替え #{Id} → {To}", id, toIndex);
             RefreshView();
         }
     }

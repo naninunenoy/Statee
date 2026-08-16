@@ -3,7 +3,6 @@ using MessBreak.Logic;
 using Microsoft.Extensions.Logging;
 using Statee.Core;
 using Statee.Godot;
-using ZLogger;
 
 namespace MessBreak;
 
@@ -161,7 +160,7 @@ public partial class Main : Node2D
         _battleView.ResetPresentation(_logic.PlayerPos);
         TogglePause();
         RefreshView();
-        _logger.ZLogInformation($"ミッションをはじめから(seed={_logic.Seed})");
+        _logger.LogInformation("ミッションをはじめから(seed={Seed})", _logic.Seed);
     }
 
     private void StartStatee(LogBuffer buffer)

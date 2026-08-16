@@ -11,7 +11,6 @@ using Statee.Core;
 using Statee.Godot;
 using Syncee;
 using Syncee.LiteNetLib;
-using ZLogger;
 using Button = Declaree.Button;
 using Label = Declaree.Label;
 using LineEdit = Declaree.LineEdit;
@@ -118,14 +117,18 @@ public partial class Main : Node2D
                         ["y"] = cell.Y.ToString(),
                     }
                 );
-                _logger.ZLogInformation($"place {cell.X} {cell.Y} をサーバへ送信");
+                _logger.LogInformation("place {X} {Y} をサーバへ送信", cell.X, cell.Y);
                 return;
             }
             var player = _game.CurrentPlayer;
             if (_game.TryPlace(cell.X, cell.Y))
             {
-                _logger.ZLogInformation(
-                    $"place {cell.X} {cell.Y} {player.ToString()} → turn={_game.CurrentPlayer.ToString()}"
+                _logger.LogInformation(
+                    "place {X} {Y} {Player} → turn={Turn}",
+                    cell.X,
+                    cell.Y,
+                    player.ToString(),
+                    _game.CurrentPlayer.ToString()
                 );
                 RefreshView();
             }
@@ -289,7 +292,7 @@ public partial class Main : Node2D
                 if (_game.Phase == GamePhase.Title)
                 {
                     _game.Start(GameMode.LocalTwoPlayer);
-                    _logger.ZLogInformation($"対局開始 mode={_game.Mode.ToString()}");
+                    _logger.LogInformation("対局開始 mode={Mode}", _game.Mode.ToString());
                     RefreshView();
                 }
                 break;
@@ -298,16 +301,16 @@ public partial class Main : Node2D
                 {
                     ConnectNetwork(CurrentRoomInput());
                     SendNetworkCommand("start", null);
-                    _logger.ZLogInformation($"ネット対戦の開始要求をサーバへ送信");
+                    _logger.LogInformation("ネット対戦の開始要求をサーバへ送信");
                 }
                 break;
             case EvBackToTitle:
                 _game.BackToTitle();
-                _logger.ZLogInformation($"タイトルへ戻る");
+                _logger.LogInformation("タイトルへ戻る");
                 RefreshView();
                 break;
             case EvExit:
-                _logger.ZLogInformation($"終了要求を受信。終了する");
+                _logger.LogInformation("終了要求を受信。終了する");
                 GetTree().Quit();
                 break;
         }
@@ -369,7 +372,7 @@ public partial class Main : Node2D
         var host = CmdlineArgs.ParseString("--game-host=", DefaultGameHost);
         var port = CmdlineArgs.ParseInt("--game-port=", DefaultGamePort);
         _network.Connect(host, port, room);
-        _logger.ZLogInformation($"Reversi.Server へ接続 host={host} port={port} room={room}");
+        _logger.LogInformation("Reversi.Server へ接続 host={Host} port={Port} room={Room}", host, port, room);
     }
 
     /// <summary>サーバから確定した1コマンドを適用する(Reversi.Server の Committed ハンドラと同型)。</summary>
@@ -389,8 +392,12 @@ public partial class Main : Node2D
                 _game.EndByDisconnect(Enum.Parse<Disc>(envelope.Args!["seat"]));
                 break;
         }
-        _logger.ZLogInformation(
-            $"確定 #{envelope.Sequence} {envelope.Command} → phase={_game.Phase.ToString()} turn={_game.CurrentPlayer.ToString()}"
+        _logger.LogInformation(
+            "確定 #{Sequence} {Command} → phase={Phase} turn={Turn}",
+            envelope.Sequence,
+            envelope.Command,
+            _game.Phase.ToString(),
+            _game.CurrentPlayer.ToString()
         );
     }
 

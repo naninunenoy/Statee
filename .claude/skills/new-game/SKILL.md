@@ -167,9 +167,6 @@ public class GameLogicTest
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="ZLogger" Version="2.5.10" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\<Name>.Logic\<Name>.Logic.csproj" />
     <ProjectReference Include="..\..\libs\Statee.Godot\Statee.Godot.csproj" />
     <ProjectReference Include="..\..\src\Statee.Core\Statee.Core.csproj" />
@@ -268,7 +265,6 @@ using Godot;
 using Microsoft.Extensions.Logging;
 using Statee.Core;
 using Statee.Godot;
-using ZLogger;
 
 namespace <Name>;
 
@@ -314,7 +310,7 @@ public partial class Main : Node2D
 
         RefreshView();
         StartStatee(buffer);
-        _logger.ZLogInformation($"<Name> 起動 seed={_logic.Seed}");
+        _logger.LogInformation("<Name> 起動 seed={Seed}", _logic.Seed);
     }
 
     public override void _Process(double delta)
