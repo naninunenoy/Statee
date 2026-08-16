@@ -1,4 +1,3 @@
-using System;
 using Godot;
 using Statee.Core;
 
@@ -44,31 +43,35 @@ public static class KeyBindingTable
             }
         }
 
-        // ActiveIn(場面)の概念が無いゲームでは列ごと出さない
-        object keys = hasSceneFilter
-            ? Array.ConvertAll(
-                bindings,
-                binding =>
-                    (object)
-                        new
-                        {
-                            Key = binding.Key.ToString(),
-                            ActiveIn = binding.ActiveIn ?? "",
-                            Publishes = binding.Publishes,
-                            Explain = binding.Explain,
-                        }
-            )
-            : Array.ConvertAll(
-                bindings,
-                binding =>
-                    (object)
-                        new
-                        {
-                            Key = binding.Key.ToString(),
-                            Publishes = binding.Publishes,
-                            Explain = binding.Explain,
-                        }
-            );
+        var keys = new object[bindings.Length];
+        if (hasSceneFilter)
+        {
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                var binding = bindings[i];
+                keys[i] = new
+                {
+                    Key = binding.Key.ToString(),
+                    ActiveIn = binding.ActiveIn ?? "",
+                    Publishes = binding.Publishes,
+                    Explain = binding.Explain,
+                };
+            }
+        }
+        else
+        {
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                var binding = bindings[i];
+                keys[i] = new
+                {
+                    Key = binding.Key.ToString(),
+                    Publishes = binding.Publishes,
+                    Explain = binding.Explain,
+                };
+            }
+        }
+
         var snapshot = new { Keys = keys };
         return new SnapshotStateProvider("game/input", () => snapshot);
     }
