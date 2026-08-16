@@ -541,8 +541,11 @@ public partial class Main : Node2D
                 var player1Action = ParseAction(args.GetString("player1"));
                 var player2Action = ParseAction(args.GetString("player2"));
                 ActStep(player1Action, player2Action);
-                _logger.ZLogInformation(
-                    $"step({player1Action.ToString()}, {player2Action.ToString()}) → tick={_logic.TickCount}"
+                _logger.LogInformation(
+                    "step({Player1}, {Player2}) → tick={Tick}",
+                    player1Action.ToString(),
+                    player2Action.ToString(),
+                    _logic.TickCount
                 );
                 return new
                 {

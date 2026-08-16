@@ -585,7 +585,7 @@ public partial class Main : Node2D
                 // 実際の入力経路(PushInput)を通るため、モーダルに隠れた UI には正しく「効かない」
                 var position = PositionOf(args);
                 PushClick(position);
-                _logger.ZLogInformation($"click x={position.X} y={position.Y}");
+                _logger.LogInformation("click x={X} y={Y}", position.X, position.Y);
                 return new { X = position.X, Y = position.Y };
             }
         );
@@ -608,7 +608,7 @@ public partial class Main : Node2D
                         Pressed = true,
                     }
                 );
-                _logger.ZLogInformation($"press x={position.X} y={position.Y}");
+                _logger.LogInformation("press x={X} y={Y}", position.X, position.Y);
                 return new { X = position.X, Y = position.Y };
             }
         );
@@ -621,7 +621,7 @@ public partial class Main : Node2D
                     .PushInput(
                         new InputEventMouseMotion { Position = position, GlobalPosition = position }
                     );
-                _logger.ZLogInformation($"move x={position.X} y={position.Y}");
+                _logger.LogInformation("move x={X} y={Y}", position.X, position.Y);
                 return new { X = position.X, Y = position.Y };
             }
         );
@@ -640,7 +640,7 @@ public partial class Main : Node2D
                             Pressed = false,
                         }
                     );
-                _logger.ZLogInformation($"release x={position.X} y={position.Y}");
+                _logger.LogInformation("release x={X} y={Y}", position.X, position.Y);
                 return new { X = position.X, Y = position.Y };
             }
         );
@@ -658,7 +658,7 @@ public partial class Main : Node2D
                 var from = CenterOf(fromName);
                 var to = CenterOf(toName);
                 PushDrag(from, to);
-                _logger.ZLogInformation($"drag {fromName} → {toName}");
+                _logger.LogInformation("drag {From} → {To}", fromName, toName);
                 return new
                 {
                     FromX = from.X,

@@ -433,12 +433,12 @@ public partial class Main : Node2D
                 {
                     ConnectNetwork(args.GetString("room") ?? CurrentRoomInput());
                     SendNetworkCommand("start", null);
-                    _logger.ZLogInformation($"ネット対戦の開始要求をサーバへ送信");
+                    _logger.LogInformation("ネット対戦の開始要求をサーバへ送信");
                     return TurnResult();
                 }
                 _game.Start(mode);
                 RefreshView();
-                _logger.ZLogInformation($"対局開始 mode={mode.ToString()}");
+                _logger.LogInformation("対局開始 mode={Mode}", mode.ToString());
                 return TurnResult();
             }
         );
@@ -458,7 +458,7 @@ public partial class Main : Node2D
                             ["y"] = y.ToString(),
                         }
                     );
-                    _logger.ZLogInformation($"place {x} {y} をサーバへ送信");
+                    _logger.LogInformation("place {X} {Y} をサーバへ送信", x, y);
                     return TurnResult();
                 }
                 var player = _game.CurrentPlayer;
@@ -469,7 +469,13 @@ public partial class Main : Node2D
                     );
                 }
                 RefreshView();
-                _logger.ZLogInformation($"place {x} {y} {player.ToString()} → turn={_game.CurrentPlayer.ToString()}");
+                _logger.LogInformation(
+                    "place {X} {Y} {Player} → turn={Turn}",
+                    x,
+                    y,
+                    player.ToString(),
+                    _game.CurrentPlayer.ToString()
+                );
                 return TurnResult();
             }
         );
@@ -483,7 +489,7 @@ public partial class Main : Node2D
                 }
                 _game.BackToTitle();
                 RefreshView();
-                _logger.ZLogInformation($"タイトルへ戻る");
+                _logger.LogInformation("タイトルへ戻る");
                 return TurnResult();
             }
         );
@@ -523,7 +529,7 @@ public partial class Main : Node2D
                     );
                 }
                 PushClick(position);
-                _logger.ZLogInformation($"click x={position.X} y={position.Y}");
+                _logger.LogInformation("click x={X} y={Y}", position.X, position.Y);
                 return new { X = position.X, Y = position.Y };
             }
         );

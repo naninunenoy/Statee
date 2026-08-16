@@ -204,8 +204,11 @@ public partial class Main : Node2D
             result: () =>
             {
                 RefreshView();
-                _logger.ZLogInformation(
-                    $"tick → tick={_logic.TickCount} hits={_logic.HitCount}/{_logic.ShotCount}"
+                _logger.LogInformation(
+                    "tick → tick={Tick} hits={Hits}/{Shots}",
+                    _logic.TickCount,
+                    _logic.HitCount,
+                    _logic.ShotCount
                 );
                 return new
                 {

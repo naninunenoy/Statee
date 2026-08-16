@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using ShootingGame.Logic;
 using Statee.Core;
 using Statee.Godot;
-using ZLogger;
 
 namespace ShootingGame;
 
@@ -216,7 +215,7 @@ public partial class Main : Node2D
             result: () =>
             {
                 RefreshView();
-                _logger.ZLogInformation($"tick → tick={_logic.TickCount}");
+                _logger.LogInformation("tick → tick={Tick}", _logic.TickCount);
                 return new
                 {
                     _logic.TickCount,

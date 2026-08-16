@@ -12,7 +12,6 @@ using Statee.Core;
 using Statee.Godot;
 using SuikaGame.Logic;
 using VitalRouter;
-using ZLogger;
 using Button = Declaree.Button;
 using Label = Declaree.Label;
 
@@ -249,7 +248,7 @@ public partial class Main : Node2D
                     throw new InvalidOperationException("タイトル画面ではないので開始できない");
                 }
 
-                _logger.ZLogInformation($"ゲーム開始");
+                _logger.LogInformation("ゲーム開始");
                 return new { Phase = _flow.Phase.CurrentValue.ToString() };
             }
         );
@@ -269,8 +268,11 @@ public partial class Main : Node2D
 
                 var dropped =
                     Drop() ?? throw new InvalidOperationException("ゲームオーバー中は投下できない");
-                _logger.ZLogInformation(
-                    $"drop id={dropped.Id.AsPrimitive()} kind={dropped.Kind.ToString()} x={dropped.X}"
+                _logger.LogInformation(
+                    "drop id={Id} kind={Kind} x={X}",
+                    dropped.Id.AsPrimitive(),
+                    dropped.Kind.ToString(),
+                    dropped.X
                 );
                 return new
                 {
@@ -303,7 +305,7 @@ public partial class Main : Node2D
                         )
                     );
                 PushClick(position);
-                _logger.ZLogInformation($"click x={position.X} y={position.Y}");
+                _logger.LogInformation("click x={X} y={Y}", position.X, position.Y);
                 return new { X = position.X, Y = position.Y };
             }
         );
@@ -585,7 +587,7 @@ public partial class Main : Node2D
         }
         _fruits.Clear();
         _logic.Reset();
-        _logger.ZLogInformation($"やり直し: フルーツとスコアをリセット");
+        _logger.LogInformation("やり直し: フルーツとスコアをリセット");
     }
 
     private void BuildContainer()

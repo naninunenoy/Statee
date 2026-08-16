@@ -189,7 +189,7 @@ FAIL 基準:
 - 守らせたいルールは `.editorconfig` で warning 以上に設定し、**警告ゼロを維持**する
   (エージェントへの規約強制は文書でなく診断で行う)
 - 対象バージョン(C# 14 / .NET 10)までのモダンな言語機能・API を使い、古いパターンを使わない
-- Web に出すゲームの Godot 層 `_Ready` では ZLog の `$"..."` を使わない。起動ログは `ILogger.LogInformation` にする(D-082)。それ以外の Godot 層 ZLog で enum を出すなら `{kind.ToString()}`
+- Web に出すゲームの Godot 層では、`_Ready` から到達する経路(StartStatee 含む)で ZLog の `$"..."` を使わない。ログは `ILogger.LogInformation` にする(D-082)。それ以外の Godot 層 ZLog で enum を出すなら `{kind.ToString()}`
 
 ## 6. 開発ワークフロー(テストファースト)
 

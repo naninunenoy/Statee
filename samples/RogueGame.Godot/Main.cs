@@ -7,7 +7,6 @@ using Microsoft.Extensions.Logging;
 using RogueGame.Logic;
 using Statee.Core;
 using Statee.Godot;
-using ZLogger;
 
 namespace RogueGame;
 
@@ -328,8 +327,12 @@ public partial class Main : Node2D
                     );
                 var direction = Enum.Parse<Direction>(name, ignoreCase: true);
                 Act(direction);
-                _logger.ZLogInformation(
-                    $"move {direction.ToString()} → ({_logic.PlayerPos.X},{_logic.PlayerPos.Y}) floor={_logic.CurrentFloor}"
+                _logger.LogInformation(
+                    "move {Direction} → ({X},{Y}) floor={Floor}",
+                    direction.ToString(),
+                    _logic.PlayerPos.X,
+                    _logic.PlayerPos.Y,
+                    _logic.CurrentFloor
                 );
                 return ActionResult();
             }
@@ -341,7 +344,7 @@ public partial class Main : Node2D
                 var name = args.GetString("item") ?? nameof(ItemKind.Potion);
                 var kind = Enum.Parse<ItemKind>(name, ignoreCase: true);
                 ActUse(kind);
-                _logger.ZLogInformation($"use {kind.ToString()} hp={_logic.PlayerHp}");
+                _logger.LogInformation("use {Kind} hp={Hp}", kind.ToString(), _logic.PlayerHp);
                 return ActionResult();
             }
         );
